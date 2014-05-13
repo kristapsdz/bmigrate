@@ -2,8 +2,6 @@
 /*
  * Copyright (c) 2014 Kristaps Dzonsons <kristaps@kcons.eu>
  *
- * Permission to use, copy, modify, and distribute this software for any
- * purpose with or without fee is hereby granted, provided that the above
  * copyright notice and this permission notice appear in all copies.
  *
  * THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
@@ -28,13 +26,34 @@
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 
+#include "extern.h"
+
+enum	page {
+	PAGE_UNIFORM,
+	PAGE_MAPPED,
+	PAGE__MAX
+};
+
+enum	payoff {
+	PAYOFF_CONTINUUM,
+	PAYOFF_SYMMETRIC2,
+	PAYOFF__MAX
+};
+
 /*
  * These are all widgets that may be or are visible.
  */
 struct	hwin {
-	GtkWindow	 *config;
-	GtkMenuBar	 *menu;
-	GtkMenuItem	 *menuquit;
+	GtkWindow	*config;
+	GtkMenuBar	*menu;
+	GtkMenuItem	*menuquit;
+	GtkEntry	*cfg;
+	GtkBox		*poff[PAYOFF__MAX];
+	GtkToggleButton	*toggle[PAYOFF__MAX];
+	GtkNotebook	*pages;
+	GtkLabel	*error;
+	GtkComboBoxText	*preset;
+	GtkEntry	*func;
 };
 
 /*
@@ -44,21 +63,58 @@ struct	bmigrate {
 	struct hwin	  wins; /* GUI components */
 };
 
+static	const char *const cfgpages[PAGE__MAX] = {
+	"uniform",
+	"mapped",
+};
+
 /*
  * Initialise the fixed widgets.
  * Some widgets (e.g., "processing" dialog) are created dynamically and
  * will not be marshalled here.
  */
 static void
-windows_init(struct hwin *p, GtkBuilder *builder)
+windows_init(struct bmigrate *b, GtkBuilder *builder)
 {
+	enum payoff	 p;
 
-	p->config = GTK_WINDOW
+	b->wins.config = GTK_WINDOW
 		(gtk_builder_get_object(builder, "window1"));
-	p->menu = GTK_MENU_BAR
+	b->wins.menu = GTK_MENU_BAR
 		(gtk_builder_get_object(builder, "menubar1"));
-	p->menuquit = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem3"));
+	b->wins.menuquit = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem5"));
+	b->wins.cfg = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry3"));
+	b->wins.pages = GTK_NOTEBOOK
+		(gtk_builder_get_object(builder, "notebook1"));
+	b->wins.poff[PAYOFF_CONTINUUM] = GTK_BOX
+		(gtk_builder_get_object(builder, "box17"));
+	b->wins.poff[PAYOFF_SYMMETRIC2] = GTK_BOX
+		(gtk_builder_get_object(builder, "box14"));
+	b->wins.toggle[PAYOFF_CONTINUUM] = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton1"));
+	b->wins.toggle[PAYOFF_SYMMETRIC2] = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton2"));
+	b->wins.error = GTK_LABEL
+		(gtk_builder_get_object(builder, "label8"));
+	b->wins.preset = GTK_COMBO_BOX_TEXT
+		(gtk_builder_get_object(builder, "comboboxtext1"));
+	b->wins.func = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry2"));
+
+	/* Set the initially-selected notebook. */
+	gtk_entry_set_text(b->wins.cfg, cfgpages
+		[gtk_notebook_get_current_page(b->wins.pages)]);
+
+	/* Set the initially-selected payoff type. */
+	for (p = 0; p < PAYOFF__MAX; p++)
+		if (gtk_toggle_button_get_active(b->wins.toggle[p]))
+			gtk_widget_set_sensitive
+				(GTK_WIDGET(b->wins.poff[p]), TRUE);
+
+	/* Builder doesn't do this. */
+	gtk_combo_box_set_active(GTK_COMBO_BOX(b->wins.preset), 0);
 }
 
 /*
@@ -96,6 +152,110 @@ ondestroy(GtkWidget *object, gpointer dat)
 	gtk_main_quit();
 }
 
+/*
+ * We've toggled a given payoff class.
+ * First, set all payoff classes to have insensitive input.
+ * Then make the current one sensitive.
+ */
+void
+on_toggle_payoff(GtkToggleButton *button, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	enum payoff	 p;
+
+	for (p = 0; p < PAYOFF__MAX; p++)
+		gtk_widget_set_sensitive
+			(GTK_WIDGET(b->wins.poff[p]), FALSE);
+
+	for (p = 0; p < PAYOFF__MAX; p++) {
+		if (button != b->wins.toggle[p])
+			continue;
+		gtk_widget_set_sensitive
+			(GTK_WIDGET(b->wins.poff[p]), TRUE);
+		break;
+	}
+}
+
+/*
+ * We want to run the given simulation.
+ * First, verify all data.
+ * Then actually run.
+ */
+void
+on_activate(GtkButton *button, gpointer dat)
+{
+	gint	 	 page;
+	struct bmigrate	*b = dat;
+
+	page = gtk_notebook_get_current_page(b->wins.pages);
+	if (PAGE_MAPPED == page) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: mapped type not supported.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	}
+
+	if (gtk_toggle_button_get_active
+		(b->wins.toggle[PAYOFF_SYMMETRIC2])) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: symmetric payoffs not supported.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	}
+}
+
+/*
+ * One of the preset continuum functions.
+ */
+void
+onpreset(GtkComboBox *widget, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	switch (gtk_combo_box_get_active(widget)) {
+	case (1):
+		/* Tullock */
+		gtk_entry_set_text(b->wins.func, 
+			"x * (1 / X) - x");
+		break;
+	case (2):
+		/* Cournot */
+		gtk_entry_set_text(b->wins.func, 
+			"x - (X - x) * x - x^2");
+		break;
+	case (3):
+		/* Exponential Public Goods */
+		gtk_entry_set_text(b->wins.func, 
+			"(1 - exp(-X)) - x");
+		break;
+	case (4):
+		/* Quadratic Public Goods */
+		gtk_entry_set_text(b->wins.func, 
+			"sqrt(1 / n * X) - 0.5 * x^2");
+		break;
+	default:
+		gtk_entry_set_text(b->wins.func, "");
+		break;
+	}
+}
+
+/*
+ * Run this whenever we select a page from the configuration notebook.
+ * This sets (for the user) the current configuration in an entry.
+ */
+gboolean
+on_change_page(GtkNotebook *notebook, GtkWidget *page, gint pnum, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	assert(pnum < PAGE__MAX);
+	gtk_entry_set_text(b->wins.cfg, cfgpages[pnum]);
+
+	return(TRUE);
+}
+
 #ifdef MAC_INTEGRATION
 void
 onterminate(GtkosxApplication *action, gpointer dat)
@@ -110,15 +270,16 @@ int
 main(int argc, char *argv[])
 {
 	GtkBuilder	  *builder;
-	struct bmigrate	   h;
+	struct bmigrate	   b;
 	guint		   rc;
-	gchar	 	  *file, *dir;
+	gchar	 	  *file;
 #ifdef	MAC_INTEGRATION
+	gchar	 	  *dir;
 	GtkosxApplication *theApp;
 #endif
 
 	file = NULL;
-	memset(&h, 0, sizeof(struct bmigrate));
+	memset(&b, 0, sizeof(struct bmigrate));
 	gtk_init(&argc, &argv);
 
 	/*
@@ -153,9 +314,9 @@ main(int argc, char *argv[])
 	if (0 == rc)
 		return(EXIT_FAILURE);
 
-	windows_init(&h.wins, builder);
+	windows_init(&b, builder);
 
-	gtk_builder_connect_signals(builder, &h);
+	gtk_builder_connect_signals(builder, &b);
 	g_object_unref(G_OBJECT(builder));
 
 	/*
@@ -164,19 +325,20 @@ main(int argc, char *argv[])
 	 * If we're on the Mac, do a little dance with menus as
 	 * prescribed in the GTK+OSX manual.
 	 */
-	gtk_widget_show_all(GTK_WIDGET(h.wins.config));
+	gtk_widget_show_all(GTK_WIDGET(b.wins.config));
+	gtk_widget_hide(GTK_WIDGET(b.wins.error));
 #ifdef	MAC_INTEGRATION
 	theApp = gtkosx_application_get();
-	gtk_widget_hide(GTK_WIDGET(h.wins.menu));
-	gtk_widget_hide(GTK_WIDGET(h.wins.menuquit));
+	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
+	gtk_widget_hide(GTK_WIDGET(b.wins.menuquit));
 	gtkosx_application_set_menu_bar
-		(theApp, GTK_MENU_SHELL(h.wins.menu));
+		(theApp, GTK_MENU_SHELL(b.wins.menu));
 	gtkosx_application_sync_menubar(theApp);
 	g_signal_connect(theApp, "NSApplicationWillTerminate",
-		G_CALLBACK(onterminate), &h);
+		G_CALLBACK(onterminate), &b);
 	gtkosx_application_ready(theApp);
 #endif
 	gtk_main();
-	bmigrate_free(&h);
+	bmigrate_free(&b);
 	return(EXIT_SUCCESS);
 }

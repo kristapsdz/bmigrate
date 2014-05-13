@@ -4,7 +4,7 @@ VERSION = 0.0.4
 PREFIX = /usr/local
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
-GTK_OBJS = bmigrate.o 
+GTK_OBJS = bmigrate.o parser.o
 ifeq ($(shell uname),Darwin)
 GTK_CFLAGS := $(shell pkg-config --cflags gtk-mac-integration)
 GTK_LIBS := $(shell pkg-config --libs gtk-mac-integration)
@@ -37,6 +37,8 @@ bmigrate.app: all Info.plist
 	rm -rf bmigrate.app
 	gtk-mac-bundler bmigrate.bundle
 endif
+
+$(GTK_OBJS): extern.h
 
 bmigrate: $(GTK_OBJS)
 	$(CC) -o $@ $(GTK_OBJS) $(GTK_LIBS)
