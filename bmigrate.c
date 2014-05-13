@@ -28,14 +28,25 @@
 
 #include "extern.h"
 
+/*
+ * Pages in the configuration notebook.
+ * These correspond to the way that a simulation is going to be
+ * prepared, i.e., whether island populations are going to be evenly
+ * distributed from a given population size or manually set, etc.
+ */
 enum	page {
 	PAGE_UNIFORM,
 	PAGE_MAPPED,
 	PAGE__MAX
 };
 
+/*
+ * This defines the game itself.
+ * There can be lots of different kinds of games--two-player bimatrix,
+ * continuum games with n-players, etc.
+ */
 enum	payoff {
-	PAYOFF_CONTINUUM,
+	PAYOFF_CONTINUUM2,
 	PAYOFF_SYMMETRIC2,
 	PAYOFF__MAX
 };
@@ -44,16 +55,36 @@ enum	payoff {
  * These are all widgets that may be or are visible.
  */
 struct	hwin {
-	GtkWindow	*config;
-	GtkMenuBar	*menu;
-	GtkMenuItem	*menuquit;
-	GtkEntry	*cfg;
-	GtkBox		*poff[PAYOFF__MAX];
-	GtkToggleButton	*toggle[PAYOFF__MAX];
-	GtkNotebook	*pages;
-	GtkLabel	*error;
-	GtkComboBoxText	*preset;
-	GtkEntry	*func;
+	GtkWindow	 *config;
+	GtkMenuBar	 *menu;
+	GtkMenuItem	 *menuquit;
+	GtkEntry	 *cfg;
+	GtkBox		 *poff[PAYOFF__MAX];
+	GtkToggleButton	 *toggle[PAYOFF__MAX];
+	GtkNotebook	 *pages;
+	GtkLabel	 *error;
+	GtkEntry	 *func;
+	GtkAdjustment	 *nthreads;
+	GtkLabel	 *curthreads;
+};
+
+/*
+ * Configuration for a running two-player continuum game.
+ * This is associated with a function that's executed with real-valued
+ * player strategies, e.g., public goods.
+ */
+struct	sim_continuum2 {
+	struct hnode	**exp;
+};
+
+struct	sim {
+	GThread		 *thread; /* thread of execution */
+	GMutex		  mux; /* lock for data */
+	size_t		  nprocs; /* processors reserved */
+	enum payoff	  type; /* type of game */
+	union {
+		struct sim_continuum2 continuum2;
+	} d;
 };
 
 /*
@@ -61,6 +92,7 @@ struct	hwin {
  */
 struct	bmigrate {
 	struct hwin	  wins; /* GUI components */
+	GList		 *sims; /* active simulations */
 };
 
 static	const char *const cfgpages[PAGE__MAX] = {
@@ -77,6 +109,8 @@ static void
 windows_init(struct bmigrate *b, GtkBuilder *builder)
 {
 	enum payoff	 p;
+	GObject		*w;
+	gchar		 buf[1024];
 
 	b->wins.config = GTK_WINDOW
 		(gtk_builder_get_object(builder, "window1"));
@@ -88,20 +122,22 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry3"));
 	b->wins.pages = GTK_NOTEBOOK
 		(gtk_builder_get_object(builder, "notebook1"));
-	b->wins.poff[PAYOFF_CONTINUUM] = GTK_BOX
+	b->wins.poff[PAYOFF_CONTINUUM2] = GTK_BOX
 		(gtk_builder_get_object(builder, "box17"));
 	b->wins.poff[PAYOFF_SYMMETRIC2] = GTK_BOX
 		(gtk_builder_get_object(builder, "box14"));
-	b->wins.toggle[PAYOFF_CONTINUUM] = GTK_TOGGLE_BUTTON
+	b->wins.toggle[PAYOFF_CONTINUUM2] = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton1"));
 	b->wins.toggle[PAYOFF_SYMMETRIC2] = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton2"));
 	b->wins.error = GTK_LABEL
 		(gtk_builder_get_object(builder, "label8"));
-	b->wins.preset = GTK_COMBO_BOX_TEXT
-		(gtk_builder_get_object(builder, "comboboxtext1"));
 	b->wins.func = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry2"));
+	b->wins.nthreads = GTK_ADJUSTMENT
+		(gtk_builder_get_object(builder, "adjustment3"));
+	b->wins.curthreads = GTK_LABEL
+		(gtk_builder_get_object(builder, "label10"));
 
 	/* Set the initially-selected notebook. */
 	gtk_entry_set_text(b->wins.cfg, cfgpages
@@ -114,7 +150,39 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 				(GTK_WIDGET(b->wins.poff[p]), TRUE);
 
 	/* Builder doesn't do this. */
-	gtk_combo_box_set_active(GTK_COMBO_BOX(b->wins.preset), 0);
+	w = gtk_builder_get_object(builder, "comboboxtext1");
+	gtk_combo_box_set_active(GTK_COMBO_BOX(w), 0);
+
+	/* Maximum number of processors. */
+	gtk_adjustment_set_upper
+		(b->wins.nthreads, g_get_num_processors());
+
+	gtk_label_set_text(b->wins.curthreads, "(0% active)");
+	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
+
+	w = gtk_builder_get_object(builder, "label12");
+	g_snprintf(buf, sizeof(buf), "%d", g_get_num_processors());
+	gtk_label_set_text(GTK_LABEL(w), buf);
+}
+
+static void
+sim_free(gpointer arg)
+{
+	struct sim	*p = arg;
+
+
+	if (NULL == p)
+		return;
+	switch (p->type) {
+	case (PAYOFF_CONTINUUM2):
+		hnode_free(p->d.continuum2.exp);
+		break;
+	default:
+		break;
+	}
+	if (NULL != p->thread)
+		g_thread_join(p->thread);
+	g_free(p);
 }
 
 /*
@@ -127,8 +195,49 @@ static void
 bmigrate_free(struct bmigrate *p)
 {
 
-	memset(p, 0, sizeof(struct bmigrate));
+	g_list_free_full(p->sims, sim_free);
+	p->sims = NULL;
 }
+
+static void *
+on_sim_new(void *arg)
+{
+	struct sim	*sim = arg;
+
+	sleep(2);
+
+	sim->nprocs = 0;
+	return(NULL);
+}
+
+static gboolean
+on_timer(gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	GList		*list;
+	size_t		 nprocs;
+	struct sim	*sim;
+	gchar		 buf[1024];
+
+	nprocs = 0;
+	for (list = b->sims; NULL != list; list = g_list_next(list)) {
+		sim = (struct sim *)list->data;
+		if (0 == sim->nprocs && NULL != sim->thread) {
+			g_thread_join(sim->thread);
+			sim->thread = NULL;
+		}
+		nprocs += sim->nprocs;
+	}
+
+	(void)g_snprintf(buf, sizeof(buf),
+		"(%g%% active)", 100 * (nprocs / 
+			(double)g_get_num_processors()));
+	gtk_label_set_text(b->wins.curthreads, buf);
+	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
+	return(TRUE);
+}
+
+
 
 /*
  * Quit everything (gtk_main returns).
@@ -184,8 +293,11 @@ on_toggle_payoff(GtkToggleButton *button, gpointer dat)
 void
 on_activate(GtkButton *button, gpointer dat)
 {
-	gint	 	 page;
-	struct bmigrate	*b = dat;
+	gint	 	  page;
+	struct bmigrate	 *b = dat;
+	struct hnode	**exp;
+	const gchar	 *txt;
+	struct sim	 *sim;
 
 	page = gtk_notebook_get_current_page(b->wins.pages);
 	if (PAGE_MAPPED == page) {
@@ -203,6 +315,28 @@ on_activate(GtkButton *button, gpointer dat)
 			 "Error: symmetric payoffs not supported.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
+	}
+
+	if (gtk_toggle_button_get_active
+		(b->wins.toggle[PAYOFF_CONTINUUM2])) {
+		txt = gtk_entry_get_text(b->wins.func);
+		exp = hnode_parse((const gchar **)&txt);
+		if (NULL == exp) {
+			gtk_label_set_text
+				(b->wins.error,
+				 "Error: bad continuum function");
+			gtk_widget_show(GTK_WIDGET(b->wins.error));
+			return;
+		}
+		sim = g_malloc0(sizeof(struct sim));
+		sim->type = PAYOFF_CONTINUUM2;
+		sim->d.continuum2.exp = exp;
+		sim->nprocs = 
+			gtk_adjustment_get_value(b->wins.nthreads);
+		g_mutex_init(&sim->mux);
+		b->sims = g_list_append(b->sims, sim);
+		sim->thread = g_thread_new
+			(NULL, on_sim_new, sim);
 	}
 }
 
@@ -338,6 +472,7 @@ main(int argc, char *argv[])
 		G_CALLBACK(onterminate), &b);
 	gtkosx_application_ready(theApp);
 #endif
+	g_timeout_add(500, (GSourceFunc)on_timer, &b);
 	gtk_main();
 	bmigrate_free(&b);
 	return(EXIT_SUCCESS);
