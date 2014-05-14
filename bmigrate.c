@@ -26,7 +26,13 @@
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 
+#include <gsl/gsl_rng.h>
+#include <gsl/gsl_randist.h>
+
 #include "extern.h"
+
+#define ARC4RANDOM_INTERVAL \
+	(arc4random() / (double)UINT32_MAX)
 
 /*
  * Pages in the configuration notebook.
@@ -34,10 +40,10 @@
  * prepared, i.e., whether island populations are going to be evenly
  * distributed from a given population size or manually set, etc.
  */
-enum	page {
-	PAGE_UNIFORM,
-	PAGE_MAPPED,
-	PAGE__MAX
+enum	input {
+	INPUT_UNIFORM,
+	INPUT_MAPPED,
+	INPUT__MAX
 };
 
 /*
@@ -58,13 +64,19 @@ struct	hwin {
 	GtkWindow	 *config;
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
-	GtkEntry	 *cfg;
-	GtkBox		 *poff[PAYOFF__MAX];
-	GtkToggleButton	 *toggle[PAYOFF__MAX];
-	GtkNotebook	 *pages;
+	GtkEntry	 *stop;
+	GtkEntry	 *input;
+	GtkEntry	 *payoff;
+	GtkEntry	 *xmin;
+	GtkEntry	 *xmax;
+	GtkNotebook	 *inputs;
+	GtkNotebook	 *payoffs;
 	GtkLabel	 *error;
 	GtkEntry	 *func;
 	GtkAdjustment	 *nthreads;
+	GtkAdjustment	 *pop;
+	GtkAdjustment	 *islands;
+	GtkEntry	 *totalpop;
 	GtkLabel	 *curthreads;
 };
 
@@ -75,12 +87,17 @@ struct	hwin {
  */
 struct	sim_continuum2 {
 	struct hnode	**exp;
+	double		  xmin;
+	double		  xmax;
 };
 
 struct	sim {
 	GThread		 *thread; /* thread of execution */
-	GMutex		  mux; /* lock for data */
 	size_t		  nprocs; /* processors reserved */
+	size_t		  totalpop; /* total population */
+	size_t		 *pops; /* per-island population */
+	size_t		  islands; /* island population */
+	size_t		  stop; /* when to stop */
 	enum payoff	  type; /* type of game */
 	union {
 		struct sim_continuum2 continuum2;
@@ -95,9 +112,14 @@ struct	bmigrate {
 	GList		 *sims; /* active simulations */
 };
 
-static	const char *const cfgpages[PAGE__MAX] = {
+static	const char *const inputs[INPUT__MAX] = {
 	"uniform",
 	"mapped",
+};
+
+static	const char *const payoffs[PAYOFF__MAX] = {
+	"continuum two-player",
+	"finite two-player two-strategy",
 };
 
 /*
@@ -108,7 +130,6 @@ static	const char *const cfgpages[PAGE__MAX] = {
 static void
 windows_init(struct bmigrate *b, GtkBuilder *builder)
 {
-	enum payoff	 p;
 	GObject		*w;
 	gchar		 buf[1024];
 
@@ -118,36 +139,40 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menubar1"));
 	b->wins.menuquit = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem5"));
-	b->wins.cfg = GTK_ENTRY
+	b->wins.input = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry3"));
-	b->wins.pages = GTK_NOTEBOOK
+	b->wins.payoff = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry11"));
+	b->wins.stop = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry9"));
+	b->wins.xmin = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry8"));
+	b->wins.xmax = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry10"));
+	b->wins.inputs = GTK_NOTEBOOK
 		(gtk_builder_get_object(builder, "notebook1"));
-	b->wins.poff[PAYOFF_CONTINUUM2] = GTK_BOX
-		(gtk_builder_get_object(builder, "box17"));
-	b->wins.poff[PAYOFF_SYMMETRIC2] = GTK_BOX
-		(gtk_builder_get_object(builder, "box14"));
-	b->wins.toggle[PAYOFF_CONTINUUM2] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton1"));
-	b->wins.toggle[PAYOFF_SYMMETRIC2] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton2"));
+	b->wins.payoffs = GTK_NOTEBOOK
+		(gtk_builder_get_object(builder, "notebook2"));
 	b->wins.error = GTK_LABEL
 		(gtk_builder_get_object(builder, "label8"));
 	b->wins.func = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry2"));
 	b->wins.nthreads = GTK_ADJUSTMENT
 		(gtk_builder_get_object(builder, "adjustment3"));
+	b->wins.pop = GTK_ADJUSTMENT
+		(gtk_builder_get_object(builder, "adjustment1"));
+	b->wins.totalpop = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry12"));
+	b->wins.islands = GTK_ADJUSTMENT
+		(gtk_builder_get_object(builder, "adjustment2"));
 	b->wins.curthreads = GTK_LABEL
 		(gtk_builder_get_object(builder, "label10"));
 
-	/* Set the initially-selected notebook. */
-	gtk_entry_set_text(b->wins.cfg, cfgpages
-		[gtk_notebook_get_current_page(b->wins.pages)]);
-
-	/* Set the initially-selected payoff type. */
-	for (p = 0; p < PAYOFF__MAX; p++)
-		if (gtk_toggle_button_get_active(b->wins.toggle[p]))
-			gtk_widget_set_sensitive
-				(GTK_WIDGET(b->wins.poff[p]), TRUE);
+	/* Set the initially-selected notebooks. */
+	gtk_entry_set_text(b->wins.input, inputs
+		[gtk_notebook_get_current_page(b->wins.inputs)]);
+	gtk_entry_set_text(b->wins.payoff, payoffs
+		[gtk_notebook_get_current_page(b->wins.payoffs)]);
 
 	/* Builder doesn't do this. */
 	w = gtk_builder_get_object(builder, "comboboxtext1");
@@ -161,8 +186,14 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
 
 	w = gtk_builder_get_object(builder, "label12");
-	g_snprintf(buf, sizeof(buf), "%d", g_get_num_processors());
+	(void)g_snprintf(buf, sizeof(buf), 
+		"%d", g_get_num_processors());
 	gtk_label_set_text(GTK_LABEL(w), buf);
+
+	(void)g_snprintf(buf, sizeof(buf),
+		"%g", gtk_adjustment_get_value(b->wins.pop) *
+		gtk_adjustment_get_value(b->wins.islands));
+	gtk_entry_set_text(b->wins.totalpop, buf);
 }
 
 static void
@@ -182,6 +213,7 @@ sim_free(gpointer arg)
 	}
 	if (NULL != p->thread)
 		g_thread_join(p->thread);
+	g_free(p->pops);
 	g_free(p);
 }
 
@@ -199,13 +231,155 @@ bmigrate_free(struct bmigrate *p)
 	p->sims = NULL;
 }
 
+static double
+pi_tau(size_t i, size_t n, const double *m)
+{
+
+	return(((i - 1) / (double)(n - 1) * m[3]) + 
+		((n - i) / (double)(n - 1) * m[2]));
+}
+
+static double
+pi_theta(size_t i, size_t n, const double *m)
+{
+
+	return((i / (double)(n - 1) * m[1]) + 
+		((n - i - 1) / (double)(n - 1) * m[0]));
+}
+
+
 static void *
 on_sim_new(void *arg)
 {
 	struct sim	*sim = arg;
+	double		 mutant, incumbent, mult, delta, m;
+	double		 payoffs[4];
+	size_t		*kids[2], *migrants[2], *imutants;
+	size_t		 t, j, k, new, mutants, incumbents,
+			 len1, len2;
+	int		 mutant_old, mutant_new;
+	gsl_rng		*rng;
 
-	sleep(2);
+	rng = gsl_rng_alloc(gsl_rng_default);
 
+	mult = 20.0;
+	delta = 0.1;
+	m = 0.5;
+
+	mutant = sim->d.continuum2.xmin + 
+		(sim->d.continuum2.xmax - sim->d.continuum2.xmin) * 
+		ARC4RANDOM_INTERVAL;
+	incumbent = sim->d.continuum2.xmin + 
+		(sim->d.continuum2.xmax - sim->d.continuum2.xmin) * 
+		ARC4RANDOM_INTERVAL;
+
+	payoffs[0] = mult * (1.0 + delta * 
+		hnode_exec((const struct hnode *const *)
+			sim->d.continuum2.exp, 
+			mutant, mutant + mutant, 2));
+	payoffs[1] = mult * (1.0 + delta * 
+		hnode_exec((const struct hnode *const *)
+			sim->d.continuum2.exp, 
+			mutant, mutant + incumbent, 2));
+	payoffs[2] = mult * (1.0 + delta * 
+		hnode_exec((const struct hnode *const *)
+			sim->d.continuum2.exp, 
+			incumbent, mutant + incumbent, 2));
+	payoffs[3] = mult * (1.0 + delta * 
+		hnode_exec((const struct hnode *const *)
+			sim->d.continuum2.exp, 
+			incumbent, incumbent + incumbent, 2));
+
+	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
+	kids[1] = g_malloc0_n(sim->islands, sizeof(size_t));
+	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
+	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
+	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
+
+	/* 
+	 * Initialise a random island to have one mutant. 
+	 * The rest are all incumbents.
+	 */
+	imutants[arc4random_uniform(sim->islands)] = 1;
+	mutants = 1;
+	incumbents = sim->totalpop - mutants;
+
+	for (t = 0; t < sim->stop; t++) {
+		/*
+		 * Birth process: have each individual (first mutants,
+		 * then incumbents) give birth.
+		 * Use a Poisson process with the given mean in order to
+		 * properly compute this.
+		 */
+		for (j = 0; j < sim->islands; j++) {
+			for (k = 0; k < imutants[j]; k++) 
+				kids[0][j] += gsl_ran_poisson
+					(rng, 
+					 pi_tau(imutants[j], 
+					 sim->pops[j], payoffs));
+			for ( ; k < sim->pops[j]; k++)
+				kids[1][j] += gsl_ran_poisson
+					(rng, 
+					 pi_theta(imutants[j], 
+					 sim->pops[j], payoffs));
+		}
+
+		/*
+		 * Determine whether we're going to migrate and, if
+		 * migration is stipulated, to where.
+		 */
+		for (j = 0; j < sim->islands; j++) {
+			for (k = 0; k < kids[0][j]; k++) {
+				new = j;
+				if (ARC4RANDOM_INTERVAL < m) do 
+					new = arc4random_uniform
+						(sim->islands);
+				while (new == j);
+				migrants[0][new]++;
+			}
+			for (k = 0; k < kids[1][j]; k++) {
+				new = j;
+				if (ARC4RANDOM_INTERVAL < m) do
+					new = arc4random_uniform
+						(sim->islands);
+				while (new == j);
+				migrants[1][new]++;
+			}
+			kids[0][j] = kids[1][j] = 0;
+		}
+
+		for (j = 0; j < sim->islands; j++) {
+			len1 = migrants[0][j] + migrants[1][j];
+			if (0 == len1)
+				continue;
+
+			len2 = arc4random_uniform(sim->pops[j]);
+			mutant_old = len2 < imutants[j];
+			len2 = arc4random_uniform(len1);
+			mutant_new = len2 < migrants[0][j];
+
+			if (mutant_old && ! mutant_new) {
+				imutants[j]--;
+				mutants--;
+				incumbents++;
+			} else if ( ! mutant_old && mutant_new) {
+				imutants[j]++;
+				mutants++;
+				incumbents--;
+			}
+
+			migrants[0][j] = migrants[1][j] = 0;
+		}
+
+		if (0 == mutants || 0 == incumbents) 
+			break;
+	}
+
+	g_free(imutants);
+	g_free(kids[0]);
+	g_free(kids[1]);
+	g_free(migrants[0]);
+	g_free(migrants[1]);
 	sim->nprocs = 0;
 	return(NULL);
 }
@@ -237,8 +411,6 @@ on_timer(gpointer dat)
 	return(TRUE);
 }
 
-
-
 /*
  * Quit everything (gtk_main returns).
  */
@@ -261,28 +433,18 @@ ondestroy(GtkWidget *object, gpointer dat)
 	gtk_main_quit();
 }
 
-/*
- * We've toggled a given payoff class.
- * First, set all payoff classes to have insensitive input.
- * Then make the current one sensitive.
- */
-void
-on_toggle_payoff(GtkToggleButton *button, gpointer dat)
+static int
+entry2size(GtkEntry *entry, size_t *sz)
 {
-	struct bmigrate	*b = dat;
-	enum payoff	 p;
+	guint64	 v;
+	gchar	*ep;
 
-	for (p = 0; p < PAYOFF__MAX; p++)
-		gtk_widget_set_sensitive
-			(GTK_WIDGET(b->wins.poff[p]), FALSE);
+	v = g_ascii_strtoull(gtk_entry_get_text(entry), &ep, 10);
+	if (ERANGE == errno || '\0' != *ep || v > SIZE_MAX)
+		return(0);
 
-	for (p = 0; p < PAYOFF__MAX; p++) {
-		if (button != b->wins.toggle[p])
-			continue;
-		gtk_widget_set_sensitive
-			(GTK_WIDGET(b->wins.poff[p]), TRUE);
-		break;
-	}
+	*sz = (size_t)v;
+	return(1);
 }
 
 /*
@@ -293,55 +455,94 @@ on_toggle_payoff(GtkToggleButton *button, gpointer dat)
 void
 on_activate(GtkButton *button, gpointer dat)
 {
-	gint	 	  page;
+	gint	 	  input, payoff;
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
 	const gchar	 *txt;
+	gchar		 *ep;
+	gdouble		  xmin, xmax;
+	size_t		  i, totalpop, islandpop, islands, stop;
 	struct sim	 *sim;
 
-	page = gtk_notebook_get_current_page(b->wins.pages);
-	if (PAGE_MAPPED == page) {
+	input = gtk_notebook_get_current_page(b->wins.inputs);
+	if (INPUT_UNIFORM != input) {
 		gtk_label_set_text
 			(b->wins.error,
-			 "Error: mapped type not supported.");
+			 "Error: only uniform input supported.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	} else if ( ! entry2size(b->wins.totalpop, &totalpop)) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: bad total population.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	} else if ( ! entry2size(b->wins.stop, &stop)) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: bad stopping time.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	} 
+	
+	islandpop = (size_t)gtk_adjustment_get_value(b->wins.pop);
+	islands = (size_t)gtk_adjustment_get_value(b->wins.islands);
+
+	payoff = gtk_notebook_get_current_page(b->wins.payoffs);
+	if (PAYOFF_CONTINUUM2 != input) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: only continuum payoff supported.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
 	}
 
-	if (gtk_toggle_button_get_active
-		(b->wins.toggle[PAYOFF_SYMMETRIC2])) {
+	xmin = g_ascii_strtod(gtk_entry_get_text(b->wins.xmin), &ep);
+	if (ERANGE == errno || '\0' != *ep) {
 		gtk_label_set_text
 			(b->wins.error,
-			 "Error: symmetric payoffs not supported.");
+			 "Error: minimum strategy out of range.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	}
+	xmax = g_ascii_strtod(gtk_entry_get_text(b->wins.xmax), &ep);
+	if (ERANGE == errno || '\0' != *ep) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: maximum strategy out of range.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
 	}
 
-	if (gtk_toggle_button_get_active
-		(b->wins.toggle[PAYOFF_CONTINUUM2])) {
-		txt = gtk_entry_get_text(b->wins.func);
-		exp = hnode_parse((const gchar **)&txt);
-		if (NULL == exp) {
-			gtk_label_set_text
-				(b->wins.error,
-				 "Error: bad continuum function");
-			gtk_widget_show(GTK_WIDGET(b->wins.error));
-			return;
-		}
-		sim = g_malloc0(sizeof(struct sim));
-		sim->type = PAYOFF_CONTINUUM2;
-		sim->d.continuum2.exp = exp;
-		sim->nprocs = 
-			gtk_adjustment_get_value(b->wins.nthreads);
-		g_mutex_init(&sim->mux);
-		b->sims = g_list_append(b->sims, sim);
-		sim->thread = g_thread_new
-			(NULL, on_sim_new, sim);
+	txt = gtk_entry_get_text(b->wins.func);
+	exp = hnode_parse((const gchar **)&txt);
+	if (NULL == exp) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: bad continuum function");
+		gtk_widget_show(GTK_WIDGET(b->wins.error));
+		return;
 	}
+
+	sim = g_malloc0(sizeof(struct sim));
+	sim->type = PAYOFF_CONTINUUM2;
+	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
+	sim->totalpop = totalpop;
+	sim->islands = islands;
+	sim->stop = stop;
+	sim->pops = g_malloc0_n(sim->islands, sizeof(size_t));
+	for (i = 0; i < sim->islands; i++)
+		sim->pops[i] = islandpop;
+	sim->d.continuum2.exp = exp;
+	sim->d.continuum2.xmin = xmin;
+	sim->d.continuum2.xmax = xmax;
+	b->sims = g_list_append(b->sims, sim);
+	sim->thread = g_thread_new(NULL, on_sim_new, sim);
 }
 
 /*
- * One of the preset continuum functions.
+ * One of the preset continuum functions for our two-player continuum
+ * game possibility.
  */
 void
 onpreset(GtkComboBox *widget, gpointer dat)
@@ -376,18 +577,43 @@ onpreset(GtkComboBox *widget, gpointer dat)
 }
 
 /*
+ * Run this whenever we select a page from the material payoff notebook.
+ * This sets (for the user) the current payoff in an entry.
+ */
+gboolean
+on_change_payoff(GtkNotebook *notebook, GtkWidget *page, gint pnum, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	assert(pnum < PAYOFF__MAX);
+	gtk_entry_set_text(b->wins.payoff, payoffs[pnum]);
+	return(TRUE);
+}
+
+/*
  * Run this whenever we select a page from the configuration notebook.
  * This sets (for the user) the current configuration in an entry.
  */
 gboolean
-on_change_page(GtkNotebook *notebook, GtkWidget *page, gint pnum, gpointer dat)
+on_change_input(GtkNotebook *notebook, GtkWidget *page, gint pnum, gpointer dat)
 {
 	struct bmigrate	*b = dat;
 
-	assert(pnum < PAGE__MAX);
-	gtk_entry_set_text(b->wins.cfg, cfgpages[pnum]);
-
+	assert(pnum < INPUT__MAX);
+	gtk_entry_set_text(b->wins.input, inputs[pnum]);
 	return(TRUE);
+}
+
+void
+on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
+{
+	gchar	 	 buf[1024];
+	struct bmigrate	*b = dat;
+
+	(void)g_snprintf(buf, sizeof(buf),
+		"%g", gtk_adjustment_get_value(b->wins.pop) *
+		gtk_adjustment_get_value(b->wins.islands));
+	gtk_entry_set_text(b->wins.totalpop, buf);
 }
 
 #ifdef MAC_INTEGRATION

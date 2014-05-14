@@ -6,12 +6,12 @@ DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 GTK_OBJS = bmigrate.o parser.o
 ifeq ($(shell uname),Darwin)
-GTK_CFLAGS := $(shell pkg-config --cflags gtk-mac-integration)
-GTK_LIBS := $(shell pkg-config --libs gtk-mac-integration)
+GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk-mac-integration)
+GTK_LIBS := $(shell pkg-config --libs gsl gtk-mac-integration)
 GTK_PREFIX = ${HOME}/gtk/inst
 else
-GTK_LIBS := $(shell pkg-config --libs gtk+-3.0) -export-dynamic
-GTK_CFLAGS := $(shell pkg-config --cflags gtk+-3.0)
+GTK_LIBS := $(shell pkg-config --libs gsl gtk+-3.0) -export-dynamic
+GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk+-3.0)
 endif
 
 all: bmigrate 
