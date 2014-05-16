@@ -31,9 +31,6 @@
 
 #include "extern.h"
 
-#define ARC4RANDOM_INTERVAL \
-	(arc4random() / (double)UINT32_MAX)
-
 /*
  * Pages in the configuration notebook.
  * These correspond to the way that a simulation is going to be
@@ -77,7 +74,12 @@ struct	hwin {
 	GtkAdjustment	 *pop;
 	GtkAdjustment	 *islands;
 	GtkEntry	 *totalpop;
+	GtkEntry	 *alpha;
+	GtkEntry	 *delta;
+	GtkEntry	 *migrate;
 	GtkLabel	 *curthreads;
+	GtkToggleButton	 *analsingle;
+	GtkToggleButton	 *analmultiple;
 };
 
 /*
@@ -95,6 +97,7 @@ struct	simres {
 	GMutex		 mux;
 	double		*mutants;
 	size_t		*runs;
+	size_t		 truns;
 	size_t		 dims;
 };
 
@@ -107,6 +110,9 @@ struct	sim {
 	size_t		  refs; /* GUI references */
 	int		  terminate; /* terminate the process */
 	size_t		  stop; /* when to stop */
+	double		  alpha; /* outer multiplier */
+	double		  delta; /* inner multiplier */
+	double		  m; /* migration probability */
 	enum payoff	  type; /* type of game */
 	union {
 		struct sim_continuum2 continuum2;
@@ -177,6 +183,16 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "adjustment2"));
 	b->wins.curthreads = GTK_LABEL
 		(gtk_builder_get_object(builder, "label10"));
+	b->wins.analsingle = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton3"));
+	b->wins.analmultiple = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton4"));
+	b->wins.alpha = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry13"));
+	b->wins.delta = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry14"));
+	b->wins.migrate = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry1"));
 
 	/* Set the initially-selected notebooks. */
 	gtk_entry_set_text(b->wins.input, inputs
@@ -214,6 +230,8 @@ sim_free(gpointer arg)
 	if (NULL == p)
 		return;
 
+	g_debug("Freeing simulation %p", p);
+
 	switch (p->type) {
 	case (PAYOFF_CONTINUUM2):
 		hnode_free(p->d.continuum2.exp);
@@ -222,8 +240,11 @@ sim_free(gpointer arg)
 		break;
 	}
 
-	if (NULL != p->thread)
+	if (NULL != p->thread) {
+		g_debug("Freeing joining thread %p "
+			"(simulation %p)", p->thread, p);
 		g_thread_join(p->thread);
+	}
 
 	g_free(p->results.mutants);
 	g_free(p->results.runs);
@@ -236,6 +257,7 @@ sim_stop(gpointer arg, gpointer unused)
 {
 	struct sim	*p = arg;
 
+	g_debug("Stopping simulation %p", p);
 	p->terminate = 1;
 }
 
@@ -249,6 +271,7 @@ static void
 bmigrate_free(struct bmigrate *p)
 {
 
+	g_debug("Freeing main");
 	g_list_foreach(p->sims, sim_stop, NULL);
 	g_list_free_full(p->sims, sim_free);
 	p->sims = NULL;
@@ -271,7 +294,7 @@ pi_theta(size_t i, size_t n, const double *m)
 }
 
 static int
-on_sim_next(struct sim *sim, 
+on_sim_next(const gsl_rng *rng, struct sim *sim, 
 	double *mutant, double *incumbent, 
 	size_t *mutantidx, size_t *incumbentidx)
 {
@@ -279,8 +302,8 @@ on_sim_next(struct sim *sim,
 	if (sim->terminate)
 		return(0);
 
-	*mutantidx = arc4random_uniform(sim->results.dims);
-	*incumbentidx = arc4random_uniform(sim->results.dims);
+	*mutantidx = gsl_rng_uniform_int(rng, sim->results.dims);
+	*incumbentidx = gsl_rng_uniform_int(rng, sim->results.dims);
 	*mutant = sim->d.continuum2.xmin + 
 		(sim->d.continuum2.xmax - 
 		 sim->d.continuum2.xmin) * 
@@ -296,7 +319,7 @@ static void *
 on_sim_new(void *arg)
 {
 	struct sim	*sim = arg;
-	double		 mutant, incumbent, mult, delta, m;
+	double		 mutant, incumbent, m;
 	double		 payoffs[4];
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, j, k, new, mutants, incumbents,
@@ -306,8 +329,9 @@ on_sim_new(void *arg)
 
 	rng = gsl_rng_alloc(gsl_rng_default);
 
-	mult = 20.0;
-	delta = 0.1;
+	g_debug("Thread %p (simulation %p) using RNG %s", 
+		g_thread_self(), sim, gsl_rng_name(rng));
+
 	m = 0.5;
 
 	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
@@ -317,7 +341,7 @@ on_sim_new(void *arg)
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 
 again:
-	if ( ! on_sim_next(sim, &mutant, 
+	if ( ! on_sim_next(rng, sim, &mutant, 
 		&incumbent, &mutantidx, &incumbentidx)) {
 		g_free(imutants);
 		g_free(kids[0]);
@@ -325,32 +349,34 @@ again:
 		g_free(migrants[0]);
 		g_free(migrants[1]);
 		sim->nprocs = 0;
+		g_debug("Thread %p (simulation %p) exiting", 
+			g_thread_self(), sim);
 		return(NULL);
 	}
 
-	payoffs[0] = mult * (1.0 + delta * 
-		hnode_exec((const struct hnode *const *)
-			sim->d.continuum2.exp, 
-			mutant, mutant + mutant, 2));
-	payoffs[1] = mult * (1.0 + delta * 
-		hnode_exec((const struct hnode *const *)
-			sim->d.continuum2.exp, 
-			mutant, mutant + incumbent, 2));
-	payoffs[2] = mult * (1.0 + delta * 
-		hnode_exec((const struct hnode *const *)
-			sim->d.continuum2.exp, 
-			incumbent, incumbent + mutant, 2));
-	payoffs[3] = mult * (1.0 + delta * 
+	payoffs[0] = sim->alpha * (1.0 + sim->delta * 
 		hnode_exec((const struct hnode *const *)
 			sim->d.continuum2.exp, 
 			incumbent, incumbent + incumbent, 2));
+	payoffs[1] = sim->alpha * (1.0 + sim->delta * 
+		hnode_exec((const struct hnode *const *)
+			sim->d.continuum2.exp, 
+			incumbent, incumbent + mutant, 2));
+	payoffs[2] = sim->alpha * (1.0 + sim->delta * 
+		hnode_exec((const struct hnode *const *)
+			sim->d.continuum2.exp, 
+			mutant, mutant + incumbent, 2));
+	payoffs[3] = sim->alpha * (1.0 + sim->delta * 
+		hnode_exec((const struct hnode *const *)
+			sim->d.continuum2.exp, 
+			mutant, mutant + mutant, 2));
 
 	/* 
 	 * Initialise a random island to have one mutant. 
 	 * The rest are all incumbents.
 	 */
 	memset(imutants, 0, sim->islands * sizeof(size_t));
-	imutants[arc4random_uniform(sim->islands)] = 1;
+	imutants[gsl_rng_uniform_int(rng, sim->islands)] = 1;
 	mutants = 1;
 	incumbents = sim->totalpop - mutants;
 
@@ -381,17 +407,17 @@ again:
 		for (j = 0; j < sim->islands; j++) {
 			for (k = 0; k < kids[0][j]; k++) {
 				new = j;
-				if (ARC4RANDOM_INTERVAL < m) do 
-					new = arc4random_uniform
-						(sim->islands);
+				if (gsl_rng_uniform(rng) < m) do 
+					new = gsl_rng_uniform_int
+						(rng, sim->islands);
 				while (new == j);
 				migrants[0][new]++;
 			}
 			for (k = 0; k < kids[1][j]; k++) {
 				new = j;
-				if (ARC4RANDOM_INTERVAL < m) do
-					new = arc4random_uniform
-						(sim->islands);
+				if (gsl_rng_uniform(rng) < m) do 
+					new = gsl_rng_uniform_int
+						(rng, sim->islands);
 				while (new == j);
 				migrants[1][new]++;
 			}
@@ -403,9 +429,9 @@ again:
 			if (0 == len1)
 				continue;
 
-			len2 = arc4random_uniform(sim->pops[j]);
+			len2 = gsl_rng_uniform_int(rng, sim->pops[j]);
 			mutant_old = len2 < imutants[j];
-			len2 = arc4random_uniform(len1);
+			len2 = gsl_rng_uniform_int(rng, len1);
 			mutant_new = len2 < migrants[0][j];
 
 			if (mutant_old && ! mutant_new) {
@@ -429,6 +455,7 @@ again:
 	sim->results.mutants[incumbentidx] += 
 		(mutants / (double)sim->totalpop);
 	sim->results.runs[incumbentidx]++;
+	sim->results.truns++;
 	g_mutex_unlock(&sim->results.mux);
 	goto again;
 }
@@ -438,8 +465,13 @@ on_sim_deref(gpointer dat)
 {
 	struct sim	*sim = dat;
 
-	if (0 == --sim->refs)
-		sim->terminate = 1;
+	g_debug("Simulation %p deref (now %zu)", sim, sim->refs);
+
+	if (0 != --sim->refs) 
+		return;
+
+	g_debug("Simulation %p deref triggering termination", sim);
+	sim->terminate = 1;
 }
 
 static gboolean
@@ -455,9 +487,12 @@ on_timer(gpointer dat)
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = (struct sim *)list->data;
 		if (0 == sim->nprocs && NULL != sim->thread) {
+			g_debug("Timeout handler joining thread "
+				"%p (simulation %p)", sim->thread, sim);
 			g_thread_join(sim->thread);
 			sim->thread = NULL;
 		}
+		g_debug("Simulation %p runs: %zu", sim, sim->results.truns);
 		nprocs += sim->nprocs;
 	}
 
@@ -628,6 +663,15 @@ entry2size(GtkEntry *entry, size_t *sz)
 	return(1);
 }
 
+static int
+entry2double(GtkEntry *entry, gdouble *sz)
+{
+	gchar	*ep;
+
+	*sz = g_ascii_strtod(gtk_entry_get_text(entry), &ep);
+	return(ERANGE != errno && '\0' == *ep);
+}
+
 /*
  * We want to run the given simulation.
  * First, verify all data.
@@ -640,8 +684,7 @@ on_activate(GtkButton *button, gpointer dat)
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
 	const gchar	 *txt;
-	gchar		 *ep;
-	gdouble		  xmin, xmax;
+	gdouble		  xmin, xmax, delta, alpha, m;
 	size_t		  i, totalpop, islandpop, islands, stop;
 	struct sim	 *sim;
 	GdkRGBA	  	  color = { 1.0, 1.0, 1.0, 1.0 };
@@ -657,16 +700,24 @@ on_activate(GtkButton *button, gpointer dat)
 	} else if ( ! entry2size(b->wins.totalpop, &totalpop)) {
 		gtk_label_set_text
 			(b->wins.error,
-			 "Error: bad total population.");
+			 "Error: total population not a number.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
 	} else if ( ! entry2size(b->wins.stop, &stop)) {
 		gtk_label_set_text
 			(b->wins.error,
-			 "Error: bad stopping time.");
+			 "Error: stopping time not a number.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
 	} 
+
+	if (gtk_toggle_button_get_active(b->wins.analsingle)) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: single run not supported.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	}
 	
 	islandpop = (size_t)gtk_adjustment_get_value(b->wins.pop);
 	islands = (size_t)gtk_adjustment_get_value(b->wins.islands);
@@ -680,19 +731,40 @@ on_activate(GtkButton *button, gpointer dat)
 		return;
 	}
 
-	xmin = g_ascii_strtod(gtk_entry_get_text(b->wins.xmin), &ep);
-	if (ERANGE == errno || '\0' != *ep) {
+	if ( ! entry2double(b->wins.xmin, &xmin)) {
 		gtk_label_set_text
 			(b->wins.error,
-			 "Error: minimum strategy out of range.");
+			 "Error: minimum strategy not a number.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
-	}
-	xmax = g_ascii_strtod(gtk_entry_get_text(b->wins.xmax), &ep);
-	if (ERANGE == errno || '\0' != *ep) {
+	} else if ( ! entry2double(b->wins.xmax, &xmax)) {
 		gtk_label_set_text
 			(b->wins.error,
-			 "Error: maximum strategy out of range.");
+			 "Error: maximum strategy not a number.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	} else if (xmin >= xmax) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: bad minimum/maximum strategy order.");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	} else if ( ! entry2double(b->wins.alpha, &alpha)) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: multiplier parameter not a number");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	} else if ( ! entry2double(b->wins.delta, &delta)) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: multiplier parameter not a number");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
+	} else if ( ! entry2double(b->wins.migrate, &m)) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: migration not a number");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
 	}
@@ -707,6 +779,12 @@ on_activate(GtkButton *button, gpointer dat)
 		return;
 	}
 
+	/* 
+	 * All parameters check out!
+	 * Start the simulation now.
+	 */
+	gtk_widget_hide(GTK_WIDGET(b->wins.error));
+
 	sim = g_malloc0(sizeof(struct sim));
 	g_mutex_init(&sim->results.mux);
 	sim->results.dims = 100;
@@ -720,6 +798,9 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->totalpop = totalpop;
 	sim->islands = islands;
 	sim->stop = stop;
+	sim->alpha = alpha;
+	sim->delta = delta;
+	sim->m = m;
 	sim->pops = g_malloc0_n(sim->islands, sizeof(size_t));
 	for (i = 0; i < sim->islands; i++)
 		sim->pops[i] = islandpop;
@@ -792,7 +873,8 @@ onpreset(GtkComboBox *widget, gpointer dat)
  * This sets (for the user) the current payoff in an entry.
  */
 gboolean
-on_change_payoff(GtkNotebook *notebook, GtkWidget *page, gint pnum, gpointer dat)
+on_change_payoff(GtkNotebook *notebook, 
+	GtkWidget *page, gint pnum, gpointer dat)
 {
 	struct bmigrate	*b = dat;
 
@@ -806,7 +888,8 @@ on_change_payoff(GtkNotebook *notebook, GtkWidget *page, gint pnum, gpointer dat
  * This sets (for the user) the current configuration in an entry.
  */
 gboolean
-on_change_input(GtkNotebook *notebook, GtkWidget *page, gint pnum, gpointer dat)
+on_change_input(GtkNotebook *notebook, 
+	GtkWidget *page, gint pnum, gpointer dat)
 {
 	struct bmigrate	*b = dat;
 
