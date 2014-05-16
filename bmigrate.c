@@ -77,6 +77,7 @@ struct	hwin {
 	GtkEntry	 *alpha;
 	GtkEntry	 *delta;
 	GtkEntry	 *migrate;
+	GtkEntry	 *incumbents;
 	GtkLabel	 *curthreads;
 	GtkToggleButton	 *analsingle;
 	GtkToggleButton	 *analmultiple;
@@ -101,6 +102,13 @@ struct	simres {
 	size_t		 dims;
 };
 
+struct	simout {
+	double		*mutants;
+	size_t		*runs;
+	size_t		 truns;
+	size_t		 dims;
+};
+
 struct	sim {
 	GThread		 *thread; /* thread of execution */
 	size_t		  nprocs; /* processors reserved */
@@ -117,7 +125,8 @@ struct	sim {
 	union {
 		struct sim_continuum2 continuum2;
 	} d;
-	struct simres	  results; /* results of simulation */
+	struct simres	  results; /* current results */
+	struct simout	  output; /* graphed results */
 };
 
 /*
@@ -193,6 +202,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry14"));
 	b->wins.migrate = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry1"));
+	b->wins.incumbents = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry15"));
 
 	/* Set the initially-selected notebooks. */
 	gtk_entry_set_text(b->wins.input, inputs
@@ -248,6 +259,8 @@ sim_free(gpointer arg)
 
 	g_free(p->results.mutants);
 	g_free(p->results.runs);
+	g_free(p->output.mutants);
+	g_free(p->output.runs);
 	g_free(p->pops);
 	g_free(p);
 }
@@ -296,34 +309,38 @@ pi_theta(size_t i, size_t n, const double *m)
 static int
 on_sim_next(const gsl_rng *rng, struct sim *sim, 
 	double *mutant, double *incumbent, 
-	size_t *mutantidx, size_t *incumbentidx)
+	size_t *incumbentidx)
 {
 
 	if (sim->terminate)
 		return(0);
 
-	*mutantidx = gsl_rng_uniform_int(rng, sim->results.dims);
-	*incumbentidx = gsl_rng_uniform_int(rng, sim->results.dims);
+	*incumbentidx = (*incumbentidx + 1) % sim->results.dims;
+
 	*mutant = sim->d.continuum2.xmin + 
 		(sim->d.continuum2.xmax - 
-		 sim->d.continuum2.xmin) * 
-		(*mutantidx / (double)sim->results.dims);
+		 sim->d.continuum2.xmin) * gsl_rng_uniform(rng);
 	*incumbent = sim->d.continuum2.xmin + 
 		(sim->d.continuum2.xmax - 
 		 sim->d.continuum2.xmin) * 
 		(*incumbentidx / (double)sim->results.dims);
+
 	return(1);
 }
 
+/*
+ * Run a simulation.
+ * This can be one thread of many within the same simulation, however.
+ */
 static void *
-on_sim_new(void *arg)
+on_sim(void *arg)
 {
 	struct sim	*sim = arg;
-	double		 mutant, incumbent, m;
+	double		 mutant, incumbent;
 	double		 payoffs[4];
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, j, k, new, mutants, incumbents,
-			 len1, len2, mutantidx, incumbentidx;
+			 len1, len2, incumbentidx;
 	int		 mutant_old, mutant_new;
 	gsl_rng		*rng;
 
@@ -332,23 +349,20 @@ on_sim_new(void *arg)
 	g_debug("Thread %p (simulation %p) using RNG %s", 
 		g_thread_self(), sim, gsl_rng_name(rng));
 
-	m = 0.5;
-
 	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	kids[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
-
+	incumbentidx = 0;
 again:
 	if ( ! on_sim_next(rng, sim, &mutant, 
-		&incumbent, &mutantidx, &incumbentidx)) {
+		&incumbent, &incumbentidx)) {
 		g_free(imutants);
 		g_free(kids[0]);
 		g_free(kids[1]);
 		g_free(migrants[0]);
 		g_free(migrants[1]);
-		sim->nprocs = 0;
 		g_debug("Thread %p (simulation %p) exiting", 
 			g_thread_self(), sim);
 		return(NULL);
@@ -407,7 +421,7 @@ again:
 		for (j = 0; j < sim->islands; j++) {
 			for (k = 0; k < kids[0][j]; k++) {
 				new = j;
-				if (gsl_rng_uniform(rng) < m) do 
+				if (gsl_rng_uniform(rng) < sim->m) do 
 					new = gsl_rng_uniform_int
 						(rng, sim->islands);
 				while (new == j);
@@ -415,7 +429,7 @@ again:
 			}
 			for (k = 0; k < kids[1][j]; k++) {
 				new = j;
-				if (gsl_rng_uniform(rng) < m) do 
+				if (gsl_rng_uniform(rng) < sim->m) do 
 					new = gsl_rng_uniform_int
 						(rng, sim->islands);
 				while (new == j);
@@ -474,8 +488,53 @@ on_sim_deref(gpointer dat)
 	sim->terminate = 1;
 }
 
+/*
+ * This copies data from the threads into local storage.
+ */
 static gboolean
-on_timer(gpointer dat)
+on_sim_copyout(gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	GList		*list;
+	struct sim	*sim;
+	size_t		 changed;
+
+	changed = 0;
+	for (list = b->sims; NULL != list; list = g_list_next(list)) {
+		sim = list->data;
+		g_mutex_lock(&sim->results.mux);
+		if (sim->results.truns == sim->output.truns) {
+			g_mutex_unlock(&sim->results.mux);
+			continue;
+		}
+		memcpy(sim->output.mutants, 
+			sim->results.mutants,
+			sizeof(double) * sim->output.dims);
+		memcpy(sim->output.runs, 
+			sim->results.runs,
+			sizeof(size_t) * sim->output.dims);
+		sim->output.truns = sim->results.truns;
+		g_mutex_unlock(&sim->results.mux);
+		changed++;
+	}
+
+	if (0 == changed)
+		return(TRUE);
+
+	list = gtk_window_list_toplevels();
+	for ( ; list != NULL; list = list->next)
+		gtk_widget_queue_draw(GTK_WIDGET(list->data));
+
+	return(TRUE);
+}
+
+/*
+ * Run this fairly often to see if we need to join any worker threads.
+ * Worker threads are joined when they have zero references are in the
+ * terminating state.
+ */
+static gboolean
+on_sim_timer(gpointer dat)
 {
 	struct bmigrate	*b = dat;
 	size_t		 nprocs;
@@ -486,25 +545,27 @@ on_timer(gpointer dat)
 	nprocs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = (struct sim *)list->data;
-		if (0 == sim->nprocs && NULL != sim->thread) {
-			g_debug("Timeout handler joining thread "
-				"%p (simulation %p)", sim->thread, sim);
+		/*
+		 * If "terminate" is set, then the thread is (or already
+		 * did) exit, so wait for it.
+		 * If we wait, it should take only a very small while.
+		 */
+		if (sim->terminate && NULL != sim->thread) {
+			g_debug("Timeout handler joining "
+				"thread %p (simulation %p)", 
+				sim->thread, sim);
 			g_thread_join(sim->thread);
 			sim->thread = NULL;
-		}
-		g_debug("Simulation %p runs: %zu", sim, sim->results.truns);
-		nprocs += sim->nprocs;
+			assert(0 == sim->refs); 
+		} else if ( ! sim->terminate)
+			nprocs += sim->nprocs;
 	}
 
+	/* Remind us of how many threads we're running. */
 	(void)g_snprintf(buf, sizeof(buf),
 		"(%g%% active)", 100 * (nprocs / 
 			(double)g_get_num_processors()));
 	gtk_label_set_text(b->wins.curthreads, buf);
-
-	list = gtk_window_list_toplevels();
-	for ( ; list != NULL; list = list->next)
-		gtk_widget_queue_draw(GTK_WIDGET(list->data));
-
 	return(TRUE);
 }
 
@@ -585,10 +646,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		sim = g_object_get_data(G_OBJECT(top), buf);
 		if (NULL == sim)
 			break;
-		for (j = 0; j < sim->results.dims; j++) {
-			v = (0 == sim->results.runs[j]) ? 0.0 :
-				sim->results.mutants[j] / 
-				(double)sim->results.runs[j];
+		for (j = 0; j < sim->output.dims; j++) {
+			v = (0 == sim->output.runs[j]) ? 0.0 :
+				sim->output.mutants[j] / 
+				(double)sim->output.runs[j];
 			if (v > maxy)
 				maxy = v;
 		}
@@ -606,18 +667,18 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		(void)g_snprintf(buf, sizeof(buf), "sim%zu", i);
 		sim = g_object_get_data(G_OBJECT(top), buf);
 		assert(NULL != sim);
-		for (j = 1; j < sim->results.dims; j++) {
-			v = (0 == sim->results.runs[j - 1]) ? 0.0 :
-				sim->results.mutants[j - 1] / 
-				(double)sim->results.runs[j - 1];
+		for (j = 1; j < sim->output.dims; j++) {
+			v = (0 == sim->output.runs[j - 1]) ? 0.0 :
+				sim->output.mutants[j - 1] / 
+				(double)sim->output.runs[j - 1];
 			cairo_move_to(cr, 
-				width * (j - 1) / (double)(sim->results.dims - 1),
+				width * (j - 1) / (double)(sim->output.dims - 1),
 				height - (v / maxy * height));
-			v = (0 == sim->results.runs[j]) ? 0.0 :
-				sim->results.mutants[j] / 
-				(double)sim->results.runs[j];
+			v = (0 == sim->output.runs[j]) ? 0.0 :
+				sim->output.mutants[j] / 
+				(double)sim->output.runs[j];
 			cairo_line_to(cr, 
-				width * j / (double)(sim->results.dims - 1),
+				width * j / (double)(sim->output.dims - 1),
 				height - (v / maxy * height));
 		}
 	}
@@ -685,7 +746,8 @@ on_activate(GtkButton *button, gpointer dat)
 	struct hnode	**exp;
 	const gchar	 *txt;
 	gdouble		  xmin, xmax, delta, alpha, m;
-	size_t		  i, totalpop, islandpop, islands, stop;
+	size_t		  i, totalpop, islandpop, islands, 
+			  stop, slices;
 	struct sim	 *sim;
 	GdkRGBA	  	  color = { 1.0, 1.0, 1.0, 1.0 };
 	GtkWidget	 *w, *draw;
@@ -767,6 +829,12 @@ on_activate(GtkButton *button, gpointer dat)
 			 "Error: migration not a number");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
+	} else if ( ! entry2size(b->wins.incumbents, &slices)) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: incumbents not a number");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
 	}
 
 	txt = gtk_entry_get_text(b->wins.func);
@@ -787,11 +855,16 @@ on_activate(GtkButton *button, gpointer dat)
 
 	sim = g_malloc0(sizeof(struct sim));
 	g_mutex_init(&sim->results.mux);
-	sim->results.dims = 100;
+	sim->results.dims = slices;
+	sim->output.dims = slices;
 	sim->results.runs = g_malloc0_n
 		(sim->results.dims, sizeof(size_t));
+	sim->output.runs = g_malloc0_n
+		(sim->output.dims, sizeof(size_t));
 	sim->results.mutants = g_malloc0_n
 		(sim->results.dims, sizeof(double));
+	sim->output.mutants = g_malloc0_n
+		(sim->output.dims, sizeof(double));
 
 	sim->type = PAYOFF_CONTINUUM2;
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
@@ -808,7 +881,7 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->d.continuum2.xmin = xmin;
 	sim->d.continuum2.xmax = xmax;
 	b->sims = g_list_append(b->sims, sim);
-	sim->thread = g_thread_new(NULL, on_sim_new, sim);
+	sim->thread = g_thread_new(NULL, on_sim, sim);
 	sim->refs = 1;
 
 	/*
@@ -829,7 +902,6 @@ on_activate(GtkButton *button, gpointer dat)
 	gtk_widget_show_all(w);
 	g_object_set_data_full(G_OBJECT(w), 
 		"sim0", sim, on_sim_deref);
-
 }
 
 /*
@@ -992,7 +1064,8 @@ main(int argc, char *argv[])
 		G_CALLBACK(onterminate), &b);
 	gtkosx_application_ready(theApp);
 #endif
-	g_timeout_add(500, (GSourceFunc)on_timer, &b);
+	g_timeout_add(500, (GSourceFunc)on_sim_timer, &b);
+	g_timeout_add(500, (GSourceFunc)on_sim_copyout, &b);
 	gtk_main();
 	bmigrate_free(&b);
 	return(EXIT_SUCCESS);
