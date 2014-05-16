@@ -91,17 +91,27 @@ struct	sim_continuum2 {
 	double		  xmax;
 };
 
+struct	simres {
+	GMutex		 mux;
+	double		*mutants;
+	size_t		*runs;
+	size_t		 dims;
+};
+
 struct	sim {
 	GThread		 *thread; /* thread of execution */
 	size_t		  nprocs; /* processors reserved */
 	size_t		  totalpop; /* total population */
 	size_t		 *pops; /* per-island population */
 	size_t		  islands; /* island population */
+	size_t		  refs; /* GUI references */
+	int		  terminate; /* terminate the process */
 	size_t		  stop; /* when to stop */
 	enum payoff	  type; /* type of game */
 	union {
 		struct sim_continuum2 continuum2;
 	} d;
+	struct simres	  results; /* results of simulation */
 };
 
 /*
@@ -201,9 +211,9 @@ sim_free(gpointer arg)
 {
 	struct sim	*p = arg;
 
-
 	if (NULL == p)
 		return;
+
 	switch (p->type) {
 	case (PAYOFF_CONTINUUM2):
 		hnode_free(p->d.continuum2.exp);
@@ -211,10 +221,22 @@ sim_free(gpointer arg)
 	default:
 		break;
 	}
+
 	if (NULL != p->thread)
 		g_thread_join(p->thread);
+
+	g_free(p->results.mutants);
+	g_free(p->results.runs);
 	g_free(p->pops);
 	g_free(p);
+}
+
+static void
+sim_stop(gpointer arg, gpointer unused)
+{
+	struct sim	*p = arg;
+
+	p->terminate = 1;
 }
 
 /*
@@ -227,6 +249,7 @@ static void
 bmigrate_free(struct bmigrate *p)
 {
 
+	g_list_foreach(p->sims, sim_stop, NULL);
 	g_list_free_full(p->sims, sim_free);
 	p->sims = NULL;
 }
@@ -247,6 +270,27 @@ pi_theta(size_t i, size_t n, const double *m)
 		((n - i - 1) / (double)(n - 1) * m[0]));
 }
 
+static int
+on_sim_next(struct sim *sim, 
+	double *mutant, double *incumbent, 
+	size_t *mutantidx, size_t *incumbentidx)
+{
+
+	if (sim->terminate)
+		return(0);
+
+	*mutantidx = arc4random_uniform(sim->results.dims);
+	*incumbentidx = arc4random_uniform(sim->results.dims);
+	*mutant = sim->d.continuum2.xmin + 
+		(sim->d.continuum2.xmax - 
+		 sim->d.continuum2.xmin) * 
+		(*mutantidx / (double)sim->results.dims);
+	*incumbent = sim->d.continuum2.xmin + 
+		(sim->d.continuum2.xmax - 
+		 sim->d.continuum2.xmin) * 
+		(*incumbentidx / (double)sim->results.dims);
+	return(1);
+}
 
 static void *
 on_sim_new(void *arg)
@@ -256,7 +300,7 @@ on_sim_new(void *arg)
 	double		 payoffs[4];
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, j, k, new, mutants, incumbents,
-			 len1, len2;
+			 len1, len2, mutantidx, incumbentidx;
 	int		 mutant_old, mutant_new;
 	gsl_rng		*rng;
 
@@ -266,12 +310,23 @@ on_sim_new(void *arg)
 	delta = 0.1;
 	m = 0.5;
 
-	mutant = sim->d.continuum2.xmin + 
-		(sim->d.continuum2.xmax - sim->d.continuum2.xmin) * 
-		ARC4RANDOM_INTERVAL;
-	incumbent = sim->d.continuum2.xmin + 
-		(sim->d.continuum2.xmax - sim->d.continuum2.xmin) * 
-		ARC4RANDOM_INTERVAL;
+	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
+	kids[1] = g_malloc0_n(sim->islands, sizeof(size_t));
+	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
+	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
+	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
+
+again:
+	if ( ! on_sim_next(sim, &mutant, 
+		&incumbent, &mutantidx, &incumbentidx)) {
+		g_free(imutants);
+		g_free(kids[0]);
+		g_free(kids[1]);
+		g_free(migrants[0]);
+		g_free(migrants[1]);
+		sim->nprocs = 0;
+		return(NULL);
+	}
 
 	payoffs[0] = mult * (1.0 + delta * 
 		hnode_exec((const struct hnode *const *)
@@ -284,22 +339,17 @@ on_sim_new(void *arg)
 	payoffs[2] = mult * (1.0 + delta * 
 		hnode_exec((const struct hnode *const *)
 			sim->d.continuum2.exp, 
-			incumbent, mutant + incumbent, 2));
+			incumbent, incumbent + mutant, 2));
 	payoffs[3] = mult * (1.0 + delta * 
 		hnode_exec((const struct hnode *const *)
 			sim->d.continuum2.exp, 
 			incumbent, incumbent + incumbent, 2));
 
-	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
-	kids[1] = g_malloc0_n(sim->islands, sizeof(size_t));
-	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
-	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
-	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
-
 	/* 
 	 * Initialise a random island to have one mutant. 
 	 * The rest are all incumbents.
 	 */
+	memset(imutants, 0, sim->islands * sizeof(size_t));
 	imutants[arc4random_uniform(sim->islands)] = 1;
 	mutants = 1;
 	incumbents = sim->totalpop - mutants;
@@ -375,23 +425,31 @@ on_sim_new(void *arg)
 			break;
 	}
 
-	g_free(imutants);
-	g_free(kids[0]);
-	g_free(kids[1]);
-	g_free(migrants[0]);
-	g_free(migrants[1]);
-	sim->nprocs = 0;
-	return(NULL);
+	g_mutex_lock(&sim->results.mux);
+	sim->results.mutants[incumbentidx] += 
+		(mutants / (double)sim->totalpop);
+	sim->results.runs[incumbentidx]++;
+	g_mutex_unlock(&sim->results.mux);
+	goto again;
+}
+
+static void
+on_sim_deref(gpointer dat)
+{
+	struct sim	*sim = dat;
+
+	if (0 == --sim->refs)
+		sim->terminate = 1;
 }
 
 static gboolean
 on_timer(gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	GList		*list;
 	size_t		 nprocs;
 	struct sim	*sim;
 	gchar		 buf[1024];
+	GList		*list;
 
 	nprocs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
@@ -407,7 +465,130 @@ on_timer(gpointer dat)
 		"(%g%% active)", 100 * (nprocs / 
 			(double)g_get_num_processors()));
 	gtk_label_set_text(b->wins.curthreads, buf);
-	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
+
+	list = gtk_window_list_toplevels();
+	for ( ; list != NULL; list = list->next)
+		gtk_widget_queue_draw(GTK_WIDGET(list->data));
+
+	return(TRUE);
+}
+
+static void
+drawlabels(cairo_t *cr, double *widthp, double *heightp,
+	double miny, double maxy, double minx, double maxx)
+{
+	cairo_text_extents_t e;
+	char	 	 buf[1024];
+	double		 width, height;
+
+	width = *widthp;
+	height = *heightp;
+
+	cairo_text_extents(cr, "-10.00", &e);
+	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0); 
+
+	/* Top right. */
+	cairo_move_to(cr, width - e.width, 
+		height - e.height * 2.0);
+	(void)snprintf(buf, sizeof(buf), "%.2g", miny);
+	cairo_show_text(cr, buf);
+
+	/* Middle right. */
+	cairo_move_to(cr, width - e.width, height * 0.5);
+	(void)snprintf(buf, sizeof(buf), "%.2g", (maxy + miny) * 0.5);
+	cairo_show_text(cr, buf);
+
+	/* Bottom right. */
+	cairo_move_to(cr, width - e.width, e.height * 1.5);
+	(void)snprintf(buf, sizeof(buf), "%.2g", maxy);
+	cairo_show_text(cr, buf);
+
+	/* Right bottom. */
+	cairo_move_to(cr, width - e.width * 1.5, 
+		height - e.height * 0.5);
+	(void)snprintf(buf, sizeof(buf), "%.2g", maxx);
+	cairo_show_text(cr, buf);
+
+	/* Middle bottom. */
+	cairo_move_to(cr, width * 0.5 - e.width * 0.5, 
+		height - e.height * 0.5);
+	(void)snprintf(buf, sizeof(buf), "%.2g", (maxx + minx) * 0.5);
+	cairo_show_text(cr, buf);
+
+	/* Left bottom. */
+	cairo_move_to(cr, e.width * 0.25, 
+		height - e.height * 0.5);
+	(void)snprintf(buf, sizeof(buf), "%.2g", minx);
+	cairo_show_text(cr, buf);
+
+	*widthp -= e.width * 1.3;
+	*heightp -= e.height * 3.0;
+}
+
+gboolean
+ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
+{
+	double		 width, height, maxy, v, xmin, xmax;
+	GtkWidget	*top;
+	struct sim	*sim;
+	size_t		 i, j, objs;
+	gchar		 buf[128];
+
+	width = gtk_widget_get_allocated_width(w);
+	height = gtk_widget_get_allocated_height(w);
+
+	top = gtk_widget_get_toplevel(w);
+	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
+	cairo_rectangle(cr, 0.0, 0.0, width, height);
+	cairo_fill(cr);
+
+	xmin = FLT_MAX;
+	xmax = maxy = -FLT_MAX;
+
+	for (objs = 0; objs < 32; objs++) {
+		(void)g_snprintf(buf, sizeof(buf), "sim%zu", objs);
+		sim = g_object_get_data(G_OBJECT(top), buf);
+		if (NULL == sim)
+			break;
+		for (j = 0; j < sim->results.dims; j++) {
+			v = (0 == sim->results.runs[j]) ? 0.0 :
+				sim->results.mutants[j] / 
+				(double)sim->results.runs[j];
+			if (v > maxy)
+				maxy = v;
+		}
+		if (xmin > sim->d.continuum2.xmin)
+			xmin = sim->d.continuum2.xmin;
+		if (xmax < sim->d.continuum2.xmax)
+			xmax = sim->d.continuum2.xmax;
+	}
+
+	maxy += maxy * 0.1;
+	drawlabels(cr, &width, &height, 0.0, maxy, xmin, xmax);
+	cairo_save(cr);
+
+	for (i = 0; i < objs; i++) {
+		(void)g_snprintf(buf, sizeof(buf), "sim%zu", i);
+		sim = g_object_get_data(G_OBJECT(top), buf);
+		assert(NULL != sim);
+		for (j = 1; j < sim->results.dims; j++) {
+			v = (0 == sim->results.runs[j - 1]) ? 0.0 :
+				sim->results.mutants[j - 1] / 
+				(double)sim->results.runs[j - 1];
+			cairo_move_to(cr, 
+				width * (j - 1) / (double)(sim->results.dims - 1),
+				height - (v / maxy * height));
+			v = (0 == sim->results.runs[j]) ? 0.0 :
+				sim->results.mutants[j] / 
+				(double)sim->results.runs[j];
+			cairo_line_to(cr, 
+				width * j / (double)(sim->results.dims - 1),
+				height - (v / maxy * height));
+		}
+	}
+	cairo_set_source_rgb(cr, 1.0, 0.0, 0.0); 
+	cairo_stroke(cr);
+	cairo_restore(cr);
 	return(TRUE);
 }
 
@@ -463,6 +644,8 @@ on_activate(GtkButton *button, gpointer dat)
 	gdouble		  xmin, xmax;
 	size_t		  i, totalpop, islandpop, islands, stop;
 	struct sim	 *sim;
+	GdkRGBA	  	  color = { 1.0, 1.0, 1.0, 1.0 };
+	GtkWidget	 *w, *draw;
 
 	input = gtk_notebook_get_current_page(b->wins.inputs);
 	if (INPUT_UNIFORM != input) {
@@ -525,6 +708,13 @@ on_activate(GtkButton *button, gpointer dat)
 	}
 
 	sim = g_malloc0(sizeof(struct sim));
+	g_mutex_init(&sim->results.mux);
+	sim->results.dims = 100;
+	sim->results.runs = g_malloc0_n
+		(sim->results.dims, sizeof(size_t));
+	sim->results.mutants = g_malloc0_n
+		(sim->results.dims, sizeof(double));
+
 	sim->type = PAYOFF_CONTINUUM2;
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
 	sim->totalpop = totalpop;
@@ -538,6 +728,27 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->d.continuum2.xmax = xmax;
 	b->sims = g_list_append(b->sims, sim);
 	sim->thread = g_thread_new(NULL, on_sim_new, sim);
+	sim->refs = 1;
+
+	/*
+	 * Now we create the output window.
+	 */
+	w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	gtk_widget_override_background_color
+		(w, GTK_STATE_FLAG_NORMAL, &color);
+	draw = gtk_drawing_area_new();
+	gtk_widget_set_margin_left(draw, 10);
+	gtk_widget_set_margin_right(draw, 10);
+	gtk_widget_set_margin_top(draw, 10);
+	gtk_widget_set_margin_bottom(draw, 10);
+	gtk_widget_set_size_request(draw, 440, 400);
+	g_signal_connect(G_OBJECT(draw), 
+		"draw", G_CALLBACK(ondraw), sim);
+	gtk_container_add(GTK_CONTAINER(w), draw);
+	gtk_widget_show_all(w);
+	g_object_set_data_full(G_OBJECT(w), 
+		"sim0", sim, on_sim_deref);
+
 }
 
 /*
