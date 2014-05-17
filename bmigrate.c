@@ -90,29 +90,39 @@ struct	hwin {
 };
 
 /*
- * Configuration for a running two-player continuum game.
+ * Configuration for a running an n-player continuum game.
  * This is associated with a function that's executed with real-valued
  * player strategies, e.g., public goods.
  */
-struct	sim_continuum2 {
-	struct hnode	**exp;
-	double		  xmin;
-	double		  xmax;
+struct	sim_continuum {
+	struct hnode	**exp; /* n-player function */
+	double		  xmin; /* minimum strategy */
+	double		  xmax; /* maximum strategy */
 };
 
+/*
+ * This structure is maintained by a thread group for a particular
+ * running simulation.
+ * All reads/writes must lock the mutex before modifications.
+ */
 struct	simres {
 	GMutex		 mux;
-	double		*mutants;
-	double		*mutants2;
-	double		*stddevs;
-	double	   	*fit;
-	size_t		*runs;
-	size_t		 truns;
+	double		*mutants; /* sum of mutant fraction */
+	double		*mutants2; /* sum of mutant fraction^2 */
+	double		*stddevs; /* running standard deviation */
+	double	   	*fit; /* fitpoly coefficients */
+	size_t		*runs; /* runs per mutant */
+	size_t		 truns; /* total number of runs */
 };
 
+/*
+ * Instead of operating on the simulation results themselves, we copy
+ * output into a buffer for viewing.
+ * This prevents over-zealous locking of the simulation.
+ * See "struct simres" for matching fields. 
+ */
 struct	simout {
 	double		*mutants;
-	double		*mutants2;
 	double		*stddevs;
 	size_t		*runs;
 	double	   	*fit;
@@ -135,7 +145,7 @@ struct	sim {
 	double		  m; /* migration probability */
 	enum payoff	  type; /* type of game */
 	union {
-		struct sim_continuum2 continuum2;
+		struct sim_continuum continuum;
 	} d;
 	struct simres	  results; /* current results */
 	struct simout	  output; /* graphed results */
@@ -155,7 +165,7 @@ static	const char *const inputs[INPUT__MAX] = {
 };
 
 static	const char *const payoffs[PAYOFF__MAX] = {
-	"continuum two-player",
+	"continuum",
 	"finite two-player two-strategy",
 };
 
@@ -238,21 +248,29 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	/* Maximum number of processors. */
 	gtk_adjustment_set_upper
 		(b->wins.nthreads, g_get_num_processors());
-
-	gtk_label_set_text(b->wins.curthreads, "(0% active)");
-	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
-
 	w = gtk_builder_get_object(builder, "label12");
 	(void)g_snprintf(buf, sizeof(buf), 
 		"%d", g_get_num_processors());
 	gtk_label_set_text(GTK_LABEL(w), buf);
 
+	/* Compute initial total population. */
 	(void)g_snprintf(buf, sizeof(buf),
 		"%g", gtk_adjustment_get_value(b->wins.pop) *
 		gtk_adjustment_get_value(b->wins.islands));
 	gtk_entry_set_text(b->wins.totalpop, buf);
+
+	/* Initialise our helpful run-load. */
+	gtk_label_set_text(b->wins.curthreads, "(0% active)");
+	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
 }
 
+/*
+ * Free a given simulation, possibly waiting for the simulation threads
+ * to exit. 
+ * The simulation is presumed to have been set as terminating before
+ * running this.
+ * Yes, we can wait if the simulation takes a long time between updates.
+ */
 static void
 sim_free(gpointer arg)
 {
@@ -263,18 +281,18 @@ sim_free(gpointer arg)
 
 	g_debug("Freeing simulation %p", p);
 
-	switch (p->type) {
-	case (PAYOFF_CONTINUUM2):
-		hnode_free(p->d.continuum2.exp);
-		break;
-	default:
-		break;
-	}
-
 	if (NULL != p->thread) {
 		g_debug("Freeing joining thread %p "
 			"(simulation %p)", p->thread, p);
 		g_thread_join(p->thread);
+	}
+
+	switch (p->type) {
+	case (PAYOFF_CONTINUUM2):
+		hnode_free(p->d.continuum.exp);
+		break;
+	default:
+		break;
 	}
 
 	g_free(p->results.mutants);
@@ -283,7 +301,6 @@ sim_free(gpointer arg)
 	g_free(p->results.fit);
 	g_free(p->results.runs);
 	g_free(p->output.mutants);
-	g_free(p->output.mutants2);
 	g_free(p->output.stddevs);
 	g_free(p->output.fit);
 	g_free(p->output.runs);
@@ -291,6 +308,9 @@ sim_free(gpointer arg)
 	g_free(p);
 }
 
+/*
+ * Set a given simulation to stop running.
+ */
 static void
 sim_stop(gpointer arg, gpointer unused)
 {
@@ -316,22 +336,12 @@ bmigrate_free(struct bmigrate *p)
 	p->sims = NULL;
 }
 
-static double
-pi_tau(size_t i, size_t n, const double *m)
-{
-
-	return(((i - 1) / (double)(n - 1) * m[3]) + 
-		((n - i) / (double)(n - 1) * m[2]));
-}
-
-static double
-pi_theta(size_t i, size_t n, const double *m)
-{
-
-	return((i / (double)(n - 1) * m[1]) + 
-		((n - i - 1) / (double)(n - 1) * m[0]));
-}
-
+/*
+ * In a given simulation, compute the next mutant/incumbent pair.
+ * We make sure that incumbents are striped evenly in any given
+ * simulation but that mutants are randomly selected from within the
+ * strategy domain.
+ */
 static int
 on_sim_next(const gsl_rng *rng, struct sim *sim, 
 	double *mutant, double *incumbent, 
@@ -341,29 +351,50 @@ on_sim_next(const gsl_rng *rng, struct sim *sim,
 	if (sim->terminate)
 		return(0);
 
+	/* Increment over a ring. */
 	*incumbentidx = (*incumbentidx + 1) % sim->dims;
 
-	*mutant = sim->d.continuum2.xmin + 
-		(sim->d.continuum2.xmax - 
-		 sim->d.continuum2.xmin) * gsl_rng_uniform(rng);
-	*incumbent = sim->d.continuum2.xmin + 
-		(sim->d.continuum2.xmax - 
-		 sim->d.continuum2.xmin) * 
+	*mutant = sim->d.continuum.xmin + 
+		(sim->d.continuum.xmax - 
+		 sim->d.continuum.xmin) * gsl_rng_uniform(rng);
+	*incumbent = sim->d.continuum.xmin + 
+		(sim->d.continuum.xmax - 
+		 sim->d.continuum.xmin) * 
 		(*incumbentidx / (double)sim->dims);
 
 	return(1);
 }
 
 /*
+ * For a given island (size "pop") player's strategy "x" where mutants
+ * (numbering "mutants") have strategy "mutant" and incumbents
+ * (numbering "incumbents") have strategy "incumbent", compute the
+ * a(1 + delta(pi(x, X)) function.
+ */
+static double
+continuum_lambda(const struct sim *sim, double x, 
+	double mutant, double incumbent, size_t mutants, size_t pop)
+{
+	double	 v;
+
+	v = hnode_exec
+		((const struct hnode *const *)
+		 sim->d.continuum.exp, x,
+		 (mutants * mutant) + ((pop - mutants) * incumbent),
+		 pop);
+	assert( ! (isnan(v) || isinf(v)));
+	return(sim->alpha * (1.0 + sim->delta * v));
+}
+
+/*
  * Run a simulation.
- * This can be one thread of many within the same simulation, however.
+ * This can be one thread of many within the same simulation.
  */
 static void *
 on_sim(void *arg)
 {
 	struct sim	*sim = arg;
-	double		 mutant, incumbent, v, chisq;
-	double		 payoffs[4];
+	double		 mutant, incumbent, v, chisq, lambda;
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, i, j, k, new, mutants, incumbents,
 			 len1, len2, incumbentidx;
@@ -374,6 +405,14 @@ on_sim(void *arg)
 	gsl_multifit_linear_workspace *work;
 
 	rng = gsl_rng_alloc(gsl_rng_default);
+	g_debug("Thread %p (simulation %p) using RNG %s", 
+		g_thread_self(), sim, gsl_rng_name(rng));
+
+	/* 
+	 * Conditionally allocate polynomial fitting.
+	 * There's no need for all of this extra memory allocated if
+	 * we're not going to use it!
+	 */
 	if (sim->fitpoly) {
 		X = gsl_matrix_alloc(sim->dims, sim->fitpoly + 1);
 		y = gsl_vector_alloc(sim->dims);
@@ -384,18 +423,21 @@ on_sim(void *arg)
 			(sim->dims, sim->fitpoly + 1);
 	}
 
-	g_debug("Thread %p (simulation %p) using RNG %s", 
-		g_thread_self(), sim, gsl_rng_name(rng));
-
 	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	kids[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 	incumbentidx = 0;
+
 again:
+	/* Repeat til we're instructed to terminate. */
 	if ( ! on_sim_next(rng, sim, &mutant, 
 		&incumbent, &incumbentidx)) {
+		/*
+		 * Upon termination, free up all of the memory
+		 * associated with our simulation.
+		 */
 		g_free(imutants);
 		g_free(kids[0]);
 		g_free(kids[1]);
@@ -412,23 +454,6 @@ again:
 			g_thread_self(), sim);
 		return(NULL);
 	}
-
-	payoffs[0] = sim->alpha * (1.0 + sim->delta * 
-		hnode_exec((const struct hnode *const *)
-			sim->d.continuum2.exp, 
-			incumbent, incumbent + incumbent, 2));
-	payoffs[1] = sim->alpha * (1.0 + sim->delta * 
-		hnode_exec((const struct hnode *const *)
-			sim->d.continuum2.exp, 
-			incumbent, incumbent + mutant, 2));
-	payoffs[2] = sim->alpha * (1.0 + sim->delta * 
-		hnode_exec((const struct hnode *const *)
-			sim->d.continuum2.exp, 
-			mutant, mutant + incumbent, 2));
-	payoffs[3] = sim->alpha * (1.0 + sim->delta * 
-		hnode_exec((const struct hnode *const *)
-			sim->d.continuum2.exp, 
-			mutant, mutant + mutant, 2));
 
 	/* 
 	 * Initialise a random island to have one mutant. 
@@ -447,16 +472,18 @@ again:
 		 * properly compute this.
 		 */
 		for (j = 0; j < sim->islands; j++) {
+			lambda = continuum_lambda
+				(sim, mutant, mutant, 
+				 incumbent, imutants[j], sim->pops[j]);
 			for (k = 0; k < imutants[j]; k++) 
 				kids[0][j] += gsl_ran_poisson
-					(rng, 
-					 pi_tau(imutants[j], 
-					 sim->pops[j], payoffs));
+					(rng, lambda);
+			lambda = continuum_lambda
+				(sim, incumbent, mutant, 
+				 incumbent, imutants[j], sim->pops[j]);
 			for ( ; k < sim->pops[j]; k++)
 				kids[1][j] += gsl_ran_poisson
-					(rng, 
-					 pi_theta(imutants[j], 
-					 sim->pops[j], payoffs));
+					(rng, lambda);
 		}
 
 		/*
@@ -521,6 +548,7 @@ again:
 	/*
 	 * Update our results within a mutex.
 	 * This is heavyweight, but necessary.
+	 * TODO: do this in a writer lock. 
 	 */
 	v = mutants / (double)sim->totalpop;
 	g_mutex_lock(&sim->results.mux);
@@ -535,12 +563,18 @@ again:
 		 sim->results.mutants[incumbentidx]) /
 		 sim->results.runs[incumbentidx];
 	if (sim->fitpoly) 
+		/* 
+		 * If we're fitting to a polynomial, initialise our
+		 * polynomial structures here.
+		 * Don't do this unless we specifically need to, as it
+		 * can take up a lot of time.
+		 */
 		for (i = 0; i < sim->dims; i++) {
 			gsl_matrix_set(X, i, 0, 1.0);
 			for (j = 0; j < sim->fitpoly; j++) {
-				v = sim->d.continuum2.xmin +
-					(sim->d.continuum2.xmax -
-					 sim->d.continuum2.xmin) *
+				v = sim->d.continuum.xmin +
+					(sim->d.continuum.xmax -
+					 sim->d.continuum.xmin) *
 					(i / (double)sim->dims);
 				for (k = 0; k < j; k++)
 					v *= v;
@@ -554,6 +588,12 @@ again:
 		}
 	g_mutex_unlock(&sim->results.mux);
 
+	/*
+	 * If we're fitting to a polynomial, perform the actual fitting
+	 * component here.
+	 * We use the linear non-weighted version for now.
+	 * TODO: use the weighted version with the current stddev.
+	 */
 	if (sim->fitpoly) {
 		gsl_multifit_linear(X, y, c, cov, &chisq, work);
 		g_mutex_lock(&sim->results.mux);
@@ -565,22 +605,26 @@ again:
 	goto again;
 }
 
+/*
+ * Dereference a simulation.
+ * This means that we've closed an output window that's looking at a
+ * particular simulation.
+ */
 static void
 on_sim_deref(gpointer dat)
 {
 	struct sim	*sim = dat;
 
 	g_debug("Simulation %p deref (now %zu)", sim, sim->refs);
-
 	if (0 != --sim->refs) 
 		return;
-
 	g_debug("Simulation %p deref triggering termination", sim);
 	sim->terminate = 1;
 }
 
 /*
  * This copies data from the threads into local storage.
+ * TODO: use reader locks.
  */
 static gboolean
 on_sim_copyout(gpointer dat)
@@ -601,9 +645,6 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->output.mutants, 
 			sim->results.mutants,
 			sizeof(double) * sim->dims);
-		memcpy(sim->output.mutants2, 
-			sim->results.mutants2,
-			sizeof(double) * sim->dims);
 		memcpy(sim->output.stddevs, 
 			sim->results.stddevs,
 			sizeof(double) * sim->dims);
@@ -621,6 +662,7 @@ on_sim_copyout(gpointer dat)
 	if (0 == changed)
 		return(TRUE);
 
+	/* Update our windows IFF we've changed some data. */
 	list = gtk_window_list_toplevels();
 	for ( ; list != NULL; list = list->next)
 		gtk_widget_queue_draw(GTK_WIDGET(list->data));
@@ -667,6 +709,61 @@ on_sim_timer(gpointer dat)
 			(double)g_get_num_processors()));
 	gtk_label_set_text(b->wins.curthreads, buf);
 	return(TRUE);
+}
+
+static int
+entry2size(GtkEntry *entry, size_t *sz)
+{
+	guint64	 v;
+	gchar	*ep;
+
+	v = g_ascii_strtoull(gtk_entry_get_text(entry), &ep, 10);
+	if (ERANGE == errno || '\0' != *ep || v > SIZE_MAX)
+		return(0);
+
+	*sz = (size_t)v;
+	return(1);
+}
+
+static int
+entry2double(GtkEntry *entry, gdouble *sz)
+{
+	gchar	*ep;
+
+	*sz = g_ascii_strtod(gtk_entry_get_text(entry), &ep);
+	return(ERANGE != errno && '\0' == *ep);
+}
+
+static void
+drawgrid(cairo_t *cr, double width, double height)
+{
+	static const double dash[] = {6.0};
+
+	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+	cairo_set_line_width(cr, 0.2);
+	cairo_set_dash(cr, dash, 1, 0);
+
+	/* Top line. */
+	cairo_move_to(cr, 0.0, 0.0);
+	cairo_line_to(cr, width, 0.0);
+	/* Bottom line. */
+	cairo_move_to(cr, 0.0, height);
+	cairo_line_to(cr, width, height);
+	/* Left line. */
+	cairo_move_to(cr, 0.0, 0.0);
+	cairo_line_to(cr, 0.0, height);
+	/* Right line. */
+	cairo_move_to(cr, width, 0.0);
+	cairo_line_to(cr, width, height);
+	/* Vertical middle. */
+	cairo_move_to(cr, 0.0, height * 0.5);
+	cairo_line_to(cr, width, height * 0.5);
+	/* Horizontal middle. */
+	cairo_move_to(cr, width * 0.5, 0.0);
+	cairo_line_to(cr, width * 0.5, height);
+
+	cairo_stroke(cr);
+	cairo_set_dash(cr, dash, 0, 0);
 }
 
 static void
@@ -721,6 +818,10 @@ drawlabels(cairo_t *cr, double *widthp, double *heightp,
 	*heightp -= e.height * 3.0;
 }
 
+/*
+ * For a given point "x" in the domain, fit ourselves to the polynomial
+ * coefficients of degree "fitpoly + 1".
+ */
 static double
 fitpoly(const struct sim *sim, double x)
 {
@@ -736,12 +837,16 @@ fitpoly(const struct sim *sim, double x)
 	return(y);
 }
 
+/*
+ * Main draw event.
+ * There's lots we can do to make this more efficient, e.g., computing
+ * the stddev/fitpoly arrays in the worker threads instead of here.
+ */
 gboolean
 ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	double		 width, height, maxy, v, x, 
-			 y, y1, y2, xmin, xmax;
+	double		 width, height, maxy, v, x, xmin, xmax;
 	GtkWidget	*top;
 	struct sim	*sim;
 	size_t		 i, j, objs;
@@ -758,6 +863,12 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	xmin = FLT_MAX;
 	xmax = maxy = -FLT_MAX;
 
+	/*
+	 * We can be attached to several simulations, so iterate over
+	 * all of them when computing our maximum "y" point.
+	 * Our minimum "y" point is always at zero: obviously, we'll
+	 * never have a negative fraction of mutants.
+	 */
 	for (objs = 0; objs < 32; objs++) {
 		(void)g_snprintf(buf, sizeof(buf), "sim%zu", objs);
 		sim = g_object_get_data(G_OBJECT(top), buf);
@@ -775,16 +886,21 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 					maxy = v;
 			}
 		}
-		if (xmin > sim->d.continuum2.xmin)
-			xmin = sim->d.continuum2.xmin;
-		if (xmax < sim->d.continuum2.xmax)
-			xmax = sim->d.continuum2.xmax;
+		if (xmin > sim->d.continuum.xmin)
+			xmin = sim->d.continuum.xmin;
+		if (xmax < sim->d.continuum.xmax)
+			xmax = sim->d.continuum.xmax;
 	}
 
 	maxy += maxy * 0.1;
 	drawlabels(cr, &width, &height, 0.0, maxy, xmin, xmax);
 	cairo_save(cr);
 
+	/*
+	 * Draw curves as specified: either the "raw" curve (just the
+	 * data), the raw curve and its standard deviation above and
+	 * below, or the raw curve plus the polynomial fitting.
+	 */
 	for (i = 0; i < objs; i++) {
 		(void)g_snprintf(buf, sizeof(buf), "sim%zu", i);
 		sim = g_object_get_data(G_OBJECT(top), buf);
@@ -805,6 +921,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		}
 
 		if (gtk_check_menu_item_get_active(b->wins.viewdev)) {
+			/*
+			 * If stipulated, draw the standard deviation
+			 * above and below the curve.
+			 * Obviously, don't go below zero.
+			 */
 			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
@@ -848,38 +969,52 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.5); 
 			cairo_stroke(cr);
 		} else if (gtk_check_menu_item_get_active(b->wins.viewpoly)) {
+			/*
+			 * Compute and draw the curve stipulated by the
+			 * coefficients our workers have computed.
+			 */
 			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.5); 
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
-				x = sim->d.continuum2.xmin +
-					(sim->d.continuum2.xmax -
-					 sim->d.continuum2.xmin) *
+				x = sim->d.continuum.xmin +
+					(sim->d.continuum.xmax -
+					 sim->d.continuum.xmin) *
 					(j - 1) / (double)sim->dims;
-				y = fitpoly(sim, x);
+				v = fitpoly(sim, x);
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
-					height - (y / maxy * height));
-				x = sim->d.continuum2.xmin +
-					(sim->d.continuum2.xmax -
-					 sim->d.continuum2.xmin) *
+					height - (v / maxy * height));
+				x = sim->d.continuum.xmin +
+					(sim->d.continuum.xmax -
+					 sim->d.continuum.xmin) *
 					j / (double)sim->dims;
-				y = fitpoly(sim, x);
+				v = fitpoly(sim, x);
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
-					height - (y / maxy * height));
+					height - (v / maxy * height));
 			}
 			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
 			cairo_stroke(cr);
 		} else {
+			/* 
+			 * Draw just the raw curve.
+			 * This is the default.
+			 */
 			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
 			cairo_stroke(cr);
 		}
 	}
 
 	cairo_restore(cr);
+	/* Draw a little grid for reference points. */
+	drawgrid(cr, width, height);
 	return(TRUE);
 }
 
+/*
+ * We've requested a different kind of view.
+ * Update all of our windows to this effect.
+ */
 void
 onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 {
@@ -911,29 +1046,6 @@ ondestroy(GtkWidget *object, gpointer dat)
 	
 	bmigrate_free(dat);
 	gtk_main_quit();
-}
-
-static int
-entry2size(GtkEntry *entry, size_t *sz)
-{
-	guint64	 v;
-	gchar	*ep;
-
-	v = g_ascii_strtoull(gtk_entry_get_text(entry), &ep, 10);
-	if (ERANGE == errno || '\0' != *ep || v > SIZE_MAX)
-		return(0);
-
-	*sz = (size_t)v;
-	return(1);
-}
-
-static int
-entry2double(GtkEntry *entry, gdouble *sz)
-{
-	gchar	*ep;
-
-	*sz = g_ascii_strtod(gtk_entry_get_text(entry), &ep);
-	return(ERANGE != errno && '\0' == *ep);
 }
 
 /*
@@ -1074,8 +1186,6 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->fitpoly + 1, sizeof(double));
 	sim->output.mutants = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->output.mutants2 = g_malloc0_n
-		(sim->dims, sizeof(double));
 	sim->output.stddevs = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->output.fit = g_malloc0_n
@@ -1092,9 +1202,9 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->pops = g_malloc0_n(sim->islands, sizeof(size_t));
 	for (i = 0; i < sim->islands; i++)
 		sim->pops[i] = islandpop;
-	sim->d.continuum2.exp = exp;
-	sim->d.continuum2.xmin = xmin;
-	sim->d.continuum2.xmax = xmax;
+	sim->d.continuum.exp = exp;
+	sim->d.continuum.xmin = xmin;
+	sim->d.continuum.xmax = xmax;
 	b->sims = g_list_append(b->sims, sim);
 	sim->thread = g_thread_new(NULL, on_sim, sim);
 	sim->refs = 1;
@@ -1198,12 +1308,13 @@ on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
 }
 
 #ifdef MAC_INTEGRATION
-void
+gboolean
 onterminate(GtkosxApplication *action, gpointer dat)
 {
 
 	bmigrate_free(dat);
 	gtk_main_quit();
+	return(FALSE);
 }
 #endif
 
