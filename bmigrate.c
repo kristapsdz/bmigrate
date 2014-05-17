@@ -14,6 +14,7 @@
  */
 #include <assert.h>
 #include <errno.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,6 +27,7 @@
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 
+#include <gsl/gsl_multifit.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 
@@ -71,6 +73,7 @@ struct	hwin {
 	GtkLabel	 *error;
 	GtkEntry	 *func;
 	GtkAdjustment	 *nthreads;
+	GtkAdjustment	 *fitpoly;
 	GtkAdjustment	 *pop;
 	GtkAdjustment	 *islands;
 	GtkEntry	 *totalpop;
@@ -97,21 +100,27 @@ struct	sim_continuum2 {
 struct	simres {
 	GMutex		 mux;
 	double		*mutants;
+	double		*mutants2;
+	double		*stddevs;
+	double	   	*fit;
 	size_t		*runs;
 	size_t		 truns;
-	size_t		 dims;
 };
 
 struct	simout {
 	double		*mutants;
+	double		*mutants2;
+	double		*stddevs;
 	size_t		*runs;
+	double	   	*fit;
 	size_t		 truns;
-	size_t		 dims;
 };
 
 struct	sim {
 	GThread		 *thread; /* thread of execution */
 	size_t		  nprocs; /* processors reserved */
+	size_t		  dims; /* number of incumbents sampled */
+	size_t		  fitpoly; /* fitting polynomial */
 	size_t		  totalpop; /* total population */
 	size_t		 *pops; /* per-island population */
 	size_t		  islands; /* island population */
@@ -184,6 +193,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry2"));
 	b->wins.nthreads = GTK_ADJUSTMENT
 		(gtk_builder_get_object(builder, "adjustment3"));
+	b->wins.fitpoly = GTK_ADJUSTMENT
+		(gtk_builder_get_object(builder, "adjustment4"));
 	b->wins.pop = GTK_ADJUSTMENT
 		(gtk_builder_get_object(builder, "adjustment1"));
 	b->wins.totalpop = GTK_ENTRY
@@ -258,8 +269,14 @@ sim_free(gpointer arg)
 	}
 
 	g_free(p->results.mutants);
+	g_free(p->results.mutants2);
+	g_free(p->results.stddevs);
+	g_free(p->results.fit);
 	g_free(p->results.runs);
 	g_free(p->output.mutants);
+	g_free(p->output.mutants2);
+	g_free(p->output.stddevs);
+	g_free(p->output.fit);
 	g_free(p->output.runs);
 	g_free(p->pops);
 	g_free(p);
@@ -315,7 +332,7 @@ on_sim_next(const gsl_rng *rng, struct sim *sim,
 	if (sim->terminate)
 		return(0);
 
-	*incumbentidx = (*incumbentidx + 1) % sim->results.dims;
+	*incumbentidx = (*incumbentidx + 1) % sim->dims;
 
 	*mutant = sim->d.continuum2.xmin + 
 		(sim->d.continuum2.xmax - 
@@ -323,7 +340,7 @@ on_sim_next(const gsl_rng *rng, struct sim *sim,
 	*incumbent = sim->d.continuum2.xmin + 
 		(sim->d.continuum2.xmax - 
 		 sim->d.continuum2.xmin) * 
-		(*incumbentidx / (double)sim->results.dims);
+		(*incumbentidx / (double)sim->dims);
 
 	return(1);
 }
@@ -336,15 +353,27 @@ static void *
 on_sim(void *arg)
 {
 	struct sim	*sim = arg;
-	double		 mutant, incumbent;
+	double		 mutant, incumbent, v, chisq;
 	double		 payoffs[4];
 	size_t		*kids[2], *migrants[2], *imutants;
-	size_t		 t, j, k, new, mutants, incumbents,
+	size_t		 t, i, j, k, new, mutants, incumbents,
 			 len1, len2, incumbentidx;
 	int		 mutant_old, mutant_new;
 	gsl_rng		*rng;
+	gsl_matrix	*X, *cov;
+	gsl_vector	*y, *c;
+	gsl_multifit_linear_workspace *work;
 
 	rng = gsl_rng_alloc(gsl_rng_default);
+	if (sim->fitpoly) {
+		X = gsl_matrix_alloc(sim->dims, sim->fitpoly + 1);
+		y = gsl_vector_alloc(sim->dims);
+		c = gsl_vector_alloc(sim->fitpoly + 1);
+		cov = gsl_matrix_alloc
+			(sim->fitpoly + 1, sim->fitpoly + 1);
+		work = gsl_multifit_linear_alloc
+			(sim->dims, sim->fitpoly + 1);
+	}
 
 	g_debug("Thread %p (simulation %p) using RNG %s", 
 		g_thread_self(), sim, gsl_rng_name(rng));
@@ -363,6 +392,13 @@ again:
 		g_free(kids[1]);
 		g_free(migrants[0]);
 		g_free(migrants[1]);
+		if (sim->fitpoly) {
+			gsl_matrix_free(X);
+			gsl_vector_free(y);
+			gsl_vector_free(c);
+			gsl_matrix_free(cov);
+			gsl_multifit_linear_free(work);
+		}
 		g_debug("Thread %p (simulation %p) exiting", 
 			g_thread_self(), sim);
 		return(NULL);
@@ -438,6 +474,12 @@ again:
 			kids[0][j] = kids[1][j] = 0;
 		}
 
+		/*
+		 * Perform the migration itself.
+		 * We randomly select an individual on the destination
+		 * island as well as one from the migrant queue.
+		 * We then replace one with the other.
+		 */
 		for (j = 0; j < sim->islands; j++) {
 			len1 = migrants[0][j] + migrants[1][j];
 			if (0 == len1)
@@ -461,16 +503,53 @@ again:
 			migrants[0][j] = migrants[1][j] = 0;
 		}
 
+		/* Stop when a population goes extinct. */
 		if (0 == mutants || 0 == incumbents) 
 			break;
 	}
 
+
+	/*
+	 * Update our results within a mutex.
+	 * This is heavyweight, but necessary.
+	 */
+	v = mutants / (double)sim->totalpop;
 	g_mutex_lock(&sim->results.mux);
-	sim->results.mutants[incumbentidx] += 
-		(mutants / (double)sim->totalpop);
+	sim->results.mutants[incumbentidx] += v;
+	sim->results.mutants2[incumbentidx] += v * v;
 	sim->results.runs[incumbentidx]++;
 	sim->results.truns++;
+	sim->results.stddevs[incumbentidx] = sqrt
+		(sim->results.runs[incumbentidx] *
+		 sim->results.mutants2[incumbentidx] -
+		 sim->results.mutants[incumbentidx] *
+		 sim->results.mutants[incumbentidx]) /
+		 sim->results.runs[incumbentidx];
+	for (i = 0; sim->fitpoly && i < sim->dims; i++) {
+		gsl_matrix_set(X, i, 0, 1.0);
+		for (j = 0; j < sim->fitpoly; j++) {
+			v = sim->d.continuum2.xmin +
+				(sim->d.continuum2.xmax -
+				 sim->d.continuum2.xmin) *
+				(i / (double)sim->dims);
+			for (k = 0; k < j; k++)
+				v *= v;
+			gsl_matrix_set(X, i, j + 1, v);
+		}
+		v = sim->results.mutants[incumbentidx] / 
+			(double)sim->results.runs[incumbentidx];
+		gsl_vector_set(y, i, v);
+	}
 	g_mutex_unlock(&sim->results.mux);
+
+	if (sim->fitpoly) {
+		gsl_multifit_linear(X, y, c, cov, &chisq, work);
+		g_mutex_lock(&sim->results.mux);
+		for (i = 0; i < sim->fitpoly + 1; i++) 
+			sim->results.fit[i] = gsl_vector_get(c, i);
+		g_mutex_unlock(&sim->results.mux);
+	}
+
 	goto again;
 }
 
@@ -509,10 +588,19 @@ on_sim_copyout(gpointer dat)
 		}
 		memcpy(sim->output.mutants, 
 			sim->results.mutants,
-			sizeof(double) * sim->output.dims);
+			sizeof(double) * sim->dims);
+		memcpy(sim->output.mutants2, 
+			sim->results.mutants2,
+			sizeof(double) * sim->dims);
+		memcpy(sim->output.stddevs, 
+			sim->results.stddevs,
+			sizeof(double) * sim->dims);
+		memcpy(sim->output.fit, 
+			sim->results.fit,
+			sizeof(double) * (sim->fitpoly + 1));
 		memcpy(sim->output.runs, 
 			sim->results.runs,
-			sizeof(size_t) * sim->output.dims);
+			sizeof(size_t) * sim->dims);
 		sim->output.truns = sim->results.truns;
 		g_mutex_unlock(&sim->results.mux);
 		changed++;
@@ -621,10 +709,25 @@ drawlabels(cairo_t *cr, double *widthp, double *heightp,
 	*heightp -= e.height * 3.0;
 }
 
+static double
+fitpoly(const struct sim *sim, double x)
+{
+	double	 y, v;
+	size_t	 i, j;
+
+	for (y = 0.0, i = 0; i < sim->fitpoly + 1; i++) {
+		v = sim->output.fit[i];
+		for (j = 0; j < i; j++)
+			v *= x;
+		y += v;
+	}
+	return(y);
+}
+
 gboolean
 ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 {
-	double		 width, height, maxy, v, xmin, xmax;
+	double		 width, height, maxy, v, x, y, xmin, xmax;
 	GtkWidget	*top;
 	struct sim	*sim;
 	size_t		 i, j, objs;
@@ -646,7 +749,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		sim = g_object_get_data(G_OBJECT(top), buf);
 		if (NULL == sim)
 			break;
-		for (j = 0; j < sim->output.dims; j++) {
+		for (j = 0; j < sim->dims; j++) {
 			v = (0 == sim->output.runs[j]) ? 0.0 :
 				sim->output.mutants[j] / 
 				(double)sim->output.runs[j];
@@ -667,19 +770,38 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		(void)g_snprintf(buf, sizeof(buf), "sim%zu", i);
 		sim = g_object_get_data(G_OBJECT(top), buf);
 		assert(NULL != sim);
-		for (j = 1; j < sim->output.dims; j++) {
+		for (j = 1; j < sim->dims; j++) {
 			v = (0 == sim->output.runs[j - 1]) ? 0.0 :
 				sim->output.mutants[j - 1] / 
 				(double)sim->output.runs[j - 1];
 			cairo_move_to(cr, 
-				width * (j - 1) / (double)(sim->output.dims - 1),
+				width * (j - 1) / (double)(sim->dims - 1),
 				height - (v / maxy * height));
 			v = (0 == sim->output.runs[j]) ? 0.0 :
 				sim->output.mutants[j] / 
 				(double)sim->output.runs[j];
 			cairo_line_to(cr, 
-				width * j / (double)(sim->output.dims - 1),
+				width * j / (double)(sim->dims - 1),
 				height - (v / maxy * height));
+		}
+
+		for (j = 1; j < sim->dims; j++) {
+			x = sim->d.continuum2.xmin +
+				(sim->d.continuum2.xmax -
+				 sim->d.continuum2.xmin) *
+				(j - 1) / (double)sim->dims;
+			y = fitpoly(sim, x);
+			cairo_move_to(cr, 
+				width * (j - 1) / (double)(sim->dims - 1),
+				height - (y / maxy * height));
+			x = sim->d.continuum2.xmin +
+				(sim->d.continuum2.xmax -
+				 sim->d.continuum2.xmin) *
+				j / (double)sim->dims;
+			y = fitpoly(sim, x);
+			cairo_line_to(cr, 
+				width * j / (double)(sim->dims - 1),
+				height - (y / maxy * height));
 		}
 	}
 	cairo_set_source_rgb(cr, 1.0, 0.0, 0.0); 
@@ -855,16 +977,28 @@ on_activate(GtkButton *button, gpointer dat)
 
 	sim = g_malloc0(sizeof(struct sim));
 	g_mutex_init(&sim->results.mux);
-	sim->results.dims = slices;
-	sim->output.dims = slices;
+	sim->dims = slices;
+	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->results.runs = g_malloc0_n
-		(sim->results.dims, sizeof(size_t));
+		(sim->dims, sizeof(size_t));
 	sim->output.runs = g_malloc0_n
-		(sim->output.dims, sizeof(size_t));
+		(sim->dims, sizeof(size_t));
 	sim->results.mutants = g_malloc0_n
-		(sim->results.dims, sizeof(double));
+		(sim->dims, sizeof(double));
+	sim->results.mutants2 = g_malloc0_n
+		(sim->dims, sizeof(double));
+	sim->results.stddevs = g_malloc0_n
+		(sim->dims, sizeof(double));
+	sim->results.fit = g_malloc0_n
+		(sim->fitpoly + 1, sizeof(double));
 	sim->output.mutants = g_malloc0_n
-		(sim->output.dims, sizeof(double));
+		(sim->dims, sizeof(double));
+	sim->output.mutants2 = g_malloc0_n
+		(sim->dims, sizeof(double));
+	sim->output.stddevs = g_malloc0_n
+		(sim->dims, sizeof(double));
+	sim->output.fit = g_malloc0_n
+		(sim->fitpoly + 1, sizeof(double));
 
 	sim->type = PAYOFF_CONTINUUM2;
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
