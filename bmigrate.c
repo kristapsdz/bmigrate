@@ -63,6 +63,9 @@ struct	hwin {
 	GtkWindow	 *config;
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
+	GtkMenuItem	 *menufile;
+	GtkCheckMenuItem *viewdev;
+	GtkCheckMenuItem *viewpoly;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
 	GtkEntry	 *payoff;
@@ -171,6 +174,12 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "window1"));
 	b->wins.menu = GTK_MENU_BAR
 		(gtk_builder_get_object(builder, "menubar1"));
+	b->wins.menufile = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem1"));
+	b->wins.viewdev = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem6"));
+	b->wins.viewpoly = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem7"));
 	b->wins.menuquit = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem5"));
 	b->wins.input = GTK_ENTRY
@@ -525,21 +534,24 @@ again:
 		 sim->results.mutants[incumbentidx] *
 		 sim->results.mutants[incumbentidx]) /
 		 sim->results.runs[incumbentidx];
-	for (i = 0; sim->fitpoly && i < sim->dims; i++) {
-		gsl_matrix_set(X, i, 0, 1.0);
-		for (j = 0; j < sim->fitpoly; j++) {
-			v = sim->d.continuum2.xmin +
-				(sim->d.continuum2.xmax -
-				 sim->d.continuum2.xmin) *
-				(i / (double)sim->dims);
-			for (k = 0; k < j; k++)
-				v *= v;
-			gsl_matrix_set(X, i, j + 1, v);
+	if (sim->fitpoly) 
+		for (i = 0; i < sim->dims; i++) {
+			gsl_matrix_set(X, i, 0, 1.0);
+			for (j = 0; j < sim->fitpoly; j++) {
+				v = sim->d.continuum2.xmin +
+					(sim->d.continuum2.xmax -
+					 sim->d.continuum2.xmin) *
+					(i / (double)sim->dims);
+				for (k = 0; k < j; k++)
+					v *= v;
+				gsl_matrix_set(X, i, j + 1, v);
+			}
+			v = sim->results.runs[i] ?
+				sim->results.mutants[i] / 
+				(double)sim->results.runs[i] :
+				0.0;
+			gsl_vector_set(y, i, v);
 		}
-		v = sim->results.mutants[incumbentidx] / 
-			(double)sim->results.runs[incumbentidx];
-		gsl_vector_set(y, i, v);
-	}
 	g_mutex_unlock(&sim->results.mux);
 
 	if (sim->fitpoly) {
@@ -727,7 +739,9 @@ fitpoly(const struct sim *sim, double x)
 gboolean
 ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 {
-	double		 width, height, maxy, v, x, y, xmin, xmax;
+	struct bmigrate	*b = dat;
+	double		 width, height, maxy, v, x, 
+			 y, y1, y2, xmin, xmax;
 	GtkWidget	*top;
 	struct sim	*sim;
 	size_t		 i, j, objs;
@@ -755,6 +769,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				(double)sim->output.runs[j];
 			if (v > maxy)
 				maxy = v;
+			if (gtk_check_menu_item_get_active(b->wins.viewdev)) {
+				v += sim->output.stddevs[j];
+				if (v > maxy)
+					maxy = v;
+			}
 		}
 		if (xmin > sim->d.continuum2.xmin)
 			xmin = sim->d.continuum2.xmin;
@@ -785,30 +804,92 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				height - (v / maxy * height));
 		}
 
-		for (j = 1; j < sim->dims; j++) {
-			x = sim->d.continuum2.xmin +
-				(sim->d.continuum2.xmax -
-				 sim->d.continuum2.xmin) *
-				(j - 1) / (double)sim->dims;
-			y = fitpoly(sim, x);
-			cairo_move_to(cr, 
-				width * (j - 1) / (double)(sim->dims - 1),
-				height - (y / maxy * height));
-			x = sim->d.continuum2.xmin +
-				(sim->d.continuum2.xmax -
-				 sim->d.continuum2.xmin) *
-				j / (double)sim->dims;
-			y = fitpoly(sim, x);
-			cairo_line_to(cr, 
-				width * j / (double)(sim->dims - 1),
-				height - (y / maxy * height));
+		if (gtk_check_menu_item_get_active(b->wins.viewdev)) {
+			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
+			cairo_stroke(cr);
+			for (j = 1; j < sim->dims; j++) {
+				v = (0 == sim->output.runs[j - 1]) ? 0.0 :
+					sim->output.mutants[j - 1] / 
+					(double)sim->output.runs[j - 1];
+				v -= sim->output.stddevs[j - 1];
+				if (v < 0.0)
+					v = 0.0;
+				cairo_move_to(cr, 
+					width * (j - 1) / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+				v = (0 == sim->output.runs[j]) ? 0.0 :
+					sim->output.mutants[j] / 
+					(double)sim->output.runs[j];
+				v -= sim->output.stddevs[j];
+				if (v < 0.0)
+					v = 0.0;
+				cairo_line_to(cr, 
+					width * j / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+			}
+			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.5); 
+			cairo_stroke(cr);
+			for (j = 1; j < sim->dims; j++) {
+				v = (0 == sim->output.runs[j - 1]) ? 0.0 :
+					sim->output.mutants[j - 1] / 
+					(double)sim->output.runs[j - 1];
+				v += sim->output.stddevs[j - 1];
+				cairo_move_to(cr, 
+					width * (j - 1) / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+				v = (0 == sim->output.runs[j]) ? 0.0 :
+					sim->output.mutants[j] / 
+					(double)sim->output.runs[j];
+				v += sim->output.stddevs[j];
+				cairo_line_to(cr, 
+					width * j / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+			}
+			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.5); 
+			cairo_stroke(cr);
+		} else if (gtk_check_menu_item_get_active(b->wins.viewpoly)) {
+			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.5); 
+			cairo_stroke(cr);
+			for (j = 1; j < sim->dims; j++) {
+				x = sim->d.continuum2.xmin +
+					(sim->d.continuum2.xmax -
+					 sim->d.continuum2.xmin) *
+					(j - 1) / (double)sim->dims;
+				y = fitpoly(sim, x);
+				cairo_move_to(cr, 
+					width * (j - 1) / (double)(sim->dims - 1),
+					height - (y / maxy * height));
+				x = sim->d.continuum2.xmin +
+					(sim->d.continuum2.xmax -
+					 sim->d.continuum2.xmin) *
+					j / (double)sim->dims;
+				y = fitpoly(sim, x);
+				cairo_line_to(cr, 
+					width * j / (double)(sim->dims - 1),
+					height - (y / maxy * height));
+			}
+			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
+			cairo_stroke(cr);
+		} else {
+			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
+			cairo_stroke(cr);
 		}
 	}
-	cairo_set_source_rgb(cr, 1.0, 0.0, 0.0); 
-	cairo_stroke(cr);
+
 	cairo_restore(cr);
 	return(TRUE);
 }
+
+void
+onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
+{
+	GList	*list;
+
+	list = gtk_window_list_toplevels();
+	for ( ; list != NULL; list = list->next)
+		gtk_widget_queue_draw(GTK_WIDGET(list->data));
+}
+
 
 /*
  * Quit everything (gtk_main returns).
@@ -1031,7 +1112,7 @@ on_activate(GtkButton *button, gpointer dat)
 	gtk_widget_set_margin_bottom(draw, 10);
 	gtk_widget_set_size_request(draw, 440, 400);
 	g_signal_connect(G_OBJECT(draw), 
-		"draw", G_CALLBACK(ondraw), sim);
+		"draw", G_CALLBACK(ondraw), b);
 	gtk_container_add(GTK_CONTAINER(w), draw);
 	gtk_widget_show_all(w);
 	g_object_set_data_full(G_OBJECT(w), 
@@ -1190,7 +1271,7 @@ main(int argc, char *argv[])
 #ifdef	MAC_INTEGRATION
 	theApp = gtkosx_application_get();
 	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
-	gtk_widget_hide(GTK_WIDGET(b.wins.menuquit));
+	gtk_widget_hide(GTK_WIDGET(b.wins.menufile));
 	gtkosx_application_set_menu_bar
 		(theApp, GTK_MENU_SHELL(b.wins.menu));
 	gtkosx_application_sync_menubar(theApp);
