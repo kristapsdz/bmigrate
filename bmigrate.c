@@ -87,6 +87,8 @@ struct	hwin {
 	GtkLabel	 *curthreads;
 	GtkToggleButton	 *analsingle;
 	GtkToggleButton	 *analmultiple;
+#define	SIZE_COLOURS	  12 
+	GdkRGBA		  colours[SIZE_COLOURS];
 };
 
 /*
@@ -129,8 +131,14 @@ struct	simout {
 	size_t		 truns;
 };
 
+struct	simthr;
+
+/*
+ * A single simulation.
+ * This can be driven by "nprocs" threads.
+ */
 struct	sim {
-	GThread		 *thread; /* thread of execution */
+	struct simthr	 *threads; /* threads of execution */
 	size_t		  nprocs; /* processors reserved */
 	size_t		  dims; /* number of incumbents sampled */
 	size_t		  fitpoly; /* fitting polynomial */
@@ -144,6 +152,7 @@ struct	sim {
 	double		  delta; /* inner multiplier */
 	double		  m; /* migration probability */
 	enum payoff	  type; /* type of game */
+	size_t		  colour; /* graph colour */
 	union {
 		struct sim_continuum continuum;
 	} d;
@@ -152,10 +161,21 @@ struct	sim {
 };
 
 /*
+ * Each thread of a simulation consists of the simulation and the rank
+ * of the thread in its threadgroup.
+ */
+struct	simthr {
+	struct sim	 *sim;
+	GThread		 *thread;
+	size_t		  rank;
+};
+
+/*
  * Main structure governing general state of the system.
  */
 struct	bmigrate {
 	struct hwin	  wins; /* GUI components */
+	size_t		  nextcolour; /* next colour to assign */
 	GList		 *sims; /* active simulations */
 };
 
@@ -262,6 +282,19 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	/* Initialise our helpful run-load. */
 	gtk_label_set_text(b->wins.curthreads, "(0% active)");
 	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
+
+	gdk_rgba_parse(&b->wins.colours[0], "red");
+	gdk_rgba_parse(&b->wins.colours[1], "green");
+	gdk_rgba_parse(&b->wins.colours[2], "purple");
+	gdk_rgba_parse(&b->wins.colours[3], "yellow green");
+	gdk_rgba_parse(&b->wins.colours[4], "violet");
+	gdk_rgba_parse(&b->wins.colours[5], "yellow");
+	gdk_rgba_parse(&b->wins.colours[6], "blue violet");
+	gdk_rgba_parse(&b->wins.colours[7], "goldenrod");
+	gdk_rgba_parse(&b->wins.colours[8], "blue");
+	gdk_rgba_parse(&b->wins.colours[9], "orange");
+	gdk_rgba_parse(&b->wins.colours[10], "turquoise");
+	gdk_rgba_parse(&b->wins.colours[11], "orange red");
 }
 
 /*
@@ -275,17 +308,21 @@ static void
 sim_free(gpointer arg)
 {
 	struct sim	*p = arg;
+	size_t		 i;
 
 	if (NULL == p)
 		return;
 
 	g_debug("Freeing simulation %p", p);
 
-	if (NULL != p->thread) {
-		g_debug("Freeing joining thread %p "
-			"(simulation %p)", p->thread, p);
-		g_thread_join(p->thread);
-	}
+	for (i = 0; i < p->nprocs; i++) 
+		if (NULL != p->threads[i].thread) {
+			g_debug("Freeing joining thread %p "
+				"(simulation %p)", 
+				p->threads[i].thread, p);
+			g_thread_join(p->threads[i].thread);
+		}
+	p->nprocs = 0;
 
 	switch (p->type) {
 	case (PAYOFF_CONTINUUM2):
@@ -305,6 +342,7 @@ sim_free(gpointer arg)
 	g_free(p->output.fit);
 	g_free(p->output.runs);
 	g_free(p->pops);
+	g_free(p->threads);
 	g_free(p);
 }
 
@@ -316,6 +354,8 @@ sim_stop(gpointer arg, gpointer unused)
 {
 	struct sim	*p = arg;
 
+	if (p->terminate)
+		return;
 	g_debug("Stopping simulation %p", p);
 	p->terminate = 1;
 }
@@ -352,7 +392,7 @@ on_sim_next(const gsl_rng *rng, struct sim *sim,
 		return(0);
 
 	/* Increment over a ring. */
-	*incumbentidx = (*incumbentidx + 1) % sim->dims;
+	*incumbentidx = (*incumbentidx + sim->nprocs) % sim->dims;
 
 	*mutant = sim->d.continuum.xmin + 
 		(sim->d.continuum.xmax - 
@@ -393,7 +433,8 @@ continuum_lambda(const struct sim *sim, double x,
 static void *
 on_sim(void *arg)
 {
-	struct sim	*sim = arg;
+	struct simthr	*thr = arg;
+	struct sim	*sim = thr->sim;
 	double		 mutant, incumbent, v, chisq, lambda;
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, i, j, k, new, mutants, incumbents,
@@ -428,7 +469,7 @@ on_sim(void *arg)
 	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
-	incumbentidx = 0;
+	incumbentidx = thr->rank;
 
 again:
 	/* Repeat til we're instructed to terminate. */
@@ -683,6 +724,7 @@ on_sim_timer(gpointer dat)
 	struct sim	*sim;
 	gchar		 buf[1024];
 	GList		*list;
+	size_t		 i;
 
 	nprocs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
@@ -692,12 +734,16 @@ on_sim_timer(gpointer dat)
 		 * did) exit, so wait for it.
 		 * If we wait, it should take only a very small while.
 		 */
-		if (sim->terminate && NULL != sim->thread) {
-			g_debug("Timeout handler joining "
-				"thread %p (simulation %p)", 
-				sim->thread, sim);
-			g_thread_join(sim->thread);
-			sim->thread = NULL;
+		if (sim->terminate && sim->nprocs > 0) {
+			for (i = 0; i < sim->nprocs; i++) 
+				if (NULL != sim->threads[i].thread) {
+					g_debug("Timeout handler joining "
+						"thread %p (simulation %p)", 
+						sim->threads[i].thread, sim);
+					g_thread_join(sim->threads[i].thread);
+					sim->threads[i].thread = NULL;
+				}
+			sim->nprocs = 0;
 			assert(0 == sim->refs); 
 		} else if ( ! sim->terminate)
 			nprocs += sim->nprocs;
@@ -891,6 +937,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		if (xmax < sim->d.continuum.xmax)
 			xmax = sim->d.continuum.xmax;
 	}
+	assert(objs > 0 && objs < 32);
 
 	maxy += maxy * 0.1;
 	drawlabels(cr, &width, &height, 0.0, maxy, xmin, xmax);
@@ -926,7 +973,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 * above and below the curve.
 			 * Obviously, don't go below zero.
 			 */
-			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
+			cairo_set_source_rgba
+				(cr, b->wins.colours[sim->colour].red,
+				 b->wins.colours[sim->colour].green,
+				 b->wins.colours[sim->colour].green, 1.0);
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
 				v = (0 == sim->output.runs[j - 1]) ? 0.0 :
@@ -948,7 +998,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
 			}
-			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.5); 
+			cairo_set_source_rgba
+				(cr, b->wins.colours[sim->colour].red,
+				 b->wins.colours[sim->colour].green,
+				 b->wins.colours[sim->colour].green, 0.5);
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
 				v = (0 == sim->output.runs[j - 1]) ? 0.0 :
@@ -966,14 +1019,20 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
 			}
-			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.5); 
+			cairo_set_source_rgba
+				(cr, b->wins.colours[sim->colour].red,
+				 b->wins.colours[sim->colour].green,
+				 b->wins.colours[sim->colour].green, 0.5);
 			cairo_stroke(cr);
 		} else if (gtk_check_menu_item_get_active(b->wins.viewpoly)) {
 			/*
 			 * Compute and draw the curve stipulated by the
 			 * coefficients our workers have computed.
 			 */
-			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 0.5); 
+			cairo_set_source_rgba
+				(cr, b->wins.colours[sim->colour].red,
+				 b->wins.colours[sim->colour].green,
+				 b->wins.colours[sim->colour].green, 0.5);
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
 				x = sim->d.continuum.xmin +
@@ -993,14 +1052,20 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
 			}
-			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
+			cairo_set_source_rgba
+				(cr, b->wins.colours[sim->colour].red,
+				 b->wins.colours[sim->colour].green,
+				 b->wins.colours[sim->colour].green, 1.0);
 			cairo_stroke(cr);
 		} else {
 			/* 
 			 * Draw just the raw curve.
 			 * This is the default.
 			 */
-			cairo_set_source_rgba(cr, 1.0, 0.0, 0.0, 1.0); 
+			cairo_set_source_rgba
+				(cr, b->wins.colours[sim->colour].red,
+				 b->wins.colours[sim->colour].green,
+				 b->wins.colours[sim->colour].green, 1.0);
 			cairo_stroke(cr);
 		}
 	}
@@ -1197,6 +1262,8 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->islands = islands;
 	sim->stop = stop;
 	sim->alpha = alpha;
+	sim->colour = b->nextcolour;
+	b->nextcolour = (b->nextcolour + 1) % SIZE_COLOURS;
 	sim->delta = delta;
 	sim->m = m;
 	sim->pops = g_malloc0_n(sim->islands, sizeof(size_t));
@@ -1206,8 +1273,21 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->d.continuum.xmin = xmin;
 	sim->d.continuum.xmax = xmax;
 	b->sims = g_list_append(b->sims, sim);
-	sim->thread = g_thread_new(NULL, on_sim, sim);
 	sim->refs = 1;
+	sim->threads = g_malloc0_n(sim->nprocs, sizeof(struct simthr));
+	g_debug("New continuum simulation: %zu islands, "
+		"%zu total members (%zu per island)", sim->islands,
+		sim->totalpop, islandpop);
+	g_debug("New continuum migration %g, %g(1 + %g pi)", 
+		sim->m, sim->alpha, sim->delta);
+	g_debug("New continuum threads: %zu", sim->nprocs);
+
+	for (i = 0; i < sim->nprocs; i++) {
+		sim->threads[i].rank = i;
+		sim->threads[i].sim = sim;
+		sim->threads[i].thread = g_thread_new
+			(NULL, on_sim, &sim->threads[i]);
+	}
 
 	/*
 	 * Now we create the output window.
