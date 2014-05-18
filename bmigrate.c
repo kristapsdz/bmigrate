@@ -66,6 +66,7 @@ struct	hwin {
 	GtkMenuItem	 *menufile;
 	GtkCheckMenuItem *viewdev;
 	GtkCheckMenuItem *viewpoly;
+	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
 	GtkEntry	 *payoff;
@@ -142,6 +143,7 @@ struct	sim {
 	size_t		  nprocs; /* processors reserved */
 	size_t		  dims; /* number of incumbents sampled */
 	size_t		  fitpoly; /* fitting polynomial */
+	int		  weighted; /* weighted fit poly */
 	size_t		  totalpop; /* total population */
 	size_t		 *pops; /* per-island population */
 	size_t		  islands; /* island population */
@@ -210,6 +212,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem6"));
 	b->wins.viewpoly = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem7"));
+	b->wins.weighted = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem5"));
 	b->wins.input = GTK_ENTRY
@@ -1237,6 +1241,7 @@ on_activate(GtkButton *button, gpointer dat)
 	g_mutex_init(&sim->results.mux);
 	sim->dims = slices;
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
+	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	sim->results.runs = g_malloc0_n
 		(sim->dims, sizeof(size_t));
 	sim->output.runs = g_malloc0_n
