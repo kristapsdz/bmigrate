@@ -64,6 +64,7 @@ struct	hwin {
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
 	GtkMenuItem	 *menufile;
+	GtkStatusbar	 *status;
 	GtkCheckMenuItem *viewdev;
 	GtkCheckMenuItem *viewpoly;
 	GtkToggleButton	 *weighted;
@@ -179,6 +180,8 @@ struct	bmigrate {
 	struct hwin	  wins; /* GUI components */
 	size_t		  nextcolour; /* next colour to assign */
 	GList		 *sims; /* active simulations */
+	GTimer		 *status_elapsed; /* elapsed since status update */
+	uint64_t	  lastmatches;
 };
 
 static	const char *const inputs[INPUT__MAX] = {
@@ -204,6 +207,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 
 	b->wins.config = GTK_WINDOW
 		(gtk_builder_get_object(builder, "window1"));
+	b->wins.status = GTK_STATUSBAR
+		(gtk_builder_get_object(builder, "statusbar1"));
 	b->wins.menu = GTK_MENU_BAR
 		(gtk_builder_get_object(builder, "menubar1"));
 	b->wins.menufile = GTK_MENU_ITEM
@@ -378,6 +383,8 @@ bmigrate_free(struct bmigrate *p)
 	g_list_foreach(p->sims, sim_stop, NULL);
 	g_list_free_full(p->sims, sim_free);
 	p->sims = NULL;
+	g_timer_destroy(p->status_elapsed);
+	p->status_elapsed = NULL;
 }
 
 /*
@@ -724,15 +731,17 @@ static gboolean
 on_sim_timer(gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	size_t		 nprocs;
 	struct sim	*sim;
 	gchar		 buf[1024];
 	GList		*list;
-	size_t		 i;
+	uint64_t	 runs;
+	size_t		 i, nprocs;
+	double		 elapsed;
 
-	nprocs = 0;
+	nprocs = runs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = (struct sim *)list->data;
+		runs += sim->output.truns * sim->stop;
 		/*
 		 * If "terminate" is set, then the thread is (or already
 		 * did) exit, so wait for it.
@@ -758,6 +767,18 @@ on_sim_timer(gpointer dat)
 		"(%g%% active)", 100 * (nprocs / 
 			(double)g_get_num_processors()));
 	gtk_label_set_text(b->wins.curthreads, buf);
+
+	
+	if (0.0 == (elapsed = g_timer_elapsed(b->status_elapsed, NULL)))
+		elapsed = DBL_MIN;
+
+	(void)g_snprintf(buf, sizeof(buf), "Running "
+		"%zu threads, %.0f matches/second.", 
+		nprocs, (runs - b->lastmatches) / elapsed);
+	gtk_statusbar_pop(b->wins.status, 0);
+	gtk_statusbar_push(b->wins.status, 0, buf);
+	g_timer_start(b->status_elapsed);
+	b->lastmatches = runs;
 	return(TRUE);
 }
 
@@ -1452,6 +1473,7 @@ main(int argc, char *argv[])
 		return(EXIT_FAILURE);
 
 	windows_init(&b, builder);
+	b.status_elapsed = g_timer_new();
 
 	gtk_builder_connect_signals(builder, &b);
 	g_object_unref(G_OBJECT(builder));
@@ -1477,6 +1499,7 @@ main(int argc, char *argv[])
 #endif
 	g_timeout_add(500, (GSourceFunc)on_sim_timer, &b);
 	g_timeout_add(500, (GSourceFunc)on_sim_copyout, &b);
+	gtk_statusbar_push(b.wins.status, 0, "No simulations.");
 	gtk_main();
 	bmigrate_free(&b);
 	return(EXIT_SUCCESS);
