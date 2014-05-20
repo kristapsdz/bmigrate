@@ -108,11 +108,32 @@ struct	sim_continuum {
  * This structure is maintained by a thread group for a particular
  * running simulation.
  * All reads/writes must lock the mutex before modifications.
+ * This data is periodically snapshotted to "struct simwarm", which is
+ * triggered by the last thread to encounter a "copyout" = 1 (threads
+ * prior to that will wait on "cond").
  */
-struct	simres {
-	GMutex		 mux;
+struct	simhot {
+	GMutex		 mux; /* lock for changing data */
+	GCond		 cond; /* mutex for waiting on snapshot */
 	double		*mutants; /* sum of mutant fraction */
 	double		*mutants2; /* sum of mutant fraction^2 */
+	double		*stddevs; /* running standard deviation */
+	double	   	*fit; /* fitpoly coefficients */
+	size_t		*runs; /* runs per mutant */
+	size_t		 truns; /* total number of runs */
+	int		 copyout; /* do we need to snapshot? */
+	size_t		 copyblock; /* threads blocking on copy */
+};
+
+/*
+ * A simulation thread group will snapshot its "struct simhot" structure
+ * to this when its "copyout" is set to 1.
+ * The fields are the same but that "mutants" is set to the fraction and
+ * "fit" is set (if applicable) to the fitted polynomial coefficients.
+ */
+struct	simwarm {
+	GMutex		 mux; /* lock to change fields */
+	double		*mutants; /* mutant fractions (NOT sum!) */
 	double		*stddevs; /* running standard deviation */
 	double	   	*fit; /* fitpoly coefficients */
 	size_t		*runs; /* runs per mutant */
@@ -120,12 +141,26 @@ struct	simres {
 };
 
 /*
- * Instead of operating on the simulation results themselves, we copy
- * output into a buffer for viewing.
- * This prevents over-zealous locking of the simulation.
- * See "struct simres" for matching fields. 
+ * If fitting to a polynomial, each worker thread may be required to do
+ * the polynomial fitting.
+ * As such, this is set (if "fitpoly") to contain the necessary
+ * parameters for the fitting.
  */
-struct	simout {
+struct	simwork {
+	gsl_matrix	*X;
+	gsl_matrix	*cov;
+	gsl_vector	*y;
+	gsl_vector	*c;
+	gsl_multifit_linear_workspace *work;
+};
+
+/*
+ * Instead of operating on the simulation results themselves, we copy
+ * output from "struct simwarm" into a "cold" buffer for viewing.
+ * See "struct simwarm" for matching fields. 
+ * This is done in the main thread of execution, so it is not locked.
+ */
+struct	simcold {
 	double		*mutants;
 	double		*stddevs;
 	size_t		*runs;
@@ -159,8 +194,9 @@ struct	sim {
 	union {
 		struct sim_continuum continuum;
 	} d;
-	struct simres	  results; /* current results */
-	struct simout	  output; /* graphed results */
+	struct simhot	  hot; /* current results */
+	struct simwarm	  warm; /* current results */
+	struct simcold	  cold; /* graphed results */
 };
 
 /*
@@ -181,7 +217,7 @@ struct	bmigrate {
 	size_t		  nextcolour; /* next colour to assign */
 	GList		 *sims; /* active simulations */
 	GTimer		 *status_elapsed; /* elapsed since status update */
-	uint64_t	  lastmatches;
+	uint64_t	  lastmatches; /* last seen number of matches */
 };
 
 static	const char *const inputs[INPUT__MAX] = {
@@ -341,15 +377,22 @@ sim_free(gpointer arg)
 		break;
 	}
 
-	g_free(p->results.mutants);
-	g_free(p->results.mutants2);
-	g_free(p->results.stddevs);
-	g_free(p->results.fit);
-	g_free(p->results.runs);
-	g_free(p->output.mutants);
-	g_free(p->output.stddevs);
-	g_free(p->output.fit);
-	g_free(p->output.runs);
+	g_mutex_clear(&p->hot.mux);
+	g_mutex_clear(&p->warm.mux);
+	g_cond_clear(&p->hot.cond);
+	g_free(p->hot.mutants);
+	g_free(p->hot.mutants2);
+	g_free(p->hot.stddevs);
+	g_free(p->hot.fit);
+	g_free(p->hot.runs);
+	g_free(p->warm.mutants);
+	g_free(p->warm.stddevs);
+	g_free(p->warm.fit);
+	g_free(p->warm.runs);
+	g_free(p->cold.mutants);
+	g_free(p->cold.stddevs);
+	g_free(p->cold.fit);
+	g_free(p->cold.runs);
 	g_free(p->pops);
 	g_free(p->threads);
 	g_free(p);
@@ -388,23 +431,86 @@ bmigrate_free(struct bmigrate *p)
 }
 
 /*
+ * Copy the "hot" data into "warm" holding.
+ * While here, set our "work" parameter (if "fitpoly" is set) to contain
+ * the necessary dependent variable.
+ */
+static void
+on_sim_snapshot(struct simwork *work, struct sim *sim)
+{
+	size_t	 i;
+
+	g_mutex_lock(&sim->warm.mux);
+	for (i = 0; i < sim->dims; i++) {
+		sim->warm.mutants[i] =
+			0 == sim->hot.runs[i] ? 0.0 :
+			sim->hot.mutants[i] / 
+			(double)sim->hot.runs[i];
+		/* The vector is NULL if no fitpoly... */
+		if (0 == sim->fitpoly)
+			continue;
+		gsl_vector_set(work->y, i, sim->warm.mutants[i]);
+	}
+
+	memcpy(sim->warm.stddevs, 
+		sim->hot.stddevs,
+		sizeof(double) * sim->dims);
+	memcpy(sim->warm.runs, 
+		sim->hot.runs,
+		sizeof(size_t) * sim->dims);
+	sim->warm.truns = sim->hot.truns;
+	g_mutex_unlock(&sim->warm.mux);
+}
+
+/*
  * In a given simulation, compute the next mutant/incumbent pair.
  * We make sure that incumbents are striped evenly in any given
  * simulation but that mutants are randomly selected from within the
  * strategy domain.
  */
 static int
-on_sim_next(const gsl_rng *rng, struct sim *sim, 
-	double *mutant, double *incumbent, 
-	size_t *incumbentidx)
+on_sim_next(struct simwork *work, struct sim *sim, 
+	const gsl_rng *rng, double *mutant, 
+	double *incumbent, size_t *incumbentidx)
 {
+	int		 fit;
+	size_t		 i, j, k;
+	double		 v, chisq;
 
 	if (sim->terminate)
 		return(0);
 
+	fit = 0;
+	g_mutex_lock(&sim->hot.mux);
+	sim->hot.truns++;
+	if (1 == sim->hot.copyout) {
+		/*
+		 * If this happens, we've been instructed by the main
+		 * thread of execution to snapshot hot data into warm
+		 * storage.
+		 * To do this synchronously, all threads will wait to
+		 * finish their work.
+		 * The last thread will then do the actual snapshot and
+		 * broadcast to the wait condition.
+		 */
+		if (++sim->hot.copyblock == sim->nprocs) {
+			fit = 1;
+			sim->hot.copyout = 2;
+			sim->hot.copyblock = 0;
+			g_debug("Simulation %p snapshot", sim);
+			on_sim_snapshot(work, sim);
+			g_cond_broadcast(&sim->hot.cond);
+			g_debug("Simulation %p snapshot done", sim);
+		} else {
+			g_debug("Simulation %p slot %zu blocked for "
+				"snapshot", sim, sim->hot.copyblock);
+			g_cond_wait(&sim->hot.cond, &sim->hot.mux);
+		}
+	}
+	g_mutex_unlock(&sim->hot.mux);
+
 	/* Increment over a ring. */
 	*incumbentidx = (*incumbentidx + sim->nprocs) % sim->dims;
-
 	*mutant = sim->d.continuum.xmin + 
 		(sim->d.continuum.xmax - 
 		 sim->d.continuum.xmin) * gsl_rng_uniform(rng);
@@ -413,6 +519,51 @@ on_sim_next(const gsl_rng *rng, struct sim *sim,
 		 sim->d.continuum.xmin) * 
 		(*incumbentidx / (double)sim->dims);
 
+	/* If we weren't the last thread blocking, return now. */
+	if ( ! fit)
+		return(1);
+
+	/*
+	 * If we're not fitting to a polynomial, simply notify that
+	 * we've copied out and continue on our way.
+	 */
+	if (0 == sim->fitpoly) {
+		g_mutex_lock(&sim->warm.mux);
+		sim->hot.copyout = 0;
+		g_mutex_unlock(&sim->warm.mux);
+		return(1);
+	}
+
+	/* 
+	 * If we're fitting to a polynomial, initialise our
+	 * polynomial structures here.
+	 */
+	for (i = 0; i < sim->dims; i++) {
+		gsl_matrix_set(work->X, i, 0, 1.0);
+		for (j = 0; j < sim->fitpoly; j++) {
+			v = sim->d.continuum.xmin +
+				(sim->d.continuum.xmax -
+				 sim->d.continuum.xmin) *
+				(i / (double)sim->dims);
+			for (k = 0; k < j; k++)
+				v *= v;
+			gsl_matrix_set(work->X, i, j + 1, v);
+		}
+	}
+
+	/*
+	 * Now perform the actual fitting.
+	 * We use the linear non-weighted version for now.
+	 */
+	gsl_multifit_linear(work->X, work->y, 
+		work->c, work->cov, &chisq, work->work);
+
+	/* Lastly, snapshot and notify the main thread. */
+	g_mutex_lock(&sim->warm.mux);
+	for (i = 0; i < sim->fitpoly + 1; i++) 
+		sim->warm.fit[i] = gsl_vector_get(work->c, i);
+	sim->hot.copyout = 0;
+	g_mutex_unlock(&sim->warm.mux);
 	return(1);
 }
 
@@ -446,15 +597,13 @@ on_sim(void *arg)
 {
 	struct simthr	*thr = arg;
 	struct sim	*sim = thr->sim;
-	double		 mutant, incumbent, v, chisq, lambda;
+	double		 mutant, incumbent, v, lambda;
 	size_t		*kids[2], *migrants[2], *imutants;
-	size_t		 t, i, j, k, new, mutants, incumbents,
+	size_t		 t, j, k, new, mutants, incumbents,
 			 len1, len2, incumbentidx;
 	int		 mutant_old, mutant_new;
+	struct simwork	 work;
 	gsl_rng		*rng;
-	gsl_matrix	*X, *cov;
-	gsl_vector	*y, *c;
-	gsl_multifit_linear_workspace *work;
 
 	rng = gsl_rng_alloc(gsl_rng_default);
 	g_debug("Thread %p (simulation %p) using RNG %s", 
@@ -466,12 +615,12 @@ on_sim(void *arg)
 	 * we're not going to use it!
 	 */
 	if (sim->fitpoly) {
-		X = gsl_matrix_alloc(sim->dims, sim->fitpoly + 1);
-		y = gsl_vector_alloc(sim->dims);
-		c = gsl_vector_alloc(sim->fitpoly + 1);
-		cov = gsl_matrix_alloc
+		work.X = gsl_matrix_alloc(sim->dims, sim->fitpoly + 1);
+		work.y = gsl_vector_alloc(sim->dims);
+		work.c = gsl_vector_alloc(sim->fitpoly + 1);
+		work.cov = gsl_matrix_alloc
 			(sim->fitpoly + 1, sim->fitpoly + 1);
-		work = gsl_multifit_linear_alloc
+		work.work = gsl_multifit_linear_alloc
 			(sim->dims, sim->fitpoly + 1);
 	}
 
@@ -484,8 +633,8 @@ on_sim(void *arg)
 
 again:
 	/* Repeat til we're instructed to terminate. */
-	if ( ! on_sim_next(rng, sim, &mutant, 
-		&incumbent, &incumbentidx)) {
+	if ( ! on_sim_next(&work, sim, rng, 
+		&mutant, &incumbent, &incumbentidx)) {
 		/*
 		 * Upon termination, free up all of the memory
 		 * associated with our simulation.
@@ -496,11 +645,11 @@ again:
 		g_free(migrants[0]);
 		g_free(migrants[1]);
 		if (sim->fitpoly) {
-			gsl_matrix_free(X);
-			gsl_vector_free(y);
-			gsl_vector_free(c);
-			gsl_matrix_free(cov);
-			gsl_multifit_linear_free(work);
+			gsl_matrix_free(work.X);
+			gsl_vector_free(work.y);
+			gsl_vector_free(work.c);
+			gsl_matrix_free(work.cov);
+			gsl_multifit_linear_free(work.work);
 		}
 		g_debug("Thread %p (simulation %p) exiting", 
 			g_thread_self(), sim);
@@ -596,64 +745,16 @@ again:
 			break;
 	}
 
-
-	/*
-	 * Update our results within a mutex.
-	 * This is heavyweight, but necessary.
-	 * TODO: do this in a writer lock. 
-	 */
 	v = mutants / (double)sim->totalpop;
-	g_mutex_lock(&sim->results.mux);
-	sim->results.mutants[incumbentidx] += v;
-	sim->results.mutants2[incumbentidx] += v * v;
-	sim->results.runs[incumbentidx]++;
-	sim->results.truns++;
-	sim->results.stddevs[incumbentidx] = sqrt
-		(sim->results.runs[incumbentidx] *
-		 sim->results.mutants2[incumbentidx] -
-		 sim->results.mutants[incumbentidx] *
-		 sim->results.mutants[incumbentidx]) /
-		 sim->results.runs[incumbentidx];
-	if (sim->fitpoly) 
-		/* 
-		 * If we're fitting to a polynomial, initialise our
-		 * polynomial structures here.
-		 * Don't do this unless we specifically need to, as it
-		 * can take up a lot of time.
-		 */
-		for (i = 0; i < sim->dims; i++) {
-			gsl_matrix_set(X, i, 0, 1.0);
-			for (j = 0; j < sim->fitpoly; j++) {
-				v = sim->d.continuum.xmin +
-					(sim->d.continuum.xmax -
-					 sim->d.continuum.xmin) *
-					(i / (double)sim->dims);
-				for (k = 0; k < j; k++)
-					v *= v;
-				gsl_matrix_set(X, i, j + 1, v);
-			}
-			v = sim->results.runs[i] ?
-				sim->results.mutants[i] / 
-				(double)sim->results.runs[i] :
-				0.0;
-			gsl_vector_set(y, i, v);
-		}
-	g_mutex_unlock(&sim->results.mux);
-
-	/*
-	 * If we're fitting to a polynomial, perform the actual fitting
-	 * component here.
-	 * We use the linear non-weighted version for now.
-	 * TODO: use the weighted version with the current stddev.
-	 */
-	if (sim->fitpoly) {
-		gsl_multifit_linear(X, y, c, cov, &chisq, work);
-		g_mutex_lock(&sim->results.mux);
-		for (i = 0; i < sim->fitpoly + 1; i++) 
-			sim->results.fit[i] = gsl_vector_get(c, i);
-		g_mutex_unlock(&sim->results.mux);
-	}
-
+	sim->hot.mutants[incumbentidx] += v;
+	sim->hot.mutants2[incumbentidx] += v * v;
+	sim->hot.runs[incumbentidx]++;
+	sim->hot.stddevs[incumbentidx] = sqrt
+		(sim->hot.runs[incumbentidx] *
+		 sim->hot.mutants2[incumbentidx] -
+		 sim->hot.mutants[incumbentidx] *
+		 sim->hot.mutants[incumbentidx]) /
+		 sim->hot.runs[incumbentidx];
 	goto again;
 }
 
@@ -685,29 +786,45 @@ on_sim_copyout(gpointer dat)
 	GList		*list;
 	struct sim	*sim;
 	size_t		 changed;
+	int		 nocopy;
 
 	changed = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = list->data;
-		g_mutex_lock(&sim->results.mux);
-		if (sim->results.truns == sim->output.truns) {
-			g_mutex_unlock(&sim->results.mux);
+		if (0 == sim->nprocs)
+			continue;
+
+		/*
+		 * Instruct the simulation to copy out its data into warm
+		 * storage.
+		 * If it hasn't already done so, then don't copy into
+		 * cold storage, as nothing has changed.
+		 */
+		g_mutex_lock(&sim->hot.mux);
+		nocopy = sim->hot.copyout > 0;
+		if ( ! nocopy)
+			sim->hot.copyout = 1;
+		g_mutex_unlock(&sim->hot.mux);
+		if (nocopy) {
+			g_debug("Simulation %p still in copyout", sim);
 			continue;
 		}
-		memcpy(sim->output.mutants, 
-			sim->results.mutants,
+		g_mutex_lock(&sim->warm.mux);
+		memcpy(sim->cold.mutants, 
+			sim->warm.mutants,
 			sizeof(double) * sim->dims);
-		memcpy(sim->output.stddevs, 
-			sim->results.stddevs,
+		memcpy(sim->cold.stddevs, 
+			sim->warm.stddevs,
 			sizeof(double) * sim->dims);
-		memcpy(sim->output.fit, 
-			sim->results.fit,
+		memcpy(sim->cold.fit, 
+			sim->warm.fit,
 			sizeof(double) * (sim->fitpoly + 1));
-		memcpy(sim->output.runs, 
-			sim->results.runs,
+		memcpy(sim->cold.runs, 
+			sim->warm.runs,
 			sizeof(size_t) * sim->dims);
-		sim->output.truns = sim->results.truns;
-		g_mutex_unlock(&sim->results.mux);
+		sim->cold.truns = sim->warm.truns;
+		g_mutex_unlock(&sim->warm.mux);
+
 		changed++;
 	}
 
@@ -741,7 +858,7 @@ on_sim_timer(gpointer dat)
 	nprocs = runs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = (struct sim *)list->data;
-		runs += sim->output.truns * sim->stop;
+		runs += sim->cold.truns * sim->stop;
 		/*
 		 * If "terminate" is set, then the thread is (or already
 		 * did) exit, so wait for it.
@@ -812,7 +929,6 @@ drawgrid(cairo_t *cr, double width, double height)
 
 	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 	cairo_set_line_width(cr, 0.2);
-	cairo_set_dash(cr, dash, 1, 0);
 
 	/* Top line. */
 	cairo_move_to(cr, 0.0, 0.0);
@@ -826,12 +942,28 @@ drawgrid(cairo_t *cr, double width, double height)
 	/* Right line. */
 	cairo_move_to(cr, width, 0.0);
 	cairo_line_to(cr, width, height);
-	/* Vertical middle. */
-	cairo_move_to(cr, 0.0, height * 0.5);
-	cairo_line_to(cr, width, height * 0.5);
 	/* Horizontal middle. */
 	cairo_move_to(cr, width * 0.5, 0.0);
 	cairo_line_to(cr, width * 0.5, height);
+	/* Vertical middle. */
+	cairo_move_to(cr, 0.0, height * 0.5);
+	cairo_line_to(cr, width, height * 0.5);
+
+	cairo_stroke(cr);
+	cairo_set_dash(cr, dash, 1, 0);
+
+	/* Vertical left. */
+	cairo_move_to(cr, 0.0, height * 0.25);
+	cairo_line_to(cr, width, height * 0.25);
+	/* Vertical right. */
+	cairo_move_to(cr, 0.0, height * 0.75);
+	cairo_line_to(cr, width, height * 0.75);
+	/* Horizontal top. */
+	cairo_move_to(cr, width * 0.75, 0.0);
+	cairo_line_to(cr, width * 0.75, height);
+	/* Horizontal bottom. */
+	cairo_move_to(cr, width * 0.25, 0.0);
+	cairo_line_to(cr, width * 0.25, height);
 
 	cairo_stroke(cr);
 	cairo_set_dash(cr, dash, 0, 0);
@@ -857,9 +989,21 @@ drawlabels(cairo_t *cr, double *widthp, double *heightp,
 	(void)snprintf(buf, sizeof(buf), "%.2g", miny);
 	cairo_show_text(cr, buf);
 
+	/* Middle-top right. */
+	cairo_move_to(cr, width - e.width, height * 0.75);
+	(void)snprintf(buf, sizeof(buf), 
+		"%.2g", miny + (maxy + miny) * 0.25);
+	cairo_show_text(cr, buf);
+
 	/* Middle right. */
 	cairo_move_to(cr, width - e.width, height * 0.5);
 	(void)snprintf(buf, sizeof(buf), "%.2g", (maxy + miny) * 0.5);
+	cairo_show_text(cr, buf);
+
+	/* Middle-bottom right. */
+	cairo_move_to(cr, width - e.width, height * 0.25);
+	(void)snprintf(buf, sizeof(buf), 
+		"%.2g", miny + (maxy + miny) * 0.75);
 	cairo_show_text(cr, buf);
 
 	/* Bottom right. */
@@ -873,10 +1017,24 @@ drawlabels(cairo_t *cr, double *widthp, double *heightp,
 	(void)snprintf(buf, sizeof(buf), "%.2g", maxx);
 	cairo_show_text(cr, buf);
 
+	/* Middle-left bottom. */
+	cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
+		height - e.height * 0.5);
+	(void)snprintf(buf, sizeof(buf), 
+		"%.2g", minx + (maxx + minx) * 0.25);
+	cairo_show_text(cr, buf);
+
 	/* Middle bottom. */
-	cairo_move_to(cr, width * 0.5 - e.width * 0.5, 
+	cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
 		height - e.height * 0.5);
 	(void)snprintf(buf, sizeof(buf), "%.2g", (maxx + minx) * 0.5);
+	cairo_show_text(cr, buf);
+
+	/* Middle-right bottom. */
+	cairo_move_to(cr, width * 0.75 - e.width, 
+		height - e.height * 0.5);
+	(void)snprintf(buf, sizeof(buf), 
+		"%.2g", minx + (maxx + minx) * 0.75);
 	cairo_show_text(cr, buf);
 
 	/* Left bottom. */
@@ -900,7 +1058,7 @@ fitpoly(const struct sim *sim, double x)
 	size_t	 i, j;
 
 	for (y = 0.0, i = 0; i < sim->fitpoly + 1; i++) {
-		v = sim->output.fit[i];
+		v = sim->cold.fit[i];
 		for (j = 0; j < i; j++)
 			v *= x;
 		y += v;
@@ -946,13 +1104,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		if (NULL == sim)
 			break;
 		for (j = 0; j < sim->dims; j++) {
-			v = (0 == sim->output.runs[j]) ? 0.0 :
-				sim->output.mutants[j] / 
-				(double)sim->output.runs[j];
+			v = sim->cold.mutants[j];
 			if (v > maxy)
 				maxy = v;
 			if (gtk_check_menu_item_get_active(b->wins.viewdev)) {
-				v += sim->output.stddevs[j];
+				v += sim->cold.stddevs[j];
 				if (v > maxy)
 					maxy = v;
 			}
@@ -978,15 +1134,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		sim = g_object_get_data(G_OBJECT(top), buf);
 		assert(NULL != sim);
 		for (j = 1; j < sim->dims; j++) {
-			v = (0 == sim->output.runs[j - 1]) ? 0.0 :
-				sim->output.mutants[j - 1] / 
-				(double)sim->output.runs[j - 1];
+			v = sim->cold.mutants[j - 1];
 			cairo_move_to(cr, 
 				width * (j - 1) / (double)(sim->dims - 1),
 				height - (v / maxy * height));
-			v = (0 == sim->output.runs[j]) ? 0.0 :
-				sim->output.mutants[j] / 
-				(double)sim->output.runs[j];
+			v = sim->cold.mutants[j];
 			cairo_line_to(cr, 
 				width * j / (double)(sim->dims - 1),
 				height - (v / maxy * height));
@@ -1001,22 +1153,18 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].green, 1.0);
+				 b->wins.colours[sim->colour].blue, 1.0);
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
-				v = (0 == sim->output.runs[j - 1]) ? 0.0 :
-					sim->output.mutants[j - 1] / 
-					(double)sim->output.runs[j - 1];
-				v -= sim->output.stddevs[j - 1];
+				v = sim->cold.mutants[j - 1];
+				v -= sim->cold.stddevs[j - 1];
 				if (v < 0.0)
 					v = 0.0;
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
-				v = (0 == sim->output.runs[j]) ? 0.0 :
-					sim->output.mutants[j] / 
-					(double)sim->output.runs[j];
-				v -= sim->output.stddevs[j];
+				v = sim->cold.mutants[j];
+				v -= sim->cold.stddevs[j];
 				if (v < 0.0)
 					v = 0.0;
 				cairo_line_to(cr, 
@@ -1026,20 +1174,16 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].green, 0.5);
+				 b->wins.colours[sim->colour].blue, 0.5);
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
-				v = (0 == sim->output.runs[j - 1]) ? 0.0 :
-					sim->output.mutants[j - 1] / 
-					(double)sim->output.runs[j - 1];
-				v += sim->output.stddevs[j - 1];
+				v = sim->cold.mutants[j - 1];
+				v += sim->cold.stddevs[j - 1];
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
-				v = (0 == sim->output.runs[j]) ? 0.0 :
-					sim->output.mutants[j] / 
-					(double)sim->output.runs[j];
-				v += sim->output.stddevs[j];
+				v = sim->cold.mutants[j];
+				v += sim->cold.stddevs[j];
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1047,7 +1191,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].green, 0.5);
+				 b->wins.colours[sim->colour].blue, 0.5);
 			cairo_stroke(cr);
 		} else if (gtk_check_menu_item_get_active(b->wins.viewpoly)) {
 			/*
@@ -1057,7 +1201,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].green, 0.5);
+				 b->wins.colours[sim->colour].blue, 0.5);
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
 				x = sim->d.continuum.xmin +
@@ -1080,7 +1224,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].green, 1.0);
+				 b->wins.colours[sim->colour].blue, 1.0);
 			cairo_stroke(cr);
 		} else {
 			/* 
@@ -1090,7 +1234,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].green, 1.0);
+				 b->wins.colours[sim->colour].blue, 1.0);
 			cairo_stroke(cr);
 		}
 	}
@@ -1259,27 +1403,37 @@ on_activate(GtkButton *button, gpointer dat)
 	gtk_widget_hide(GTK_WIDGET(b->wins.error));
 
 	sim = g_malloc0(sizeof(struct sim));
-	g_mutex_init(&sim->results.mux);
 	sim->dims = slices;
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
-	sim->results.runs = g_malloc0_n
+	g_mutex_init(&sim->hot.mux);
+	g_mutex_init(&sim->warm.mux);
+	g_cond_init(&sim->hot.cond);
+	sim->hot.runs = g_malloc0_n
 		(sim->dims, sizeof(size_t));
-	sim->output.runs = g_malloc0_n
+	sim->warm.runs = g_malloc0_n
 		(sim->dims, sizeof(size_t));
-	sim->results.mutants = g_malloc0_n
+	sim->cold.runs = g_malloc0_n
+		(sim->dims, sizeof(size_t));
+	sim->hot.mutants = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->results.mutants2 = g_malloc0_n
+	sim->hot.mutants2 = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->results.stddevs = g_malloc0_n
+	sim->hot.stddevs = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->results.fit = g_malloc0_n
+	sim->hot.fit = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
-	sim->output.mutants = g_malloc0_n
+	sim->warm.mutants = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->output.stddevs = g_malloc0_n
+	sim->warm.stddevs = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->output.fit = g_malloc0_n
+	sim->warm.fit = g_malloc0_n
+		(sim->fitpoly + 1, sizeof(double));
+	sim->cold.mutants = g_malloc0_n
+		(sim->dims, sizeof(double));
+	sim->cold.stddevs = g_malloc0_n
+		(sim->dims, sizeof(double));
+	sim->cold.fit = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
 
 	sim->type = PAYOFF_CONTINUUM2;
