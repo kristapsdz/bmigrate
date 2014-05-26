@@ -526,7 +526,7 @@ fitpoly(const double *fits, size_t poly, double x)
 static int
 on_sim_next(struct simwork *work, struct sim *sim, 
 	const gsl_rng *rng, double *mutant, 
-	double *incumbent, size_t *incumbentidx)
+	double *incumbent, size_t *incumbentidx, size_t *mutantidx)
 {
 	int		 fit;
 	size_t		 i, j, k;
@@ -559,15 +559,20 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	}
 	g_mutex_unlock(&sim->hot.mux);
 
-	/* Increment over a ring. */
-	*incumbentidx = (*incumbentidx + sim->nprocs) % sim->dims;
 	*mutant = sim->d.continuum.xmin + 
 		(sim->d.continuum.xmax - 
-		 sim->d.continuum.xmin) * gsl_rng_uniform(rng);
+		 sim->d.continuum.xmin) * 
+		(*mutantidx / (double)sim->dims);
 	*incumbent = sim->d.continuum.xmin + 
 		(sim->d.continuum.xmax - 
 		 sim->d.continuum.xmin) * 
 		(*incumbentidx / (double)sim->dims);
+
+	(*mutantidx)++;
+	if (*mutantidx == sim->dims) {
+		*incumbentidx = (*incumbentidx + sim->nprocs) % sim->dims;
+		*mutantidx = 0;
+	}
 
 	/* If we weren't the last thread blocking, return now. */
 	if ( ! fit)
@@ -672,7 +677,7 @@ on_sim(void *arg)
 	double		 mutant, incumbent, v, lambda, mold;
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, j, k, new, mutants, incumbents,
-			 len1, len2, incumbentidx;
+			 len1, len2, incumbentidx, mutantidx;
 	int		 mutant_old, mutant_new;
 	struct simwork	 work;
 	gsl_rng		*rng;
@@ -705,11 +710,12 @@ on_sim(void *arg)
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 	incumbentidx = thr->rank;
+	mutantidx = 0;
 
 again:
 	/* Repeat til we're instructed to terminate. */
 	if ( ! on_sim_next(&work, sim, rng, 
-		&mutant, &incumbent, &incumbentidx)) {
+		&mutant, &incumbent, &incumbentidx, &mutantidx)) {
 		/*
 		 * Upon termination, free up all of the memory
 		 * associated with our simulation.
