@@ -446,7 +446,8 @@ bmigrate_free(struct bmigrate *p)
 	g_list_foreach(p->sims, sim_stop, NULL);
 	g_list_free_full(p->sims, sim_free);
 	p->sims = NULL;
-	g_timer_destroy(p->status_elapsed);
+	if (NULL != p->status_elapsed)
+		g_timer_destroy(p->status_elapsed);
 	p->status_elapsed = NULL;
 }
 
