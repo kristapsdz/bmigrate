@@ -1,6 +1,6 @@
 .SUFFIXES: .xml .html
 
-VERSION = 0.0.4
+VERSION = 0.0.6
 PREFIX = /usr/local
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
