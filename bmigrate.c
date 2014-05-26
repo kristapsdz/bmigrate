@@ -116,9 +116,8 @@ struct	sim_continuum {
 struct	simhot {
 	GMutex		 mux; /* lock for changing data */
 	GCond		 cond; /* mutex for waiting on snapshot */
-	double		*mutants; /* sum of mutant fraction */
-	double		*mutants2; /* sum of mutant fraction^2 */
-	double		*stddevs; /* running standard deviation */
+	double		*means; /* sample mean per incumbent */
+	double		*meandiff; /* sum of squares difference */
 	size_t		*runs; /* runs per mutant */
 	size_t		 truns; /* total number of runs */
 	int		 copyout; /* do we need to snapshot? */
@@ -129,13 +128,13 @@ struct	simhot {
  * A simulation thread group will snapshot its "struct simhot" structure
  * to this when its "copyout" is set to 1.
  * The fields are the same but that "mutants" is set to the fraction and
- * "fit" is set (if applicable) to the fitted polynomial coefficients.
+ * "coeffs" is set (if applicable) to the fitted polynomial coefficients.
  */
 struct	simwarm {
 	GMutex		 mux; /* lock to change fields */
-	double		*mutants; /* mutant fractions (NOT sum!) */
-	double		*stddevs; /* running standard deviation */
-	double	   	*fit; /* fitpoly coefficients */
+	double		*means; /* sample mean per incumbent */
+	double		*variances; /* sample variance */
+	double	   	*coeffs; /* fitpoly coefficients */
 	size_t		 fitmin;
 	size_t		*runs; /* runs per mutant */
 	size_t		 truns; /* total number of runs */
@@ -148,10 +147,11 @@ struct	simwarm {
  * parameters for the fitting.
  */
 struct	simwork {
-	gsl_matrix	*X;
-	gsl_matrix	*cov;
-	gsl_vector	*y;
-	gsl_vector	*c;
+	gsl_matrix	*X; /* matrix of independent variables */
+	gsl_matrix	*cov; /* covariance matrix */
+	gsl_vector	*y; /* vector dependent variables */
+	gsl_vector	*c; /* output vector of coefficients */
+	gsl_vector	*w; /* vector of weights */
 	gsl_multifit_linear_workspace *work;
 };
 
@@ -162,10 +162,10 @@ struct	simwork {
  * This is done in the main thread of execution, so it is not locked.
  */
 struct	simcold {
-	double		*mutants;
-	double		*stddevs;
+	double		*means;
+	double		*variances;
 	size_t		*runs;
-	double	   	*fit;
+	double	   	*coeffs;
 	size_t		 fitmin;
 	size_t		*fitmins;
 	size_t		 truns;
@@ -385,18 +385,17 @@ sim_free(gpointer arg)
 	g_mutex_clear(&p->hot.mux);
 	g_mutex_clear(&p->warm.mux);
 	g_cond_clear(&p->hot.cond);
-	g_free(p->hot.mutants);
-	g_free(p->hot.mutants2);
-	g_free(p->hot.stddevs);
+	g_free(p->hot.means);
+	g_free(p->hot.meandiff);
 	g_free(p->hot.runs);
-	g_free(p->warm.mutants);
-	g_free(p->warm.stddevs);
-	g_free(p->warm.fit);
+	g_free(p->warm.means);
+	g_free(p->warm.variances);
+	g_free(p->warm.coeffs);
 	g_free(p->warm.runs);
-	g_free(p->cold.mutants);
-	g_free(p->cold.stddevs);
+	g_free(p->cold.means);
+	g_free(p->cold.variances);
 	g_free(p->cold.fitmins);
-	g_free(p->cold.fit);
+	g_free(p->cold.coeffs);
 	g_free(p->cold.runs);
 	g_free(p->pops);
 	g_free(p->threads);
@@ -446,23 +445,25 @@ on_sim_snapshot(struct simwork *work, struct sim *sim)
 	size_t	 i;
 
 	g_mutex_lock(&sim->warm.mux);
-	for (i = 0; i < sim->dims; i++) {
-		sim->warm.mutants[i] =
-			0 == sim->hot.runs[i] ? 0.0 :
-			sim->hot.mutants[i] / 
-			(double)sim->hot.runs[i];
-		/* The vector is NULL if no fitpoly... */
-		if (0 == sim->fitpoly)
-			continue;
-		gsl_vector_set(work->y, i, sim->warm.mutants[i]);
-	}
-
-	memcpy(sim->warm.stddevs, 
-		sim->hot.stddevs,
+	memcpy(sim->warm.means, 
+		sim->hot.means,
 		sizeof(double) * sim->dims);
 	memcpy(sim->warm.runs, 
 		sim->hot.runs,
 		sizeof(size_t) * sim->dims);
+	for (i = 0; i < sim->dims; i++)
+		if (sim->hot.runs[i] > 1)
+			sim->warm.variances[i] = 
+				sim->hot.meandiff[i] /
+				(double)(sim->hot.runs[i] - 1);
+	if (sim->fitpoly)
+		for (i = 0; i < sim->dims; i++)
+			gsl_vector_set(work->y, i, 
+				sim->warm.means[i]);
+	if (sim->weighted)
+		for (i = 0; i < sim->dims; i++) 
+			gsl_vector_set(work->w, i, 
+				sim->warm.variances[i]);
 	sim->warm.truns = sim->hot.truns;
 	g_mutex_unlock(&sim->warm.mux);
 }
@@ -574,13 +575,17 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	 * Now perform the actual fitting.
 	 * We use the linear non-weighted version for now.
 	 */
-	gsl_multifit_linear(work->X, work->y, 
-		work->c, work->cov, &chisq, work->work);
+	if (sim->weighted) 
+		gsl_multifit_wlinear(work->X, work->w, work->y, 
+			work->c, work->cov, &chisq, work->work);
+	else
+		gsl_multifit_linear(work->X, work->y, 
+			work->c, work->cov, &chisq, work->work);
 
 	/* Lastly, snapshot and notify the main thread. */
 	g_mutex_lock(&sim->warm.mux);
 	for (i = 0; i < sim->fitpoly + 1; i++)
-		sim->warm.fit[i] = gsl_vector_get(work->c, i);
+		sim->warm.coeffs[i] = gsl_vector_get(work->c, i);
 	sim->hot.copyout = 0;
 	min = FLT_MAX;
 	for (i = 0; i < sim->dims; i++) {
@@ -588,7 +593,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 			(sim->d.continuum.xmax -
 			 sim->d.continuum.xmin) *
 			i / (double)sim->dims;
-		v = fitpoly(sim->warm.fit, sim->fitpoly + 1, x);
+		v = fitpoly(sim->warm.coeffs, sim->fitpoly + 1, x);
 		if (v < min) {
 			sim->warm.fitmin = i;
 			min = v;
@@ -628,7 +633,7 @@ on_sim(void *arg)
 {
 	struct simthr	*thr = arg;
 	struct sim	*sim = thr->sim;
-	double		 mutant, incumbent, v, lambda;
+	double		 mutant, incumbent, v, lambda, mold;
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, j, k, new, mutants, incumbents,
 			 len1, len2, incumbentidx;
@@ -645,9 +650,12 @@ on_sim(void *arg)
 	 * There's no need for all of this extra memory allocated if
 	 * we're not going to use it!
 	 */
+	memset(&work, 0, sizeof(struct simwork));
+
 	if (sim->fitpoly) {
 		work.X = gsl_matrix_alloc(sim->dims, sim->fitpoly + 1);
 		work.y = gsl_vector_alloc(sim->dims);
+		work.w = gsl_vector_alloc(sim->dims);
 		work.c = gsl_vector_alloc(sim->fitpoly + 1);
 		work.cov = gsl_matrix_alloc
 			(sim->fitpoly + 1, sim->fitpoly + 1);
@@ -678,6 +686,7 @@ again:
 		if (sim->fitpoly) {
 			gsl_matrix_free(work.X);
 			gsl_vector_free(work.y);
+			gsl_vector_free(work.w);
 			gsl_vector_free(work.c);
 			gsl_matrix_free(work.cov);
 			gsl_multifit_linear_free(work.work);
@@ -777,15 +786,13 @@ again:
 	}
 
 	v = mutants / (double)sim->totalpop;
-	sim->hot.mutants[incumbentidx] += v;
-	sim->hot.mutants2[incumbentidx] += v * v;
+	mold = sim->hot.means[incumbentidx];
 	sim->hot.runs[incumbentidx]++;
-	sim->hot.stddevs[incumbentidx] = sqrt
-		(sim->hot.runs[incumbentidx] *
-		 sim->hot.mutants2[incumbentidx] -
-		 sim->hot.mutants[incumbentidx] *
-		 sim->hot.mutants[incumbentidx]) /
-		 sim->hot.runs[incumbentidx];
+	sim->hot.means[incumbentidx] +=
+		(v - sim->hot.means[incumbentidx]) /
+		sim->hot.runs[incumbentidx];
+	sim->hot.meandiff[incumbentidx] +=
+		(v - mold) * (v - sim->hot.means[incumbentidx]);
 	goto again;
 }
 
@@ -841,15 +848,15 @@ on_sim_copyout(gpointer dat)
 			continue;
 		}
 		g_mutex_lock(&sim->warm.mux);
-		memcpy(sim->cold.mutants, 
-			sim->warm.mutants,
+		memcpy(sim->cold.means, 
+			sim->warm.means,
 			sizeof(double) * sim->dims);
-		memcpy(sim->cold.stddevs, 
-			sim->warm.stddevs,
+		memcpy(sim->cold.variances, 
+			sim->warm.variances,
 			sizeof(double) * sim->dims);
 		sim->cold.fitmin = sim->warm.fitmin;
-		memcpy(sim->cold.fit, 
-			sim->warm.fit,
+		memcpy(sim->cold.coeffs, 
+			sim->warm.coeffs,
 			sizeof(double) * (sim->fitpoly + 1));
 		memcpy(sim->cold.runs, 
 			sim->warm.runs,
@@ -1118,11 +1125,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			break;
 		for (j = 0; j < sim->dims; j++) {
 			if (gtk_check_menu_item_get_active(b->wins.viewdev))
-				v = sim->cold.mutants[j] + sim->cold.stddevs[j];
+				v = sim->cold.means[j] + sim->cold.variances[j];
 			else if (gtk_check_menu_item_get_active(b->wins.viewpolymin))
 				v = sim->cold.fitmins[j] / (double)sim->cold.truns;
 			else 
-				v = sim->cold.mutants[j];
+				v = sim->cold.means[j];
 			if (v > maxy)
 				maxy = v;
 		}
@@ -1154,11 +1161,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 * Obviously, don't go below zero.
 			 */
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.mutants[j - 1];
+				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
-				v = sim->cold.mutants[j];
+				v = sim->cold.means[j];
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1169,15 +1176,15 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				 b->wins.colours[sim->colour].blue, 1.0);
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.mutants[j - 1];
-				v -= sim->cold.stddevs[j - 1];
+				v = sim->cold.means[j - 1];
+				v -= sim->cold.variances[j - 1];
 				if (v < 0.0)
 					v = 0.0;
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
-				v = sim->cold.mutants[j];
-				v -= sim->cold.stddevs[j];
+				v = sim->cold.means[j];
+				v -= sim->cold.variances[j];
 				if (v < 0.0)
 					v = 0.0;
 				cairo_line_to(cr, 
@@ -1190,13 +1197,13 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				 b->wins.colours[sim->colour].blue, 0.5);
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.mutants[j - 1];
-				v += sim->cold.stddevs[j - 1];
+				v = sim->cold.means[j - 1];
+				v += sim->cold.variances[j - 1];
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
-				v = sim->cold.mutants[j];
-				v += sim->cold.stddevs[j];
+				v = sim->cold.means[j];
+				v += sim->cold.variances[j];
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1212,11 +1219,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 * coefficients our workers have computed.
 			 */
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.mutants[j - 1];
+				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
-				v = sim->cold.mutants[j];
+				v = sim->cold.means[j];
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1231,7 +1238,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 					(sim->d.continuum.xmax -
 					 sim->d.continuum.xmin) *
 					(j - 1) / (double)sim->dims;
-				v = fitpoly(sim->cold.fit, sim->fitpoly + 1, x);
+				v = fitpoly(sim->cold.coeffs, sim->fitpoly + 1, x);
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1239,7 +1246,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 					(sim->d.continuum.xmax -
 					 sim->d.continuum.xmin) *
 					j / (double)sim->dims;
-				v = fitpoly(sim->cold.fit, sim->fitpoly + 1, x);
+				v = fitpoly(sim->cold.coeffs, sim->fitpoly + 1, x);
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1279,11 +1286,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 * This is the default.
 			 */
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.mutants[j - 1];
+				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
-				v = sim->cold.mutants[j];
+				v = sim->cold.means[j];
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1472,23 +1479,21 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(size_t));
 	sim->cold.runs = g_malloc0_n
 		(sim->dims, sizeof(size_t));
-	sim->hot.mutants = g_malloc0_n
+	sim->hot.means = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->hot.mutants2 = g_malloc0_n
+	sim->hot.meandiff = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->hot.stddevs = g_malloc0_n
+	sim->warm.means = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->warm.mutants = g_malloc0_n
+	sim->warm.variances = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->warm.stddevs = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->warm.fit = g_malloc0_n
+	sim->warm.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
-	sim->cold.mutants = g_malloc0_n
+	sim->cold.means = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->cold.stddevs = g_malloc0_n
+	sim->cold.variances = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->cold.fit = g_malloc0_n
+	sim->cold.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
 	sim->cold.fitmins = g_malloc0_n
 		(sim->dims, sizeof(size_t));
@@ -1518,6 +1523,8 @@ on_activate(GtkButton *button, gpointer dat)
 	g_debug("New continuum migration %g, %g(1 + %g pi)", 
 		sim->m, sim->alpha, sim->delta);
 	g_debug("New continuum threads: %zu", sim->nprocs);
+	g_debug("New continuum polynomial: %zu (%s)", 
+		sim->fitpoly, sim->weighted ? "weighted" : "unweighted");
 
 	for (i = 0; i < sim->nprocs; i++) {
 		sim->threads[i].rank = i;
