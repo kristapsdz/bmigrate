@@ -749,6 +749,10 @@ again:
 		 * properly compute this.
 		 */
 		for (j = 0; j < sim->islands; j++) {
+			assert(0 == kids[0][j]);
+			assert(0 == kids[1][j]);
+			assert(0 == migrants[0][j]);
+			assert(0 == migrants[1][j]);
 			lambda = continuum_lambda
 				(sim, mutant, mutant, 
 				 incumbent, imutants[j], sim->pops[j]);
@@ -830,7 +834,7 @@ again:
 	 */
 	sim->hot.means[incumbentidx] +=
 		(v - sim->hot.means[incumbentidx]) /
-		sim->hot.runs[incumbentidx];
+		(double)sim->hot.runs[incumbentidx];
 	sim->hot.meandiff[incumbentidx] +=
 		(v - mold) * (v - sim->hot.means[incumbentidx]);
 	goto again;
@@ -1135,6 +1139,73 @@ drawlabels(cairo_t *cr, double *widthp, double *heightp,
 }
 
 /*
+ * For a given simulation "s", compute the maximum "y" value in a graph
+ * given the type of graph we want to produce.
+ */
+static void
+max_sim(struct bmigrate *b, const struct sim *s, 
+	double *xmin, double *xmax, double *maxy)
+{
+	size_t	 i;
+	double	 v;
+
+	if (gtk_check_menu_item_get_active(b->wins.viewdev))
+		for (i = 0; i < s->dims; i++) {
+			v = s->cold.means[i] + s->cold.variances[i];
+			if (v > *maxy)
+				*maxy = v;
+		}
+	else if (gtk_check_menu_item_get_active(b->wins.viewpolymin))
+		for (i = 0; i < s->dims; i++) {
+			v = s->cold.fitmins[i] / (double)s->cold.truns;
+			if (v > *maxy)
+				*maxy = v;
+		}
+	else if (gtk_check_menu_item_get_active(b->wins.viewpoly))
+		for (i = 0; i < s->dims; i++) {
+			v = s->cold.fits[i] > s->cold.means[i] ?
+				s->cold.fits[i] : s->cold.means[i];
+			if (v > *maxy)
+				*maxy = v;
+		}
+	else
+		for (i = 0; i < s->dims; i++) {
+			v = s->cold.means[i];
+			if (v > *maxy)
+				*maxy = v;
+		}
+
+	if (*xmin > s->d.continuum.xmin)
+		*xmin = s->d.continuum.xmin;
+	if (*xmax < s->d.continuum.xmax)
+		*xmax = s->d.continuum.xmax;
+}
+
+/*
+ * We can be attached to several simulations, so iterate over all of
+ * them when computing our maximum "y" point.
+ * Our minimum "y" point is always at zero: obviously, we'll never have
+ * a negative fraction of mutants.
+ */
+static size_t
+max_window(struct bmigrate *b, GObject *top, 
+	double *xmin, double *xmax, double *maxy)
+{
+	size_t		 i;
+	gchar		 buf[22];
+	struct sim	*s;
+
+	for (i = 0; i < 32; i++) {
+		(void)g_snprintf(buf, sizeof(buf), "sim%zu", i);
+		if (NULL == (s = g_object_get_data(top, buf)))
+			break;
+		max_sim(b, s, xmin, xmax, maxy);
+	}
+	assert(i > 0 && i < 32);
+	return(i);
+}
+
+/*
  * Main draw event.
  * There's lots we can do to make this more efficient, e.g., computing
  * the stddev/fitpoly arrays in the worker threads instead of here.
@@ -1159,39 +1230,9 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 
 	xmin = FLT_MAX;
 	xmax = maxy = -FLT_MAX;
-
-	/*
-	 * We can be attached to several simulations, so iterate over
-	 * all of them when computing our maximum "y" point.
-	 * Our minimum "y" point is always at zero: obviously, we'll
-	 * never have a negative fraction of mutants.
-	 */
-	for (objs = 0; objs < 32; objs++) {
-		(void)g_snprintf(buf, sizeof(buf), "sim%zu", objs);
-		sim = g_object_get_data(G_OBJECT(top), buf);
-		if (NULL == sim)
-			break;
-		for (j = 0; j < sim->dims; j++) {
-			if (gtk_check_menu_item_get_active(b->wins.viewdev))
-				v = sim->cold.means[j] + sim->cold.variances[j];
-			else if (gtk_check_menu_item_get_active(b->wins.viewpolymin))
-				v = sim->cold.fitmins[j] / (double)sim->cold.truns;
-			else if (gtk_check_menu_item_get_active(b->wins.viewpoly))
-				v = sim->cold.fits[j] > sim->cold.means[j] ?
-					sim->cold.fits[j] : sim->cold.means[j];
-			else 
-				v = sim->cold.means[j];
-			if (v > maxy)
-				maxy = v;
-		}
-		if (xmin > sim->d.continuum.xmin)
-			xmin = sim->d.continuum.xmin;
-		if (xmax < sim->d.continuum.xmax)
-			xmax = sim->d.continuum.xmax;
-	}
-	assert(objs > 0 && objs < 32);
-
+	objs = max_window(b, G_OBJECT(top), &xmin, &xmax, &maxy);
 	maxy += maxy * 0.1;
+
 	drawlabels(cr, &width, &height, 0.0, maxy, xmin, xmax);
 	cairo_save(cr);
 
