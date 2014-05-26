@@ -67,6 +67,7 @@ struct	hwin {
 	GtkStatusbar	 *status;
 	GtkCheckMenuItem *viewdev;
 	GtkCheckMenuItem *viewpoly;
+	GtkCheckMenuItem *viewpolymin;
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
@@ -118,7 +119,6 @@ struct	simhot {
 	double		*mutants; /* sum of mutant fraction */
 	double		*mutants2; /* sum of mutant fraction^2 */
 	double		*stddevs; /* running standard deviation */
-	double	   	*fit; /* fitpoly coefficients */
 	size_t		*runs; /* runs per mutant */
 	size_t		 truns; /* total number of runs */
 	int		 copyout; /* do we need to snapshot? */
@@ -136,6 +136,7 @@ struct	simwarm {
 	double		*mutants; /* mutant fractions (NOT sum!) */
 	double		*stddevs; /* running standard deviation */
 	double	   	*fit; /* fitpoly coefficients */
+	size_t		 fitmin;
 	size_t		*runs; /* runs per mutant */
 	size_t		 truns; /* total number of runs */
 };
@@ -165,6 +166,8 @@ struct	simcold {
 	double		*stddevs;
 	size_t		*runs;
 	double	   	*fit;
+	size_t		 fitmin;
+	size_t		*fitmins;
 	size_t		 truns;
 };
 
@@ -253,6 +256,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem6"));
 	b->wins.viewpoly = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem7"));
+	b->wins.viewpolymin = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem9"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
@@ -383,7 +388,6 @@ sim_free(gpointer arg)
 	g_free(p->hot.mutants);
 	g_free(p->hot.mutants2);
 	g_free(p->hot.stddevs);
-	g_free(p->hot.fit);
 	g_free(p->hot.runs);
 	g_free(p->warm.mutants);
 	g_free(p->warm.stddevs);
@@ -391,6 +395,7 @@ sim_free(gpointer arg)
 	g_free(p->warm.runs);
 	g_free(p->cold.mutants);
 	g_free(p->cold.stddevs);
+	g_free(p->cold.fitmins);
 	g_free(p->cold.fit);
 	g_free(p->cold.runs);
 	g_free(p->pops);
@@ -463,6 +468,25 @@ on_sim_snapshot(struct simwork *work, struct sim *sim)
 }
 
 /*
+ * For a given point "x" in the domain, fit ourselves to the polynomial
+ * coefficients of degree "fitpoly + 1".
+ */
+static double
+fitpoly(const double *fits, size_t poly, double x)
+{
+	double	 y, v;
+	size_t	 i, j;
+
+	for (y = 0.0, i = 0; i < poly; i++) {
+		v = fits[i];
+		for (j = 0; j < i; j++)
+			v *= x;
+		y += v;
+	}
+	return(y);
+}
+
+/*
  * In a given simulation, compute the next mutant/incumbent pair.
  * We make sure that incumbents are striped evenly in any given
  * simulation but that mutants are randomly selected from within the
@@ -475,7 +499,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 {
 	int		 fit;
 	size_t		 i, j, k;
-	double		 v, chisq;
+	double		 v, chisq, x, min;
 
 	if (sim->terminate)
 		return(0);
@@ -497,15 +521,10 @@ on_sim_next(struct simwork *work, struct sim *sim,
 			fit = 1;
 			sim->hot.copyout = 2;
 			sim->hot.copyblock = 0;
-			g_debug("Simulation %p snapshot", sim);
 			on_sim_snapshot(work, sim);
 			g_cond_broadcast(&sim->hot.cond);
-			g_debug("Simulation %p snapshot done", sim);
-		} else {
-			g_debug("Simulation %p slot %zu blocked for "
-				"snapshot", sim, sim->hot.copyblock);
+		} else
 			g_cond_wait(&sim->hot.cond, &sim->hot.mux);
-		}
 	}
 	g_mutex_unlock(&sim->hot.mux);
 
@@ -560,9 +579,21 @@ on_sim_next(struct simwork *work, struct sim *sim,
 
 	/* Lastly, snapshot and notify the main thread. */
 	g_mutex_lock(&sim->warm.mux);
-	for (i = 0; i < sim->fitpoly + 1; i++) 
+	for (i = 0; i < sim->fitpoly + 1; i++)
 		sim->warm.fit[i] = gsl_vector_get(work->c, i);
 	sim->hot.copyout = 0;
+	min = FLT_MAX;
+	for (i = 0; i < sim->dims; i++) {
+		x = sim->d.continuum.xmin + 
+			(sim->d.continuum.xmax -
+			 sim->d.continuum.xmin) *
+			i / (double)sim->dims;
+		v = fitpoly(sim->warm.fit, sim->fitpoly + 1, x);
+		if (v < min) {
+			sim->warm.fitmin = i;
+			min = v;
+		}
+	}
 	g_mutex_unlock(&sim->warm.mux);
 	return(1);
 }
@@ -816,6 +847,7 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.stddevs, 
 			sim->warm.stddevs,
 			sizeof(double) * sim->dims);
+		sim->cold.fitmin = sim->warm.fitmin;
 		memcpy(sim->cold.fit, 
 			sim->warm.fit,
 			sizeof(double) * (sim->fitpoly + 1));
@@ -824,7 +856,7 @@ on_sim_copyout(gpointer dat)
 			sizeof(size_t) * sim->dims);
 		sim->cold.truns = sim->warm.truns;
 		g_mutex_unlock(&sim->warm.mux);
-
+		sim->cold.fitmins[sim->cold.fitmin]++;
 		changed++;
 	}
 
@@ -1048,25 +1080,6 @@ drawlabels(cairo_t *cr, double *widthp, double *heightp,
 }
 
 /*
- * For a given point "x" in the domain, fit ourselves to the polynomial
- * coefficients of degree "fitpoly + 1".
- */
-static double
-fitpoly(const struct sim *sim, double x)
-{
-	double	 y, v;
-	size_t	 i, j;
-
-	for (y = 0.0, i = 0; i < sim->fitpoly + 1; i++) {
-		v = sim->cold.fit[i];
-		for (j = 0; j < i; j++)
-			v *= x;
-		y += v;
-	}
-	return(y);
-}
-
-/*
  * Main draw event.
  * There's lots we can do to make this more efficient, e.g., computing
  * the stddev/fitpoly arrays in the worker threads instead of here.
@@ -1104,14 +1117,14 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		if (NULL == sim)
 			break;
 		for (j = 0; j < sim->dims; j++) {
-			v = sim->cold.mutants[j];
+			if (gtk_check_menu_item_get_active(b->wins.viewdev))
+				v = sim->cold.mutants[j] + sim->cold.stddevs[j];
+			else if (gtk_check_menu_item_get_active(b->wins.viewpolymin))
+				v = sim->cold.fitmins[j] / (double)sim->cold.truns;
+			else 
+				v = sim->cold.mutants[j];
 			if (v > maxy)
 				maxy = v;
-			if (gtk_check_menu_item_get_active(b->wins.viewdev)) {
-				v += sim->cold.stddevs[j];
-				if (v > maxy)
-					maxy = v;
-			}
 		}
 		if (xmin > sim->d.continuum.xmin)
 			xmin = sim->d.continuum.xmin;
@@ -1133,16 +1146,6 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		(void)g_snprintf(buf, sizeof(buf), "sim%zu", i);
 		sim = g_object_get_data(G_OBJECT(top), buf);
 		assert(NULL != sim);
-		for (j = 1; j < sim->dims; j++) {
-			v = sim->cold.mutants[j - 1];
-			cairo_move_to(cr, 
-				width * (j - 1) / (double)(sim->dims - 1),
-				height - (v / maxy * height));
-			v = sim->cold.mutants[j];
-			cairo_line_to(cr, 
-				width * j / (double)(sim->dims - 1),
-				height - (v / maxy * height));
-		}
 
 		if (gtk_check_menu_item_get_active(b->wins.viewdev)) {
 			/*
@@ -1150,6 +1153,16 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 * above and below the curve.
 			 * Obviously, don't go below zero.
 			 */
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.mutants[j - 1];
+				cairo_move_to(cr, 
+					width * (j - 1) / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+				v = sim->cold.mutants[j];
+				cairo_line_to(cr, 
+					width * j / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+			}
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
@@ -1198,6 +1211,16 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 * Compute and draw the curve stipulated by the
 			 * coefficients our workers have computed.
 			 */
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.mutants[j - 1];
+				cairo_move_to(cr, 
+					width * (j - 1) / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+				v = sim->cold.mutants[j];
+				cairo_line_to(cr, 
+					width * j / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+			}
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
@@ -1208,7 +1231,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 					(sim->d.continuum.xmax -
 					 sim->d.continuum.xmin) *
 					(j - 1) / (double)sim->dims;
-				v = fitpoly(sim, x);
+				v = fitpoly(sim->cold.fit, sim->fitpoly + 1, x);
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1216,7 +1239,31 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 					(sim->d.continuum.xmax -
 					 sim->d.continuum.xmin) *
 					j / (double)sim->dims;
-				v = fitpoly(sim, x);
+				v = fitpoly(sim->cold.fit, sim->fitpoly + 1, x);
+				cairo_line_to(cr, 
+					width * j / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+			}
+			cairo_set_source_rgba
+				(cr, b->wins.colours[sim->colour].red,
+				 b->wins.colours[sim->colour].green,
+				 b->wins.colours[sim->colour].blue, 1.0);
+			cairo_stroke(cr);
+		} else if (gtk_check_menu_item_get_active(b->wins.viewpolymin)) {
+			for (j = 1; j < sim->dims; j++) {
+				x = sim->d.continuum.xmin +
+					(sim->d.continuum.xmax -
+					 sim->d.continuum.xmin) *
+					(j - 1) / (double)sim->dims;
+				v = sim->cold.fitmins[j - 1] / (double)sim->cold.truns;
+				cairo_move_to(cr, 
+					width * (j - 1) / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+				x = sim->d.continuum.xmin +
+					(sim->d.continuum.xmax -
+					 sim->d.continuum.xmin) *
+					j / (double)sim->dims;
+				v = sim->cold.fitmins[j] / (double)sim->cold.truns;
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
 					height - (v / maxy * height));
@@ -1231,6 +1278,16 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 * Draw just the raw curve.
 			 * This is the default.
 			 */
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.mutants[j - 1];
+				cairo_move_to(cr, 
+					width * (j - 1) / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+				v = sim->cold.mutants[j];
+				cairo_line_to(cr, 
+					width * j / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+			}
 			cairo_set_source_rgba
 				(cr, b->wins.colours[sim->colour].red,
 				 b->wins.colours[sim->colour].green,
@@ -1421,8 +1478,6 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->hot.stddevs = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->hot.fit = g_malloc0_n
-		(sim->fitpoly + 1, sizeof(double));
 	sim->warm.mutants = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->warm.stddevs = g_malloc0_n
@@ -1435,6 +1490,8 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->cold.fit = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
+	sim->cold.fitmins = g_malloc0_n
+		(sim->dims, sizeof(size_t));
 
 	sim->type = PAYOFF_CONTINUUM2;
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
@@ -1651,8 +1708,8 @@ main(int argc, char *argv[])
 		G_CALLBACK(onterminate), &b);
 	gtkosx_application_ready(theApp);
 #endif
-	g_timeout_add(500, (GSourceFunc)on_sim_timer, &b);
-	g_timeout_add(500, (GSourceFunc)on_sim_copyout, &b);
+	g_timeout_add(1000, (GSourceFunc)on_sim_timer, &b);
+	g_timeout_add(1000, (GSourceFunc)on_sim_copyout, &b);
 	gtk_statusbar_push(b.wins.status, 0, "No simulations.");
 	gtk_main();
 	bmigrate_free(&b);
