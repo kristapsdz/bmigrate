@@ -248,7 +248,12 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 {
 	GObject		*w;
 	gchar		 buf[1024];
-
+	int		 onlprocs;
+#ifdef	__linux__
+	onlprocs = sysconf(_SC_NPROCESSORS_ONLN);
+#else
+	onlprocs = g_get_num_processors();
+#endif
 	b->wins.config = GTK_WINDOW
 		(gtk_builder_get_object(builder, "window1"));
 	b->wins.status = GTK_STATUSBAR
@@ -321,11 +326,9 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gtk_combo_box_set_active(GTK_COMBO_BOX(w), 0);
 
 	/* Maximum number of processors. */
-	gtk_adjustment_set_upper
-		(b->wins.nthreads, g_get_num_processors());
+	gtk_adjustment_set_upper(b->wins.nthreads, onlprocs);
 	w = gtk_builder_get_object(builder, "label12");
-	(void)g_snprintf(buf, sizeof(buf), 
-		"%d", g_get_num_processors());
+	(void)g_snprintf(buf, sizeof(buf), "%d", onlprocs);
 	gtk_label_set_text(GTK_LABEL(w), buf);
 
 	/* Compute initial total population. */
@@ -931,7 +934,13 @@ on_sim_timer(gpointer dat)
 	GList		*list;
 	uint64_t	 runs;
 	size_t		 i, nprocs;
-	double		 elapsed;
+	double		 elapsed, onlprocs;
+
+#ifdef	__linux__
+	onlprocs = sysconf( _SC_NPROCESSORS_ONLN );
+#else
+	onlprocs = g_get_num_processors();
+#endif
 
 	nprocs = runs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
@@ -960,8 +969,7 @@ on_sim_timer(gpointer dat)
 
 	/* Remind us of how many threads we're running. */
 	(void)g_snprintf(buf, sizeof(buf),
-		"(%g%% active)", 100 * (nprocs / 
-			(double)g_get_num_processors()));
+		"(%g%% active)", 100 * (nprocs / onlprocs));
 	gtk_label_set_text(b->wins.curthreads, buf);
 	
 	/* Tell us how many generations have transpired. */
@@ -1134,7 +1142,7 @@ gboolean
 ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	double		 width, height, maxy, v, x, xmin, xmax;
+	double		 width, height, maxy, v, xmin, xmax;
 	GtkWidget	*top;
 	struct sim	*sim;
 	size_t		 i, j, objs;
@@ -1292,18 +1300,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_stroke(cr);
 		} else if (gtk_check_menu_item_get_active(b->wins.viewpolymin)) {
 			for (j = 1; j < sim->dims; j++) {
-				x = sim->d.continuum.xmin +
-					(sim->d.continuum.xmax -
-					 sim->d.continuum.xmin) *
-					(j - 1) / (double)sim->dims;
 				v = sim->cold.fitmins[j - 1] / (double)sim->cold.truns;
 				cairo_move_to(cr, 
 					width * (j - 1) / (double)(sim->dims - 1),
 					height - (v / maxy * height));
-				x = sim->d.continuum.xmin +
-					(sim->d.continuum.xmax -
-					 sim->d.continuum.xmin) *
-					j / (double)sim->dims;
 				v = sim->cold.fitmins[j] / (double)sim->cold.truns;
 				cairo_line_to(cr, 
 					width * j / (double)(sim->dims - 1),
@@ -1432,7 +1432,7 @@ on_activate(GtkButton *button, gpointer dat)
 	islands = (size_t)gtk_adjustment_get_value(b->wins.islands);
 
 	payoff = gtk_notebook_get_current_page(b->wins.payoffs);
-	if (PAYOFF_CONTINUUM2 != input) {
+	if (PAYOFF_CONTINUUM2 != payoff) {
 		gtk_label_set_text
 			(b->wins.error,
 			 "Error: only continuum payoff supported.");
