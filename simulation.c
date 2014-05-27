@@ -284,6 +284,8 @@ simulation(void *arg)
 	gsl_rng		*rng;
 
 	rng = gsl_rng_alloc(gsl_rng_default);
+	gsl_rng_set(rng, arc4random());
+
 	g_debug("Thread %p (simulation %p) using RNG %s", 
 		g_thread_self(), sim, gsl_rng_name(rng));
 
