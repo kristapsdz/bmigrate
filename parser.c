@@ -21,6 +21,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <glib.h>
+#include <gsl/gsl_multifit.h>
+
 #include "extern.h"
 
 #define	BUFSZ 1024
