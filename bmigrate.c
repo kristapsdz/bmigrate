@@ -695,8 +695,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	 */
 	top = gtk_widget_get_toplevel(w);
 	cur = g_object_get_data(G_OBJECT(top), "cfg");
-	sims = g_object_get_data(G_OBJECT(top), "sims");
 	assert(NULL != cur);
+	sims = g_object_get_data(G_OBJECT(top), "sims");
 	assert(NULL != sims);
 
 	/* Initialise the window view to be all white. */
@@ -710,6 +710,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	 * Determine the boundaries of the graph.
 	 * These will, for all graphs in our set, compute the range and
 	 * domain extrema (the range minimum is always zero).
+	 * Buffer the maximum range by 110%.
 	 */
 	xmin = FLT_MAX;
 	xmax = maxy = -FLT_MAX;
@@ -722,14 +723,18 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	 * FIXME: not all graphs get y-labels.
 	 */
 	drawlabels(cr, &width, &height, 0.0, maxy, xmin, xmax);
-	/* Save within the label context. */
-	cairo_save(cr);
 
 	/*
 	 * Draw curves as specified: either the "raw" curve (just the
 	 * data), the raw curve and its standard deviation above and
 	 * below, or the raw curve plus the polynomial fitting.
 	 */
+#define	GETX(_j) (width * (_j) / (double)(sim->dims - 1))
+#define	GETY(_v) (height - ((_v) / maxy * height))
+#define	GETC(_a) b->wins.colours[sim->colour].red, \
+		 b->wins.colours[sim->colour].green, \
+		 b->wins.colours[sim->colour].blue, (_a)
+	cairo_save(cr);
 	for (list = sims; NULL != list; list = list->next) {
 		sim = list->data;
 		assert(NULL != sim);
@@ -742,56 +747,35 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 */
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
-				cairo_move_to(cr, 
-					width * (j - 1) / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.means[j];
-				cairo_line_to(cr, 
-					width * j / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba
-				(cr, b->wins.colours[sim->colour].red,
-				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].blue, 1.0);
+			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				v -= sim->cold.variances[j - 1];
 				if (v < 0.0)
 					v = 0.0;
-				cairo_move_to(cr, 
-					width * (j - 1) / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.means[j];
 				v -= sim->cold.variances[j];
 				if (v < 0.0)
 					v = 0.0;
-				cairo_line_to(cr, 
-					width * j / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba
-				(cr, b->wins.colours[sim->colour].red,
-				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].blue, 0.5);
+			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				v += sim->cold.variances[j - 1];
-				cairo_move_to(cr, 
-					width * (j - 1) / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.means[j];
 				v += sim->cold.variances[j];
-				cairo_line_to(cr, 
-					width * j / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba
-				(cr, b->wins.colours[sim->colour].red,
-				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].blue, 0.5);
+			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 		} else if (cur->viewpoly) {
 			/*
@@ -800,65 +784,41 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 */
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
-				cairo_move_to(cr, 
-					width * (j - 1) / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.means[j];
-				cairo_line_to(cr, 
-					width * j / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba
-				(cr, b->wins.colours[sim->colour].red,
-				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].blue, 0.5);
+			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.fits[j - 1];
-				cairo_move_to(cr, 
-					width * (j - 1) / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.fits[j];
-				cairo_line_to(cr, 
-					width * j / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba
-				(cr, b->wins.colours[sim->colour].red,
-				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].blue, 1.0);
+			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 		} else if (cur->viewpolymin) {
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.fitmins[j - 1] / (double)sim->cold.truns;
-				cairo_move_to(cr, 
-					width * (j - 1) / (double)(sim->dims - 1),
-					height - (v / maxy * height));
-				v = sim->cold.fitmins[j] / (double)sim->cold.truns;
-				cairo_line_to(cr, 
-					width * j / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				v = sim->cold.fitmins[j - 1] / 
+					(double)sim->cold.truns;
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = sim->cold.fitmins[j] / 
+					(double)sim->cold.truns;
+				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba
-				(cr, b->wins.colours[sim->colour].red,
-				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].blue, 1.0);
+			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 		} else if (cur->viewmeanmin) {
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.meanmins[j - 1] / (double)sim->cold.truns;
-				cairo_move_to(cr, 
-					width * (j - 1) / (double)(sim->dims - 1),
-					height - (v / maxy * height));
-				v = sim->cold.meanmins[j] / (double)sim->cold.truns;
-				cairo_line_to(cr, 
-					width * j / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				v = sim->cold.meanmins[j - 1] / 
+					(double)sim->cold.truns;
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = sim->cold.meanmins[j] / 
+					(double)sim->cold.truns;
+				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba
-				(cr, b->wins.colours[sim->colour].red,
-				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].blue, 1.0);
+			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 		} else {
 			/* 
@@ -867,24 +827,16 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			 */
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
-				cairo_move_to(cr, 
-					width * (j - 1) / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.means[j];
-				cairo_line_to(cr, 
-					width * j / (double)(sim->dims - 1),
-					height - (v / maxy * height));
+				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba
-				(cr, b->wins.colours[sim->colour].red,
-				 b->wins.colours[sim->colour].green,
-				 b->wins.colours[sim->colour].blue, 1.0);
+			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 		}
 	}
-
-	/* Restore to be in the main window. */
 	cairo_restore(cr);
+
 	/* Draw a little grid for reference points. */
 	drawgrid(cr, width, height);
 	return(TRUE);
@@ -901,21 +853,9 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 void
 onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 {
-	GList		*list;
 	struct bmigrate	*b = dat;
-	int	 	 viewdev, viewpoly, viewpolymin, viewmeanmin;
+	GList		*list;
 	struct curwin	*cur;
-
-	/* Determine the view update. */
-	viewpoly = viewdev = viewpolymin = viewmeanmin = 0;
-	if (menuitem == GTK_MENU_ITEM(b->wins.viewpoly))
-		viewpoly = 1;
-	else if (menuitem == GTK_MENU_ITEM(b->wins.viewdev))
-		viewdev = 1;
-	else if (menuitem == GTK_MENU_ITEM(b->wins.viewpolymin))
-		viewpolymin = 1;
-	else if (menuitem == GTK_MENU_ITEM(b->wins.viewmeanmin))
-		viewmeanmin = 1;
 
 	list = gtk_window_list_toplevels();
 	for ( ; list != NULL; list = list->next) {
@@ -923,11 +863,14 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 		cur = g_object_get_data(G_OBJECT(list->data), "cfg");
 		if (NULL == cur)
 			continue;
-		/* Update it. */
-		cur->viewdev = viewdev;
-		cur->viewpoly = viewpoly;
-		cur->viewpolymin = viewpolymin;
-		cur->viewmeanmin = viewmeanmin;
+		cur->viewpoly = gtk_check_menu_item_get_active
+			(b->wins.viewpoly);
+		cur->viewdev = gtk_check_menu_item_get_active
+			(b->wins.viewdev);
+		cur->viewpolymin = gtk_check_menu_item_get_active
+			(b->wins.viewpolymin);
+		cur->viewmeanmin = gtk_check_menu_item_get_active
+			(b->wins.viewmeanmin);
 		gtk_widget_queue_draw(GTK_WIDGET(list->data));
 	}
 }
@@ -1151,6 +1094,14 @@ on_activate(GtkButton *button, gpointer dat)
 
 	sims = g_list_append(NULL, sim);
 	cur = g_malloc0(sizeof(struct curwin));
+	cur->viewpoly = gtk_check_menu_item_get_active
+		(b->wins.viewpoly);
+	cur->viewdev = gtk_check_menu_item_get_active
+		(b->wins.viewdev);
+	cur->viewpolymin = gtk_check_menu_item_get_active
+		(b->wins.viewpolymin);
+	cur->viewmeanmin = gtk_check_menu_item_get_active
+		(b->wins.viewmeanmin);
 
 	/*
 	 * Now we create the output window.
