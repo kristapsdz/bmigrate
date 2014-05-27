@@ -34,6 +34,7 @@
 #include <gsl/gsl_randist.h>
 
 #include "extern.h"
+
 /*
  * These are all widgets that may be or are visible.
  */

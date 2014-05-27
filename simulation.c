@@ -125,8 +125,16 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	size_t		 i, j, k;
 	double		 v, chisq, x, min;
 
-	if (sim->terminate)
+	if (sim->terminate) {
+		/*
+		 * We can have people waiting to copy-out data, so make
+		 * them exit right now.
+		 */
+		g_mutex_lock(&sim->hot.mux);
+		g_cond_broadcast(&sim->hot.cond);
+		g_mutex_unlock(&sim->hot.mux);
 		return(0);
+	}
 
 	fit = 0;
 	g_mutex_lock(&sim->hot.mux);
