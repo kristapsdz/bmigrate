@@ -1274,10 +1274,10 @@ main(int argc, char *argv[])
 	gchar	 	  *dir;
 	GtkosxApplication *theApp;
 #endif
-
 	file = NULL;
 	memset(&b, 0, sizeof(struct bmigrate));
 	gtk_init(&argc, &argv);
+	hnode_test();
 
 	/*
 	 * Look up our `glade' file as follows.

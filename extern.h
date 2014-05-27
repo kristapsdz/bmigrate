@@ -202,6 +202,7 @@ void		  hnode_free(struct hnode **p);
 struct hnode	**hnode_copy(struct hnode **p);
 double		  hnode_exec(const struct hnode *const *p,
 			double x, double X, size_t n);
+void		  hnode_test(void);
 #if 0
 void		  hnode_print(struct hnode **p);
 #endif

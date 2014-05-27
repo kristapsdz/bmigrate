@@ -574,3 +574,43 @@ hnode_exec(const struct hnode *const *p, double x, double X, size_t n)
 	assert(1 == ssz);
 	return(stack[0]);
 }
+
+static void
+hnode_test_expect(double x, double X, 
+	double n, const char *expf, double vexp)
+{
+	struct hnode	 **exp;
+	double		   v;
+	const char	  *expfp;
+
+	expfp = expf;
+	exp = hnode_parse((const char **)&expfp);
+	assert(NULL != exp);
+	v = hnode_exec
+		((const struct hnode *const *)exp, x, X, n);
+	fprintf(stderr, "pi(x=%g, X=%g, n=%g) = %s = %g (want %g)\n", 
+		x, X, n, expf, v, vexp);
+	hnode_free(exp);
+}
+
+void
+hnode_test(void)
+{
+	double	x, X, n;
+
+	x = 10.0;
+	X = 20.0;
+	n = 2.0;
+	hnode_test_expect(x, X, n, 
+		"(1 - exp(-X)) - x", 
+		(1.0 - exp(-X)) - x);
+	hnode_test_expect(x, X, n, 
+		"sqrt(1 / n * X) - 0.5 * x^2", 
+		sqrt(1.0 / n * X) - 0.5 * pow(x, 2.0));
+	hnode_test_expect(x, X, n, 
+		"x - (X - x) * x - x^2",
+		x - (X - x) * x - pow(x, 2.0));
+	hnode_test_expect(x, X, n, 
+		"x * (1 / X) - x",
+		x * (1.0 / X) - x);
+}
