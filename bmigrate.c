@@ -912,7 +912,7 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 	else if (menuitem == GTK_MENU_ITEM(b->wins.viewdev))
 		viewdev = 1;
 	else if (menuitem == GTK_MENU_ITEM(b->wins.viewpolymin))
-		viewdev = 1;
+		viewpolymin = 1;
 	else if (menuitem == GTK_MENU_ITEM(b->wins.viewmeanmin))
 		viewmeanmin = 1;
 
