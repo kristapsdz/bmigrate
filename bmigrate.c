@@ -46,8 +46,10 @@ struct	hwin {
 	GtkStatusbar	 *status;
 	GtkCheckMenuItem *viewdev;
 	GtkCheckMenuItem *viewpoly;
-	GtkCheckMenuItem *viewpolymin;
-	GtkCheckMenuItem *viewmeanmin;
+	GtkCheckMenuItem *viewpolyminpdf;
+	GtkCheckMenuItem *viewpolymincdf;
+	GtkCheckMenuItem *viewmeanminpdf;
+	GtkCheckMenuItem *viewmeanmincdf;
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
@@ -77,8 +79,10 @@ struct	hwin {
 struct	curwin {
 	int		  viewdev;
 	int		  viewpoly;
-	int		  viewpolymin;
-	int		  viewmeanmin;
+	int		  viewpolyminpdf;
+	int		  viewpolymincdf;
+	int		  viewmeanminpdf;
+	int		  viewmeanmincdf;
 };
 
 /*
@@ -130,10 +134,14 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem6"));
 	b->wins.viewpoly = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem7"));
-	b->wins.viewpolymin = GTK_CHECK_MENU_ITEM
+	b->wins.viewpolyminpdf = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem9"));
-	b->wins.viewmeanmin = GTK_CHECK_MENU_ITEM
+	b->wins.viewpolymincdf = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem11"));
+	b->wins.viewmeanminpdf = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem10"));
+	b->wins.viewmeanmincdf = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem12"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
@@ -546,7 +554,8 @@ drawgrid(cairo_t *cr, double width, double height)
 }
 
 static void
-drawlabels(cairo_t *cr, double *widthp, double *heightp,
+drawlabels(const struct curwin *cur, cairo_t *cr, 
+	double *widthp, double *heightp,
 	double miny, double maxy, double minx, double maxx)
 {
 	cairo_text_extents_t e;
@@ -559,33 +568,79 @@ drawlabels(cairo_t *cr, double *widthp, double *heightp,
 	cairo_text_extents(cr, "-10.00", &e);
 	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0); 
 
-	/* Top right. */
-	cairo_move_to(cr, width - e.width, 
-		height - e.height * 2.0);
-	(void)snprintf(buf, sizeof(buf), "%.2g", miny);
-	cairo_show_text(cr, buf);
+	/* CDF and PDF graphs have an opaque y-axis. */
+	if ( ! cur->viewpolyminpdf &&
+		! cur->viewpolymincdf &&
+		! cur->viewmeanminpdf &&
+		! cur->viewmeanmincdf) {
+		/* Bottom right. */
+		cairo_move_to(cr, width - e.width, 
+			height - e.height * 3.0);
+		(void)snprintf(buf, sizeof(buf), "%.2g", miny);
+		cairo_show_text(cr, buf);
 
-	/* Middle-top right. */
-	cairo_move_to(cr, width - e.width, height * 0.75);
-	(void)snprintf(buf, sizeof(buf), 
-		"%.2g", miny + (maxy + miny) * 0.25);
-	cairo_show_text(cr, buf);
+		/* Middle-bottom right. */
+		cairo_move_to(cr, width - e.width, 
+			height * 0.75 - 1.5 * e.height);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", miny + (maxy + miny) * 0.25);
+		cairo_show_text(cr, buf);
 
-	/* Middle right. */
-	cairo_move_to(cr, width - e.width, height * 0.5);
-	(void)snprintf(buf, sizeof(buf), "%.2g", (maxy + miny) * 0.5);
-	cairo_show_text(cr, buf);
+		/* Middle right. */
+		cairo_move_to(cr, width - e.width, 
+			height * 0.5 - 0.5 * e.height);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", (maxy + miny) * 0.5);
+		cairo_show_text(cr, buf);
 
-	/* Middle-bottom right. */
-	cairo_move_to(cr, width - e.width, height * 0.25);
-	(void)snprintf(buf, sizeof(buf), 
-		"%.2g", miny + (maxy + miny) * 0.75);
-	cairo_show_text(cr, buf);
+		/* Middle-top right. */
+		cairo_move_to(cr, width - e.width, height * 0.25);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", miny + (maxy + miny) * 0.75);
+		cairo_show_text(cr, buf);
 
-	/* Bottom right. */
-	cairo_move_to(cr, width - e.width, e.height * 1.5);
-	(void)snprintf(buf, sizeof(buf), "%.2g", maxy);
-	cairo_show_text(cr, buf);
+		/* Top right. */
+		cairo_move_to(cr, width - e.width, e.height * 1.5);
+		(void)snprintf(buf, sizeof(buf), "%.2g", maxy);
+		cairo_show_text(cr, buf);
+
+		/* Right bottom. */
+		cairo_move_to(cr, width - e.width * 1.5, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), "%.2g", maxx);
+		cairo_show_text(cr, buf);
+
+		/* Middle-left bottom. */
+		cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", minx + (maxx + minx) * 0.25);
+		cairo_show_text(cr, buf);
+
+		/* Middle bottom. */
+		cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", (maxx + minx) * 0.5);
+		cairo_show_text(cr, buf);
+
+		/* Middle-right bottom. */
+		cairo_move_to(cr, width * 0.75 - e.width, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", minx + (maxx + minx) * 0.75);
+		cairo_show_text(cr, buf);
+
+		/* Left bottom. */
+		cairo_move_to(cr, e.width * 0.25, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), "%.2g", minx);
+		cairo_show_text(cr, buf);
+
+		*widthp -= e.width * 1.3;
+		*heightp -= e.height * 3.0;
+		return;
+	}
 
 	/* Right bottom. */
 	cairo_move_to(cr, width - e.width * 1.5, 
@@ -619,7 +674,6 @@ drawlabels(cairo_t *cr, double *widthp, double *heightp,
 	(void)snprintf(buf, sizeof(buf), "%.2g", minx);
 	cairo_show_text(cr, buf);
 
-	*widthp -= e.width * 1.3;
 	*heightp -= e.height * 3.0;
 }
 
@@ -634,37 +688,48 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	size_t	 i;
 	double	 v;
 
-	if (cur->viewdev)
+	if (cur->viewdev) {
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.means[i] + s->cold.variances[i];
 			if (v > *maxy)
 				*maxy = v;
 		}
-	else if (cur->viewpolymin)
+	} else if (cur->viewpolyminpdf) {
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.fitmins[i] / (double)s->cold.truns;
 			if (v > *maxy)
 				*maxy = v;
 		}
-	else if (cur->viewmeanmin)
+	} else if (cur->viewpolymincdf) {
+		for (v = 0.0, i = 0; i < s->dims; i++)
+			v += s->cold.fitmins[i] / (double)s->cold.truns;
+		if (v > *maxy)
+			*maxy = v;
+	} else if (cur->viewmeanminpdf) {
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.meanmins[i] / (double)s->cold.truns;
 			if (v > *maxy)
 				*maxy = v;
 		}
-	else if (cur->viewpoly)
+	} else if (cur->viewmeanmincdf) {
+		for (v = 0.0, i = 0; i < s->dims; i++)
+			v += s->cold.meanmins[i] / (double)s->cold.truns;
+		if (v > *maxy)
+			*maxy = v;
+	} else if (cur->viewpoly) {
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.fits[i] > s->cold.means[i] ?
 				s->cold.fits[i] : s->cold.means[i];
 			if (v > *maxy)
 				*maxy = v;
 		}
-	else
+	} else {
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.means[i];
 			if (v > *maxy)
 				*maxy = v;
 		}
+	}
 
 	if (*xmin > s->d.continuum.xmin)
 		*xmin = s->d.continuum.xmin;
@@ -716,13 +781,13 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	xmax = maxy = -FLT_MAX;
 	for (list = sims; NULL != list; list = list->next)
 		max_sim(cur, list->data, &xmin, &xmax, &maxy);
-	maxy += maxy * 0.1;
 
-	/* 
-	 * Draw our labels. 
-	 * FIXME: not all graphs get y-labels.
-	 */
-	drawlabels(cr, &width, &height, 0.0, maxy, xmin, xmax);
+	/* CDF's don't get their windows scaled. */
+	if ( ! cur->viewpolymincdf && ! cur->viewmeanmincdf)
+		maxy += maxy * 0.1;
+
+	/* Draw our labels. */
+	drawlabels(cur, cr, &width, &height, 0.0, maxy, xmin, xmax);
 
 	/*
 	 * Draw curves as specified: either the "raw" curve (just the
@@ -798,7 +863,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
-		} else if (cur->viewpolymin) {
+		} else if (cur->viewpolyminpdf) {
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.fitmins[j - 1] / 
 					(double)sim->cold.truns;
@@ -809,12 +874,30 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
-		} else if (cur->viewmeanmin) {
+		} else if (cur->viewpolymincdf) {
+			cairo_move_to(cr, GETX(0), GETY(0.0));
+			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				v += sim->cold.fitmins[j] / 
+					(double)sim->cold.truns;
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+		} else if (cur->viewmeanminpdf) {
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.meanmins[j - 1] / 
 					(double)sim->cold.truns;
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.meanmins[j] / 
+					(double)sim->cold.truns;
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+		} else if (cur->viewmeanmincdf) {
+			cairo_move_to(cr, GETX(0), GETY(0.0));
+			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				v += sim->cold.meanmins[j] / 
 					(double)sim->cold.truns;
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
@@ -867,10 +950,14 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 			(b->wins.viewpoly);
 		cur->viewdev = gtk_check_menu_item_get_active
 			(b->wins.viewdev);
-		cur->viewpolymin = gtk_check_menu_item_get_active
-			(b->wins.viewpolymin);
-		cur->viewmeanmin = gtk_check_menu_item_get_active
-			(b->wins.viewmeanmin);
+		cur->viewpolyminpdf = gtk_check_menu_item_get_active
+			(b->wins.viewpolyminpdf);
+		cur->viewpolymincdf = gtk_check_menu_item_get_active
+			(b->wins.viewpolymincdf);
+		cur->viewmeanminpdf = gtk_check_menu_item_get_active
+			(b->wins.viewmeanminpdf);
+		cur->viewmeanmincdf = gtk_check_menu_item_get_active
+			(b->wins.viewmeanmincdf);
 		gtk_widget_queue_draw(GTK_WIDGET(list->data));
 	}
 }
@@ -1098,10 +1185,14 @@ on_activate(GtkButton *button, gpointer dat)
 		(b->wins.viewpoly);
 	cur->viewdev = gtk_check_menu_item_get_active
 		(b->wins.viewdev);
-	cur->viewpolymin = gtk_check_menu_item_get_active
-		(b->wins.viewpolymin);
-	cur->viewmeanmin = gtk_check_menu_item_get_active
-		(b->wins.viewmeanmin);
+	cur->viewpolyminpdf = gtk_check_menu_item_get_active
+		(b->wins.viewpolyminpdf);
+	cur->viewpolymincdf = gtk_check_menu_item_get_active
+		(b->wins.viewpolymincdf);
+	cur->viewmeanminpdf = gtk_check_menu_item_get_active
+		(b->wins.viewmeanminpdf);
+	cur->viewmeanmincdf = gtk_check_menu_item_get_active
+		(b->wins.viewmeanmincdf);
 
 	/*
 	 * Now we create the output window.

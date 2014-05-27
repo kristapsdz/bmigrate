@@ -588,7 +588,7 @@ hnode_test_expect(double x, double X,
 	assert(NULL != exp);
 	v = hnode_exec
 		((const struct hnode *const *)exp, x, X, n);
-	fprintf(stderr, "pi(x=%g, X=%g, n=%g) = %s = %g (want %g)\n", 
+	g_debug("pi(x=%g, X=%g, n=%g) = %s = %g (want %g)", 
 		x, X, n, expf, v, vexp);
 	hnode_free(exp);
 }
