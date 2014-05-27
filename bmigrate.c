@@ -46,6 +46,7 @@ struct	hwin {
 	GtkCheckMenuItem *viewdev;
 	GtkCheckMenuItem *viewpoly;
 	GtkCheckMenuItem *viewpolymin;
+	GtkCheckMenuItem *viewmeanmin;
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
@@ -76,6 +77,7 @@ struct	curwin {
 	int		  viewdev;
 	int		  viewpoly;
 	int		  viewpolymin;
+	int		  viewmeanmin;
 };
 
 /*
@@ -129,6 +131,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem7"));
 	b->wins.viewpolymin = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem9"));
+	b->wins.viewmeanmin = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem10"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
@@ -269,6 +273,7 @@ sim_free(gpointer arg)
 	g_free(p->cold.means);
 	g_free(p->cold.variances);
 	g_free(p->cold.fitmins);
+	g_free(p->cold.meanmins);
 	g_free(p->cold.coeffs);
 	g_free(p->cold.fits);
 	g_free(p->cold.runs);
@@ -373,6 +378,7 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.means, 
 			sim->warm.means,
 			sizeof(double) * sim->dims);
+		sim->cold.meanmin = sim->warm.meanmin;
 		memcpy(sim->cold.variances, 
 			sim->warm.variances,
 			sizeof(double) * sim->dims);
@@ -389,6 +395,7 @@ on_sim_copyout(gpointer dat)
 		sim->cold.truns = sim->warm.truns;
 		g_mutex_unlock(&sim->warm.mux);
 		sim->cold.fitmins[sim->cold.fitmin]++;
+		sim->cold.meanmins[sim->cold.meanmin]++;
 		changed++;
 	}
 
@@ -638,6 +645,12 @@ max_sim(const struct curwin *cur, const struct sim *s,
 			if (v > *maxy)
 				*maxy = v;
 		}
+	else if (cur->viewmeanmin)
+		for (i = 0; i < s->dims; i++) {
+			v = s->cold.meanmins[i] / (double)s->cold.truns;
+			if (v > *maxy)
+				*maxy = v;
+		}
 	else if (cur->viewpoly)
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.fits[i] > s->cold.means[i] ?
@@ -830,6 +843,22 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				 b->wins.colours[sim->colour].green,
 				 b->wins.colours[sim->colour].blue, 1.0);
 			cairo_stroke(cr);
+		} else if (cur->viewmeanmin) {
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.meanmins[j - 1] / (double)sim->cold.truns;
+				cairo_move_to(cr, 
+					width * (j - 1) / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+				v = sim->cold.meanmins[j] / (double)sim->cold.truns;
+				cairo_line_to(cr, 
+					width * j / (double)(sim->dims - 1),
+					height - (v / maxy * height));
+			}
+			cairo_set_source_rgba
+				(cr, b->wins.colours[sim->colour].red,
+				 b->wins.colours[sim->colour].green,
+				 b->wins.colours[sim->colour].blue, 1.0);
+			cairo_stroke(cr);
 		} else {
 			/* 
 			 * Draw just the raw curve.
@@ -873,17 +902,19 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 {
 	GList		*list;
 	struct bmigrate	*b = dat;
-	int	 	 viewdev, viewpoly, viewpolymin;
+	int	 	 viewdev, viewpoly, viewpolymin, viewmeanmin;
 	struct curwin	*cur;
 
 	/* Determine the view update. */
-	viewpoly = viewdev = viewpolymin = 0;
+	viewpoly = viewdev = viewpolymin = viewmeanmin = 0;
 	if (menuitem == GTK_MENU_ITEM(b->wins.viewpoly))
 		viewpoly = 1;
 	else if (menuitem == GTK_MENU_ITEM(b->wins.viewdev))
 		viewdev = 1;
 	else if (menuitem == GTK_MENU_ITEM(b->wins.viewpolymin))
 		viewdev = 1;
+	else if (menuitem == GTK_MENU_ITEM(b->wins.viewmeanmin))
+		viewmeanmin = 1;
 
 	list = gtk_window_list_toplevels();
 	for ( ; list != NULL; list = list->next) {
@@ -895,6 +926,7 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 		cur->viewdev = viewdev;
 		cur->viewpoly = viewpoly;
 		cur->viewpolymin = viewpolymin;
+		cur->viewmeanmin = viewmeanmin;
 		gtk_widget_queue_draw(GTK_WIDGET(list->data));
 	}
 }
@@ -1077,6 +1109,8 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->cold.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
 	sim->cold.fitmins = g_malloc0_n
+		(sim->dims, sizeof(size_t));
+	sim->cold.meanmins = g_malloc0_n
 		(sim->dims, sizeof(size_t));
 
 	sim->type = PAYOFF_CONTINUUM2;

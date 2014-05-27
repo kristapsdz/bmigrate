@@ -32,28 +32,43 @@
  * Copy the "hot" data into "warm" holding.
  * While here, set our "work" parameter (if "fitpoly" is set) to contain
  * the necessary dependent variable.
+ * Do this all as quickly as possible, as we're holding both the
+ * simulation "hot" lock and the "warm" lock as well.
+ * XXX: some of this work (variances, meanmin) we can run outside of the
+ * hot lock.
  */
 static void
 on_sim_snapshot(struct simwork *work, struct sim *sim)
 {
 	size_t	 i;
+	double	 min;
 
 	g_mutex_lock(&sim->warm.mux);
-	/* 
-	 * Set at least our sample means, the number of runs per
-	 * incumbent, and the variances.
-	 */
 	memcpy(sim->warm.means, 
 		sim->hot.means,
 		sizeof(double) * sim->dims);
 	memcpy(sim->warm.runs, 
 		sim->hot.runs,
 		sizeof(size_t) * sim->dims);
+
+	/* Compute the empirical minimum. */
+	min = FLT_MAX;
+	for (i = 0; i < sim->dims; i++)
+		if (sim->warm.means[i] < min) {
+			min = sim->warm.means[i];
+			sim->warm.meanmin = i;
+		}
+
+	/* 
+	 * Compute the variance using Knuth's algorithm from the
+	 * difference of sum-of-squares from the mean.
+	 */
 	for (i = 0; i < sim->dims; i++)
 		if (sim->hot.runs[i] > 1)
 			sim->warm.variances[i] = 
 				sim->hot.meandiff[i] /
 				(double)(sim->hot.runs[i] - 1);
+
 	/*
 	 * If we're going to fit to a polynomial, set the dependent
 	 * variable within the conditional.
@@ -71,6 +86,7 @@ on_sim_snapshot(struct simwork *work, struct sim *sim)
 		for (i = 0; i < sim->dims; i++) 
 			gsl_vector_set(work->w, i, 
 				sim->warm.variances[i]);
+
 	sim->warm.truns = sim->hot.truns;
 	g_mutex_unlock(&sim->warm.mux);
 }

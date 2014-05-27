@@ -88,6 +88,7 @@ struct	simhot {
 struct	simwarm {
 	GMutex		 mux; /* lock to change fields */
 	double		*means; /* sample mean per incumbent */
+	size_t		 meanmin; /* minimum sample mean */
 	double		*variances; /* sample variance */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
@@ -119,12 +120,14 @@ struct	simwork {
  */
 struct	simcold {
 	double		*means;
+	size_t		 meanmin;
 	double		*variances;
 	size_t		*runs;
 	double	   	*coeffs;
 	double	   	*fits;
 	size_t		 fitmin;
 	size_t		*fitmins;
+	size_t		*meanmins;
 	size_t		 truns;
 };
 
