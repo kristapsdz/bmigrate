@@ -402,6 +402,7 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.runs, 
 			sim->warm.runs,
 			sizeof(size_t) * sim->dims);
+		/* FIXME: this should be in warm computation. */
 		sim->cold.truns = sim->warm.truns;
 		g_mutex_unlock(&sim->warm.mux);
 		sim->cold.fitmins[sim->cold.fitmin]++;
