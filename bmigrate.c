@@ -405,6 +405,7 @@ on_sim_copyout(gpointer dat)
 		g_mutex_unlock(&sim->warm.mux);
 		sim->cold.fitmins[sim->cold.fitmin]++;
 		sim->cold.meanmins[sim->cold.meanmin]++;
+		sim->cold.distsz++;
 		changed++;
 	}
 
@@ -696,24 +697,28 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		}
 	} else if (cur->viewpolyminpdf) {
 		for (i = 0; i < s->dims; i++) {
-			v = s->cold.fitmins[i] / (double)s->cold.truns;
+			v = s->cold.fitmins[i] / 
+				(double)s->cold.distsz;
 			if (v > *maxy)
 				*maxy = v;
 		}
 	} else if (cur->viewpolymincdf) {
 		for (v = 0.0, i = 0; i < s->dims; i++)
-			v += s->cold.fitmins[i] / (double)s->cold.truns;
+			v += s->cold.fitmins[i] / 
+				(double)s->cold.distsz;
 		if (v > *maxy)
 			*maxy = v;
 	} else if (cur->viewmeanminpdf) {
 		for (i = 0; i < s->dims; i++) {
-			v = s->cold.meanmins[i] / (double)s->cold.truns;
+			v = s->cold.meanmins[i] / 
+				(double)s->cold.distsz;
 			if (v > *maxy)
 				*maxy = v;
 		}
 	} else if (cur->viewmeanmincdf) {
 		for (v = 0.0, i = 0; i < s->dims; i++)
-			v += s->cold.meanmins[i] / (double)s->cold.truns;
+			v += s->cold.meanmins[i] / 
+				(double)s->cold.distsz;
 		if (v > *maxy)
 			*maxy = v;
 	} else if (cur->viewpoly) {
@@ -866,10 +871,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		} else if (cur->viewpolyminpdf) {
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.fitmins[j - 1] / 
-					(double)sim->cold.truns;
+					(double)sim->cold.distsz;
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.fitmins[j] / 
-					(double)sim->cold.truns;
+					(double)sim->cold.distsz;
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -878,7 +883,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_move_to(cr, GETX(0), GETY(0.0));
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				v += sim->cold.fitmins[j] / 
-					(double)sim->cold.truns;
+					(double)sim->cold.distsz;
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -886,10 +891,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		} else if (cur->viewmeanminpdf) {
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.meanmins[j - 1] / 
-					(double)sim->cold.truns;
+					(double)sim->cold.distsz;
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.meanmins[j] / 
-					(double)sim->cold.truns;
+					(double)sim->cold.distsz;
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -898,7 +903,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_move_to(cr, GETX(0), GETY(0.0));
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				v += sim->cold.meanmins[j] / 
-					(double)sim->cold.truns;
+					(double)sim->cold.distsz;
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));

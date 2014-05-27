@@ -13,6 +13,11 @@ else
 GTK_LIBS := $(shell pkg-config --libs gsl gtk+-3.0) -export-dynamic
 GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk+-3.0)
 endif
+ifeq ($(shell uname),Linux)
+BSDLIB = -lbsd
+else
+BSDLIB = 
+endif
 
 all: bmigrate 
 
@@ -41,7 +46,7 @@ endif
 $(GTK_OBJS): extern.h
 
 bmigrate: $(GTK_OBJS)
-	$(CC) -o $@ $(GTK_OBJS) $(GTK_LIBS)
+	$(CC) -o $@ $(GTK_OBJS) $(GTK_LIBS) $(BSDLIB)
 
 .c.o:
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -c -o $@ $<

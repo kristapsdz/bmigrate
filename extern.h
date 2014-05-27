@@ -128,6 +128,7 @@ struct	simcold {
 	size_t		 fitmin;
 	size_t		*fitmins;
 	size_t		*meanmins;
+	size_t		 distsz; /* updates of fitmins/meamins */
 	size_t		 truns;
 };
 
