@@ -405,6 +405,12 @@ on_sim_copyout(gpointer dat)
 		g_mutex_unlock(&sim->warm.mux);
 		sim->cold.fitmins[sim->cold.fitmin]++;
 		sim->cold.meanmins[sim->cold.meanmin]++;
+		if (sim->cold.fitmins[sim->cold.fitmin] > 
+			sim->cold.fitmins[sim->cold.fitminsmode])
+			sim->cold.fitminsmode = sim->cold.fitmin;
+		if (sim->cold.meanmins[sim->cold.meanmin] > 
+			sim->cold.meanmins[sim->cold.meanminsmode])
+			sim->cold.meanminsmode = sim->cold.meanmin;
 		sim->cold.distsz++;
 		changed++;
 	}
@@ -757,6 +763,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	struct sim	*sim;
 	size_t		 j;
 	GList		*sims, *list;
+	cairo_text_extents_t e;
+	gchar		 buf[1024];
 
 	/* 
 	 * Get our window configuration.
@@ -775,6 +783,47 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
 	cairo_rectangle(cr, 0.0, 0.0, width, height);
 	cairo_fill(cr);
+
+#define	GETC(_a) b->wins.colours[sim->colour].red, \
+		 b->wins.colours[sim->colour].green, \
+		 b->wins.colours[sim->colour].blue, (_a)
+	if (cur->viewpolymincdf || cur->viewpolyminpdf) {
+		j = 0;
+		cairo_text_extents(cr, "-10.00", &e);
+		for (list = sims; NULL != list; list = list->next) {
+			sim = list->data;
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_move_to(cr, 0.0, height - j * e.height);
+			(void)g_snprintf(buf, sizeof(buf), 
+				"Mode: %g", 
+				sim->d.continuum.xmin +
+				(sim->d.continuum.xmax -
+				 sim->d.continuum.xmin) *
+				sim->cold.fitminsmode /
+				(double)sim->dims);
+			cairo_show_text(cr, buf);
+			j++;
+		}
+		height -= (j + 1) * e.height;
+	} else if (cur->viewmeanmincdf || cur->viewmeanminpdf) {
+		j = 0;
+		cairo_text_extents(cr, "-10.00", &e);
+		for (list = sims; NULL != list; list = list->next) {
+			sim = list->data;
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_move_to(cr, 0.0, height - j * e.height);
+			(void)g_snprintf(buf, sizeof(buf), 
+				"Mode: %g", 
+				sim->d.continuum.xmin +
+				(sim->d.continuum.xmax -
+				 sim->d.continuum.xmin) *
+				sim->cold.meanminsmode /
+				(double)sim->dims);
+			cairo_show_text(cr, buf);
+			j++;
+		}
+		height -= (j + 1) * e.height;
+	}
 
 	/*
 	 * Determine the boundaries of the graph.
@@ -801,9 +850,6 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	 */
 #define	GETX(_j) (width * (_j) / (double)(sim->dims - 1))
 #define	GETY(_v) (height - ((_v) / maxy * height))
-#define	GETC(_a) b->wins.colours[sim->colour].red, \
-		 b->wins.colours[sim->colour].green, \
-		 b->wins.colours[sim->colour].blue, (_a)
 	cairo_save(cr);
 	for (list = sims; NULL != list; list = list->next) {
 		sim = list->data;
