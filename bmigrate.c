@@ -360,8 +360,9 @@ on_sim_copyout(gpointer dat)
 	struct bmigrate	*b = dat;
 	GList		*list;
 	struct sim	*sim;
-	size_t		 changed;
+	size_t		 i, changed;
 	int		 nocopy;
+	double		 v;
 
 	changed = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
@@ -412,6 +413,14 @@ on_sim_copyout(gpointer dat)
 			sim->cold.meanmins[sim->cold.meanminsmode])
 			sim->cold.meanminsmode = sim->cold.meanmin;
 		sim->cold.distsz++;
+		for (v = 0.0, i = 0; i < sim->dims; i++)
+			v += (i + 1) * sim->cold.meanmins[i] /
+				(double)sim->cold.distsz;
+		sim->cold.meanminsmean = v / (double)sim->dims;
+		for (v = 0.0, i = 0; i < sim->dims; i++)
+			v += (i + 1) * sim->cold.fitmins[i] /
+				(double)sim->cold.distsz;
+		sim->cold.fitminsmean = v / (double)sim->dims;
 		changed++;
 	}
 
@@ -795,12 +804,17 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_move_to(cr, 0.0, height - j * e.height);
 			(void)g_snprintf(buf, sizeof(buf), 
-				"Mode: %g", 
+				"Mode: %g, mean: %g", 
 				sim->d.continuum.xmin +
 				(sim->d.continuum.xmax -
 				 sim->d.continuum.xmin) *
 				sim->cold.fitminsmode /
-				(double)sim->dims);
+				(double)sim->dims,
+				sim->d.continuum.xmin +
+				(sim->d.continuum.xmax -
+				 sim->d.continuum.xmin) *
+				sim->cold.fitminsmean);
+
 			cairo_show_text(cr, buf);
 			j++;
 		}
@@ -813,12 +827,16 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_move_to(cr, 0.0, height - j * e.height);
 			(void)g_snprintf(buf, sizeof(buf), 
-				"Mode: %g", 
+				"Mode: %g, mean: %g", 
 				sim->d.continuum.xmin +
 				(sim->d.continuum.xmax -
 				 sim->d.continuum.xmin) *
 				sim->cold.meanminsmode /
-				(double)sim->dims);
+				(double)sim->dims,
+				sim->d.continuum.xmin +
+				(sim->d.continuum.xmax -
+				 sim->d.continuum.xmin) *
+				sim->cold.fitminsmean);
 			cairo_show_text(cr, buf);
 			j++;
 		}
@@ -1215,8 +1233,8 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->refs = 1;
 	sim->threads = g_malloc0_n(sim->nprocs, sizeof(struct simthr));
 	g_debug("New continuum simulation: %zu islands, "
-		"%zu total members (%zu per island)", sim->islands,
-		sim->totalpop, islandpop);
+		"%zu total members (%zu per island) (%zu generations)", 
+		sim->islands, sim->totalpop, islandpop, sim->stop);
 	g_debug("New continuum migration %g, %g(1 + %g pi)", 
 		sim->m, sim->alpha, sim->delta);
 	g_debug("New continuum threads: %zu", sim->nprocs);
