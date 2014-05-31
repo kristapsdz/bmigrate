@@ -126,14 +126,19 @@ struct	simcold {
 	double	   	*coeffs;
 	double	   	*fits;
 	size_t		 fitmin;
-	size_t		*fitmins;
-	size_t		 fitminsmode;
-	double		 fitminsmean;
-	size_t		*meanmins;
-	size_t		 meanminsmode;
-	double		 meanminsmean;
+	size_t		*fitmins; /* pdf of fitted minima */
+	size_t		 fitminsmode; /* mode of fitmins */ 
+	double		 fitminsmean; /* mean of fitmins */
+	size_t		*meanmins; /* pdf of empirical minima */
+	size_t		 meanminsmode; /* mode value of meanmins */
+	double		 meanminsmean; /* mean value of meanmins */
 	size_t		 distsz; /* updates of fitmins/meamins */
 	size_t		 truns;
+#define	MINQSZ		 256
+	size_t		 meanminq[MINQSZ]; /* circleq of raw minima */
+	size_t		 meanminqpos; /* current (ahead) in meanminq */
+	size_t		 fitminq[MINQSZ]; /* circleq of raw minima */
+	size_t		 fitminqpos; /* current (ahead) in meanminq */
 };
 
 /*

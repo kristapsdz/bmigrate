@@ -36,6 +36,14 @@
 #include "extern.h"
 
 /*
+ * Given a current simulation "_s", compute 
+ */
+#define	GETS(_s, _v) \
+	((_s)->d.continuum.xmin + \
+	 ((_s)->d.continuum.xmax - (_s)->d.continuum.xmin) * \
+	 (_v) / (double)((_s)->dims))
+
+/*
  * These are all widgets that may be or are visible.
  */
 struct	hwin {
@@ -50,6 +58,8 @@ struct	hwin {
 	GtkCheckMenuItem *viewpolymincdf;
 	GtkCheckMenuItem *viewmeanminpdf;
 	GtkCheckMenuItem *viewmeanmincdf;
+	GtkCheckMenuItem *viewmeanminq;
+	GtkCheckMenuItem *viewfitminq;
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
@@ -77,12 +87,14 @@ struct	hwin {
 };
 
 struct	curwin {
-	int		  viewdev;
-	int		  viewpoly;
-	int		  viewpolyminpdf;
-	int		  viewpolymincdf;
-	int		  viewmeanminpdf;
-	int		  viewmeanmincdf;
+	int		  viewdev; /* raw + variance */
+	int		  viewpoly; /* raw + polynomial */
+	int		  viewpolyminpdf; /* pdf of fitted minima */
+	int		  viewpolymincdf; /* cdf of fitted minima */
+	int		  viewmeanminpdf; /* pdf of raw minima */
+	int		  viewmeanmincdf; /* cdf of raw minima */
+	int		  viewmeanminq; /* raw minima circleq */
+	int		  viewfitminq; /* fitted minima circleq */
 };
 
 /*
@@ -142,6 +154,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem10"));
 	b->wins.viewmeanmincdf = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem12"));
+	b->wins.viewmeanminq = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem13"));
+	b->wins.viewfitminq = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem14"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
@@ -352,7 +368,6 @@ on_sims_deref(gpointer dat)
 
 /*
  * This copies data from the threads into local storage.
- * TODO: use reader locks.
  */
 static gboolean
 on_sim_copyout(gpointer dat)
@@ -385,6 +400,9 @@ on_sim_copyout(gpointer dat)
 			continue;
 		}
 		g_mutex_lock(&sim->warm.mux);
+		/*
+		 * Most strutures we simply copy over.
+		 */
 		memcpy(sim->cold.means, 
 			sim->warm.means,
 			sizeof(double) * sim->dims);
@@ -402,9 +420,20 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.runs, 
 			sim->warm.runs,
 			sizeof(size_t) * sim->dims);
-		/* FIXME: this should be in warm computation. */
 		sim->cold.truns = sim->warm.truns;
 		g_mutex_unlock(&sim->warm.mux);
+		/*
+		 * Now we compute data that's managed by this function
+		 * and thread alone (no need for locking).
+		 */
+		sim->cold.meanminq[sim->cold.meanminqpos] =
+			sim->cold.meanmin;
+		sim->cold.fitminq[sim->cold.fitminqpos] =
+			sim->cold.fitmin;
+		sim->cold.meanminqpos = 
+			(sim->cold.meanminqpos + 1) % MINQSZ;
+		sim->cold.fitminqpos = 
+			(sim->cold.fitminqpos + 1) % MINQSZ;
 		sim->cold.fitmins[sim->cold.fitmin]++;
 		sim->cold.meanmins[sim->cold.meanmin]++;
 		if (sim->cold.fitmins[sim->cold.fitmin] > 
@@ -415,13 +444,13 @@ on_sim_copyout(gpointer dat)
 			sim->cold.meanminsmode = sim->cold.meanmin;
 		sim->cold.distsz++;
 		for (v = 0.0, i = 0; i < sim->dims; i++)
-			v += (i + 1) * sim->cold.meanmins[i] /
+			v += i * sim->cold.meanmins[i] /
 				(double)sim->cold.distsz;
-		sim->cold.meanminsmean = v / (double)sim->dims;
+		sim->cold.meanminsmean = GETS(sim, v);
 		for (v = 0.0, i = 0; i < sim->dims; i++)
-			v += (i + 1) * sim->cold.fitmins[i] /
+			v += i * sim->cold.fitmins[i] /
 				(double)sim->cold.distsz;
-		sim->cold.fitminsmean = v / (double)sim->dims;
+		sim->cold.fitminsmean = GETS(sim, v);
 		changed++;
 	}
 
@@ -737,6 +766,18 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				(double)s->cold.distsz;
 		if (v > *maxy)
 			*maxy = v;
+	} else if (cur->viewmeanminq) {
+		for (i = 0; i < MINQSZ; i++) {
+			v = GETS(s, s->cold.meanminq[i]);
+			if (v > *maxy)
+				*maxy = v;
+		}
+	} else if (cur->viewfitminq) {
+		for (i = 0; i < MINQSZ; i++) {
+			v = GETS(s, s->cold.fitminq[i]);
+			if (v > *maxy)
+				*maxy = v;
+		}
 	} else if (cur->viewpoly) {
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.fits[i] > s->cold.means[i] ?
@@ -771,10 +812,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	double		 width, height, maxy, v, xmin, xmax;
 	GtkWidget	*top;
 	struct sim	*sim;
-	size_t		 j;
+	size_t		 j, k;
 	GList		*sims, *list;
 	cairo_text_extents_t e;
 	gchar		 buf[1024];
+	static const double dash[] = {6.0};
 
 	/* 
 	 * Get our window configuration.
@@ -794,10 +836,18 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	cairo_rectangle(cr, 0.0, 0.0, width, height);
 	cairo_fill(cr);
 
+	/*
+	 * These macros shorten the drawing routines by automatically
+	 * computing X and Y coordinates as well as colour.
+	 */
+#define	GETX(_j) (width * (_j) / (double)(sim->dims - 1))
+#define	GETY(_v) (height - ((_v) / maxy * height))
 #define	GETC(_a) b->wins.colours[sim->colour].red, \
 		 b->wins.colours[sim->colour].green, \
 		 b->wins.colours[sim->colour].blue, (_a)
-	if (cur->viewpolymincdf || cur->viewpolyminpdf) {
+
+	if (cur->viewpolymincdf || cur->viewfitminq ||
+			cur->viewpolyminpdf) {
 		j = 0;
 		cairo_text_extents(cr, "-10.00", &e);
 		for (list = sims; NULL != list; list = list->next) {
@@ -806,21 +856,14 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_move_to(cr, 0.0, height - j * e.height);
 			(void)g_snprintf(buf, sizeof(buf), 
 				"Mode: %g, mean: %g", 
-				sim->d.continuum.xmin +
-				(sim->d.continuum.xmax -
-				 sim->d.continuum.xmin) *
-				sim->cold.fitminsmode /
-				(double)sim->dims,
-				sim->d.continuum.xmin +
-				(sim->d.continuum.xmax -
-				 sim->d.continuum.xmin) *
+				GETS(sim, sim->cold.fitminsmode),
 				sim->cold.fitminsmean);
-
 			cairo_show_text(cr, buf);
 			j++;
 		}
 		height -= (j + 1) * e.height;
-	} else if (cur->viewmeanmincdf || cur->viewmeanminpdf) {
+	} else if (cur->viewmeanmincdf || cur->viewmeanminq || 
+			cur->viewmeanminpdf) {
 		j = 0;
 		cairo_text_extents(cr, "-10.00", &e);
 		for (list = sims; NULL != list; list = list->next) {
@@ -829,15 +872,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_move_to(cr, 0.0, height - j * e.height);
 			(void)g_snprintf(buf, sizeof(buf), 
 				"Mode: %g, mean: %g", 
-				sim->d.continuum.xmin +
-				(sim->d.continuum.xmax -
-				 sim->d.continuum.xmin) *
-				sim->cold.meanminsmode /
-				(double)sim->dims,
-				sim->d.continuum.xmin +
-				(sim->d.continuum.xmax -
-				 sim->d.continuum.xmin) *
-				sim->cold.fitminsmean);
+				GETS(sim, sim->cold.meanminsmode),
+				sim->cold.meanminsmean);
 			cairo_show_text(cr, buf);
 			j++;
 		}
@@ -860,26 +896,24 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		maxy += maxy * 0.1;
 
 	/* Draw our labels. */
-	drawlabels(cur, cr, &width, &height, 0.0, maxy, xmin, xmax);
+	if (cur->viewmeanminq || cur->viewfitminq)
+		drawlabels(cur, cr, &width, 
+			&height, 0.0, maxy, -256.0, 0.0);
+	else
+		drawlabels(cur, cr, &width, 
+			&height, 0.0, maxy, xmin, xmax);
 
 	/*
 	 * Draw curves as specified: either the "raw" curve (just the
 	 * data), the raw curve and its standard deviation above and
 	 * below, or the raw curve plus the polynomial fitting.
 	 */
-#define	GETX(_j) (width * (_j) / (double)(sim->dims - 1))
-#define	GETY(_v) (height - ((_v) / maxy * height))
 	cairo_save(cr);
 	for (list = sims; NULL != list; list = list->next) {
 		sim = list->data;
 		assert(NULL != sim);
-
+		cairo_set_line_width(cr, 2.0);
 		if (cur->viewdev) {
-			/*
-			 * If stipulated, draw the standard deviation
-			 * above and below the curve.
-			 * Obviously, don't go below zero.
-			 */
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
@@ -888,6 +922,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
+			cairo_set_line_width(cr, 1.5);
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				v -= sim->cold.variances[j - 1];
@@ -913,25 +948,22 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 		} else if (cur->viewpoly) {
-			/*
-			 * Compute and draw the curve stipulated by the
-			 * coefficients our workers have computed.
-			 */
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.means[j];
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
+			cairo_set_line_width(cr, 1.5);
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.fits[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.fits[j];
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
-			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 		} else if (cur->viewpolyminpdf) {
 			for (j = 1; j < sim->dims; j++) {
@@ -973,11 +1005,61 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
+		} else if (cur->viewmeanminq) {
+			for (j = 1; j < MINQSZ; j++) {
+				k = (sim->cold.meanminqpos + j - 1) % 
+					MINQSZ;
+				v = GETS(sim, sim->cold.meanminq[k]);
+				cairo_move_to(cr, width * (j - 1) / 
+					(double)MINQSZ, GETY(v));
+				k = (sim->cold.meanminqpos + j) % MINQSZ;
+				v = GETS(sim, sim->cold.meanminq[k]);
+				cairo_line_to(cr, width * j / 
+					(double)MINQSZ, GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			cairo_set_line_width(cr, 1.0);
+			v = GETS(sim, sim->cold.meanminsmode);
+			cairo_move_to(cr, 0.0, GETY(v));
+			cairo_line_to(cr, width, GETY(v));
+			cairo_set_dash(cr, dash, 1, 0);
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_stroke(cr);
+			v = sim->cold.meanminsmean;
+			cairo_move_to(cr, 0.0, GETY(v));
+			cairo_line_to(cr, width, GETY(v));
+			cairo_set_dash(cr, dash, 0, 0);
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_stroke(cr);
+		} else if (cur->viewfitminq) {
+			for (j = 1; j < MINQSZ; j++) {
+				k = (sim->cold.fitminqpos + j - 1) % 
+					MINQSZ;
+				v = GETS(sim, sim->cold.fitminq[k]);
+				cairo_move_to(cr, width * (j - 1) / 
+					(double)MINQSZ, GETY(v));
+				k = (sim->cold.fitminqpos + j) % MINQSZ;
+				v = GETS(sim, sim->cold.fitminq[k]);
+				cairo_line_to(cr, width * j / 
+					(double)MINQSZ, GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			cairo_set_line_width(cr, 1.0);
+			v = GETS(sim, sim->cold.fitminsmode);
+			cairo_move_to(cr, 0.0, GETY(v));
+			cairo_line_to(cr, width, GETY(v));
+			cairo_set_dash(cr, dash, 1, 0);
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_stroke(cr);
+			v = sim->cold.fitminsmean;
+			cairo_move_to(cr, 0.0, GETY(v));
+			cairo_line_to(cr, width, GETY(v));
+			cairo_set_dash(cr, dash, 0, 0);
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_stroke(cr);
 		} else {
-			/* 
-			 * Draw just the raw curve.
-			 * This is the default.
-			 */
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
@@ -1028,6 +1110,10 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 			(b->wins.viewmeanminpdf);
 		cur->viewmeanmincdf = gtk_check_menu_item_get_active
 			(b->wins.viewmeanmincdf);
+		cur->viewmeanminq = gtk_check_menu_item_get_active
+			(b->wins.viewmeanminq);
+		cur->viewfitminq = gtk_check_menu_item_get_active
+			(b->wins.viewfitminq);
 		gtk_widget_queue_draw(GTK_WIDGET(list->data));
 	}
 }
