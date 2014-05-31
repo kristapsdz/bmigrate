@@ -904,9 +904,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			&height, 0.0, maxy, xmin, xmax);
 
 	/*
-	 * Draw curves as specified: either the "raw" curve (just the
-	 * data), the raw curve and its standard deviation above and
-	 * below, or the raw curve plus the polynomial fitting.
+	 * Draw curves as specified.
 	 */
 	cairo_save(cr);
 	for (list = sims; NULL != list; list = list->next) {
@@ -1024,13 +1022,13 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_move_to(cr, 0.0, GETY(v));
 			cairo_line_to(cr, width, GETY(v));
 			cairo_set_dash(cr, dash, 1, 0);
-			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
 			v = sim->cold.meanminsmean;
 			cairo_move_to(cr, 0.0, GETY(v));
 			cairo_line_to(cr, width, GETY(v));
 			cairo_set_dash(cr, dash, 0, 0);
-			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
 		} else if (cur->viewfitminq) {
 			for (j = 1; j < MINQSZ; j++) {
@@ -1051,13 +1049,13 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_move_to(cr, 0.0, GETY(v));
 			cairo_line_to(cr, width, GETY(v));
 			cairo_set_dash(cr, dash, 1, 0);
-			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
 			v = sim->cold.fitminsmean;
 			cairo_move_to(cr, 0.0, GETY(v));
 			cairo_line_to(cr, width, GETY(v));
 			cairo_set_dash(cr, dash, 0, 0);
-			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
 		} else {
 			for (j = 1; j < sim->dims; j++) {
@@ -1349,6 +1347,10 @@ on_activate(GtkButton *button, gpointer dat)
 		(b->wins.viewmeanminpdf);
 	cur->viewmeanmincdf = gtk_check_menu_item_get_active
 		(b->wins.viewmeanmincdf);
+	cur->viewmeanminq = gtk_check_menu_item_get_active
+		(b->wins.viewmeanminq);
+	cur->viewfitminq = gtk_check_menu_item_get_active
+		(b->wins.viewfitminq);
 
 	/*
 	 * Now we create the output window.
