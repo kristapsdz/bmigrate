@@ -361,7 +361,7 @@ on_sim_deref(gpointer dat)
 {
 	struct sim	*sim = dat;
 
-	g_debug("Simulation %p deref (now %zu)", sim, sim->refs);
+	g_debug("Simulation %p deref (now %zu)", sim, sim->refs - 1);
 	if (0 != --sim->refs) 
 		return;
 	g_debug("Simulation %p deref triggering termination", sim);
@@ -373,14 +373,15 @@ sim_ref(gpointer dat, gpointer arg)
 {
 	struct sim	*sim = dat;
 
-	g_debug("Simulation %p ref (now %zu)", sim, sim->refs);
 	++sim->refs;
+	g_debug("Simulation %p ref (now %zu)", sim, sim->refs);
 }
 
 static void
 on_sims_deref(gpointer dat)
 {
 
+	g_debug("Window destroying simulation copies.");
 	g_list_free_full(dat, on_sim_deref);
 }
 
@@ -850,7 +851,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		for (list = sims; NULL != list; list = list->next) {
 			sim = list->data;
 			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_move_to(cr, 0.0, height - j * e.height);
+			cairo_move_to(cr, 0.0, height - j * e.height * 2.0);
 			(void)g_snprintf(buf, sizeof(buf), 
 				"Mode: %g, mean: %g", 
 				GETS(sim, sim->cold.fitminsmode),
@@ -858,7 +859,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_show_text(cr, buf);
 			j++;
 		}
-		height -= (j + 1) * e.height;
+		height -= (j + 1) * e.height * 2.0;
 		break;
 	case (VIEW_MEANMINCDF):
 	case (VIEW_MEANMINPDF):
@@ -868,7 +869,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		for (list = sims; NULL != list; list = list->next) {
 			sim = list->data;
 			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_move_to(cr, 0.0, height - j * e.height);
+			cairo_move_to(cr, 0.0, height - j * e.height * 2.0);
 			(void)g_snprintf(buf, sizeof(buf), 
 				"Mode: %g, mean: %g", 
 				GETS(sim, sim->cold.meanminsmode),
@@ -876,7 +877,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_show_text(cr, buf);
 			j++;
 		}
-		height -= (j + 1) * e.height;
+		height -= (j + 1) * e.height * 2.0;
 		break;
 	default:
 		break;
@@ -923,6 +924,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		assert(NULL != sim);
 		cairo_set_line_width(cr, 2.0);
 		switch (cur->view) {
+		case (VIEW_DEV):
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
@@ -1095,6 +1097,76 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	return(TRUE);
 }
 
+/*
+ * Transfer the other widget's data into our own.
+ */
+static void
+on_drag_recv(GtkWidget *widget, GdkDragContext *ctx, 
+	gint x, gint y, GtkSelectionData *sel, 
+	guint target, guint time, gpointer dat)
+{
+	GObject		*srcptr, *dstptr;
+	GList		*srcsims, *dstsims, *l;
+
+	/* Get pointers to our and the other's window. */
+	assert(NULL != sel);
+	dstptr = G_OBJECT(gtk_widget_get_toplevel(widget));
+	srcptr = G_OBJECT(*(void **)
+		gtk_selection_data_get_data(sel));
+	assert(NULL != srcptr);
+	gtk_drag_finish(ctx, TRUE, FALSE, time);
+
+	/* Don't copy into ourselves. */
+	if (dstptr == srcptr)
+		return;
+
+	/* Get the simulation lists. */
+	srcsims = g_object_get_data(srcptr, "sims");
+	dstsims = g_object_get_data(dstptr, "sims");
+	assert(NULL != srcsims);
+
+	/* Concatenate the simulation lists. */
+	/* XXX: use g_list_concat? */
+	for (l = srcsims; NULL != l; l = l->next) {
+		g_debug("Copying simulation %p", l->data);
+		sim_ref(l->data, NULL);
+		dstsims = g_list_append(dstsims, l->data);
+	}
+
+	g_object_replace_data(dstptr, "sims", NULL, dstsims, on_sims_deref, NULL);
+}
+
+/*
+ * Signifity sight-unseen that we can transfer data.
+ * We're only using DnD for one particular thing, so there's no need for
+ * elaborate security measures.
+ */
+static gboolean
+on_dragdrop(GtkWidget *widget, GdkDragContext *ctx, 
+	gint x, gint y, guint time, gpointer dat)
+{
+
+	gtk_drag_get_data(widget, ctx, 0, time);
+	return(TRUE);
+}
+
+/*
+ * Send our identifier to the destination of the DnD.
+ * They'll query our data separately.
+ */
+static void
+on_drag_get(GtkWidget *widget, GdkDragContext *ctx, 
+	GtkSelectionData *sel, guint targ, guint time, gpointer dat)
+{
+	void	*ptr;
+
+	ptr = gtk_widget_get_toplevel(widget);
+	gtk_selection_data_set(sel, 
+		gtk_selection_data_get_target(sel), 
+		sizeof(intptr_t) * 8, 
+		(const guchar *)&ptr, sizeof(intptr_t));
+}
+
 gboolean
 onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 {
@@ -1120,26 +1192,12 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 	return(TRUE);
 }
 
-void
-onclone(GtkMenuItem *menuitem, gpointer dat)
+static void
+window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 {
-	struct bmigrate	*b = dat;
-	struct curwin	*oldcur, *newcur;
 	GtkWidget	*w, *draw;
-	GList		*oldsims, *newsims;
 	GdkRGBA	  	 color = { 1.0, 1.0, 1.0, 1.0 };
-
-	if (NULL == b->current)
-		return;
-
-	oldcur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	oldsims = g_object_get_data(G_OBJECT(b->current), "sims");
-
-	g_list_foreach(oldsims, sim_ref, NULL);
-	newsims = g_list_copy(oldsims);
-
-	newcur = g_malloc0(sizeof(struct curwin));
-	newcur->view = oldcur->view;
+	GtkTargetEntry   target;
 
 	w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_widget_override_background_color
@@ -1158,9 +1216,45 @@ onclone(GtkMenuItem *menuitem, gpointer dat)
 	gtk_container_add(GTK_CONTAINER(w), draw);
 	gtk_widget_show_all(w);
 	g_object_set_data_full(G_OBJECT(w), 
-		"cfg", newcur, g_free);
+		"cfg", cur, g_free);
 	g_object_set_data_full(G_OBJECT(w), 
-		"sims", newsims, on_sims_deref);
+		"sims", sims, on_sims_deref);
+
+	/* Coordinate drag-and-drop. */
+	target.target = g_strdup("integer");
+	target.flags = GTK_TARGET_SAME_APP|GTK_TARGET_OTHER_WIDGET;
+	target.info = 0;
+	gtk_drag_dest_set(draw, GTK_DEST_DEFAULT_ALL, 
+		&target, 1, GDK_ACTION_COPY);
+	gtk_drag_source_set(draw, GDK_BUTTON1_MASK, 
+		&target, 1, GDK_ACTION_COPY);
+	g_free(target.target);
+	g_signal_connect(draw, "drag-data-received",
+                G_CALLBACK(on_drag_recv), b);
+	g_signal_connect(draw, "drag-drop", 
+		G_CALLBACK(on_dragdrop), b);
+	g_signal_connect(draw, "drag-data-get",
+                G_CALLBACK(on_drag_get), b);
+}
+
+void
+onclone(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	struct curwin	*oldcur, *newcur;
+	GList		*oldsims, *newsims;
+
+	if (NULL == b->current)
+		return;
+
+	oldcur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	oldsims = g_object_get_data(G_OBJECT(b->current), "sims");
+
+	g_list_foreach(oldsims, sim_ref, NULL);
+	newsims = g_list_copy(oldsims);
+	newcur = g_malloc0(sizeof(struct curwin));
+	newcur->view = oldcur->view;
+	window_init(b, newcur, newsims);
 }
 
 void
@@ -1219,10 +1313,6 @@ on_activate(GtkButton *button, gpointer dat)
 	size_t		  i, totalpop, islandpop, islands, 
 			  stop, slices;
 	struct sim	 *sim;
-	GdkRGBA	  	  color = { 1.0, 1.0, 1.0, 1.0 };
-	GtkWidget	 *w, *draw;
-	struct curwin	 *cur;
-	GList		 *sims;
 
 	input = gtk_notebook_get_current_page(b->wins.inputs);
 	if (INPUT_UNIFORM != input) {
@@ -1398,32 +1488,8 @@ on_activate(GtkButton *button, gpointer dat)
 			(NULL, simulation, &sim->threads[i]);
 	}
 
-	sims = g_list_append(NULL, sim);
-	cur = g_malloc0(sizeof(struct curwin));
-
-	/*
-	 * Now we create the output window.
-	 */
-	w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_widget_override_background_color
-		(w, GTK_STATE_FLAG_NORMAL, &color);
-	draw = gtk_drawing_area_new();
-	gtk_widget_set_margin_left(draw, 10);
-	gtk_widget_set_margin_right(draw, 10);
-	gtk_widget_set_margin_top(draw, 10);
-	gtk_widget_set_margin_bottom(draw, 10);
-	gtk_widget_set_size_request(draw, 440, 400);
-	g_signal_connect(G_OBJECT(draw), 
-		"draw", G_CALLBACK(ondraw), b);
-	g_signal_connect(G_OBJECT(w),
-		"focus-in-event", 
-		G_CALLBACK(onfocus), b);
-	gtk_container_add(GTK_CONTAINER(w), draw);
-	gtk_widget_show_all(w);
-	g_object_set_data_full(G_OBJECT(w), 
-		"cfg", cur, g_free);
-	g_object_set_data_full(G_OBJECT(w), 
-		"sims", sims, on_sims_deref);
+	window_init(b, g_malloc0(sizeof(struct curwin)), 
+		g_list_append(NULL, sim));
 }
 
 /*
