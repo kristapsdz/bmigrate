@@ -86,7 +86,7 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkSeparatorMenuItem" id="menuitem16">
+                      <object class="GtkSeparatorMenuItem" id="menuitem18">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                       </object>
@@ -122,6 +122,22 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkRadioMenuItem" id="menuitem17">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Sample Mean, Fitted, Variance</property>
+                        <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem16">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkRadioMenuItem" id="menuitem9">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -145,10 +161,16 @@
                       <object class="GtkRadioMenuItem" id="menuitem14">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Fitted Polynomial Minimum  History</property>
+                        <property name="label" translatable="yes">Fitted Polynomial Minimum History</property>
                         <property name="group">menuitem8</property>
                         <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem19">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                       </object>
                     </child>
                     <child>

@@ -42,6 +42,7 @@ enum	view {
 	VIEW_NONE,
 	VIEW_DEV,
 	VIEW_POLY,
+	VIEW_POLYDEV,
 	VIEW_POLYMINCDF,
 	VIEW_POLYMINPDF,
 	VIEW_POLYMINQ,
@@ -155,6 +156,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem6"));
 	b->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem7"));
+	b->wins.views[VIEW_POLYDEV] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem17"));
 	b->wins.views[VIEW_POLYMINPDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem9"));
 	b->wins.views[VIEW_POLYMINCDF] = GTK_CHECK_MENU_ITEM
@@ -781,6 +784,16 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
+	case (VIEW_POLYDEV):
+		for (i = 0; i < s->dims; i++) {
+			v = s->cold.fits[i] > s->cold.means[i] + 
+				s->cold.variances[i] ?
+				s->cold.fits[i] : s->cold.means[i] +
+				s->cold.variances[i];
+			if (v > *maxy)
+				*maxy = v;
+		}
+		break;
 	default:
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.means[i];
@@ -973,6 +986,50 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				v = sim->cold.fits[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = sim->cold.fits[j];
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_POLYDEV):
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.means[j - 1];
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = sim->cold.means[j];
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			cairo_set_line_width(cr, 1.5);
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.fits[j - 1];
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = sim->cold.fits[j];
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_stroke(cr);
+			cairo_set_line_width(cr, 1.5);
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.means[j - 1];
+				v -= sim->cold.variances[j - 1];
+				if (v < 0.0)
+					v = 0.0;
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = sim->cold.means[j];
+				v -= sim->cold.variances[j];
+				if (v < 0.0)
+					v = 0.0;
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_stroke(cr);
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.means[j - 1];
+				v += sim->cold.variances[j - 1];
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = sim->cold.means[j];
+				v += sim->cold.variances[j];
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(0.5));
@@ -1637,10 +1694,8 @@ main(int argc, char *argv[])
 	assert(NULL != builder);
 
 	/* If we fail this, just exit and good-bye. */
-	rc = gtk_builder_add_from_file(builder, file, NULL);
+	builder = gtk_builder_new_from_file(file);
 	g_free(file);
-	if (0 == rc)
-		return(EXIT_FAILURE);
 
 	windows_init(&b, builder);
 	b.status_elapsed = g_timer_new();
