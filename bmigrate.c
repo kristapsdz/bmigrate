@@ -1106,7 +1106,7 @@ on_drag_recv(GtkWidget *widget, GdkDragContext *ctx,
 	guint target, guint time, gpointer dat)
 {
 	GObject		*srcptr, *dstptr;
-	GList		*srcsims, *dstsims, *l;
+	GList		*srcsims, *dstsims, *l, *ll;
 
 	/* Get pointers to our and the other's window. */
 	assert(NULL != sel);
@@ -1129,12 +1129,20 @@ on_drag_recv(GtkWidget *widget, GdkDragContext *ctx,
 	/* XXX: use g_list_concat? */
 	for (l = srcsims; NULL != l; l = l->next) {
 		g_debug("Copying simulation %p", l->data);
+		for (ll = dstsims; NULL != ll; ll = ll->next)
+			if (ll->data == l->data)
+				break;
+		if (NULL != ll) {
+			g_debug("Simulation %p duplicate", l->data);
+			continue;
+		}
+
 		sim_ref(l->data, NULL);
 		dstsims = g_list_append(dstsims, l->data);
 	}
 
 #ifdef __linux__
-	(void)g_object_steal_data(dstptr, "sim");
+	(void)g_object_steal_data(dstptr, "sims");
 	g_object_set_data_full(dstptr, "sims", dstsims, on_sims_deref);
 #else
 	g_object_replace_data(dstptr, "sims", NULL, dstsims, on_sims_deref, NULL);
