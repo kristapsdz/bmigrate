@@ -1133,7 +1133,12 @@ on_drag_recv(GtkWidget *widget, GdkDragContext *ctx,
 		dstsims = g_list_append(dstsims, l->data);
 	}
 
+#ifdef __linux__
+	(void)g_object_steal_data(dstptr, "sim");
+	g_object_set_data_full(dstptr, "sims", dstsims, on_sims_deref);
+#else
 	g_object_replace_data(dstptr, "sims", NULL, dstsims, on_sims_deref, NULL);
+#endif
 }
 
 /*
