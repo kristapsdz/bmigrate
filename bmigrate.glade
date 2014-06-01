@@ -33,6 +33,7 @@
     <property name="title" translatable="yes">Bird Migration</property>
     <property name="default_width">500</property>
     <signal name="destroy" handler="onquit" swapped="no"/>
+    <signal name="focus-in-event" handler="onfocus" swapped="no"/>
     <child>
       <object class="GtkBox" id="box1">
         <property name="visible">True</property>
@@ -76,11 +77,27 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <child>
+                      <object class="GtkMenuItem" id="menuitem15">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label">Clone View</property>
+                        <property name="sensitive">False</property>
+                        <signal name="activate" handler="onclone" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem16">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkRadioMenuItem" id="menuitem8">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Sample Mean</property>
                         <property name="active">True</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
@@ -90,6 +107,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Sample Mean and Variance</property>
                         <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
@@ -99,6 +117,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Sample Mean and Fitted Polynomial</property>
                         <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
@@ -108,6 +127,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Fitted Polynomial Minimum (PDF)</property>
                         <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
@@ -117,6 +137,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Fitted Polynomial Minimum (CDF)</property>
                         <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
@@ -126,6 +147,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Fitted Polynomial Minimum  History</property>
                         <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
@@ -135,6 +157,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Sample Mean Minimum (PDF)</property>
                         <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
@@ -144,6 +167,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Sample Mean Minimum (CDF)</property>
                         <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
@@ -153,6 +177,7 @@
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Sample Mean Minimum History</property>
                         <property name="group">menuitem8</property>
+                        <property name="sensitive">False</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>

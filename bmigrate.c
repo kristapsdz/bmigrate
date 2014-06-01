@@ -36,7 +36,24 @@
 #include "extern.h"
 
 /*
- * Given a current simulation "_s", compute 
+ * Different views of simulation data.
+ */
+enum	view {
+	VIEW_NONE,
+	VIEW_DEV,
+	VIEW_POLY,
+	VIEW_POLYMINCDF,
+	VIEW_POLYMINPDF,
+	VIEW_POLYMINQ,
+	VIEW_MEANMINCDF,
+	VIEW_MEANMINPDF,
+	VIEW_MEANMINQ,
+	VIEW__MAX
+};
+
+/*
+ * Given a current simulation "_s", compute where a given index "_v"
+ * (out if the simulation's dimensions) lies within the domain.
  */
 #define	GETS(_s, _v) \
 	((_s)->d.continuum.xmin + \
@@ -52,14 +69,8 @@ struct	hwin {
 	GtkMenuItem	 *menuquit;
 	GtkMenuItem	 *menufile;
 	GtkStatusbar	 *status;
-	GtkCheckMenuItem *viewdev;
-	GtkCheckMenuItem *viewpoly;
-	GtkCheckMenuItem *viewpolyminpdf;
-	GtkCheckMenuItem *viewpolymincdf;
-	GtkCheckMenuItem *viewmeanminpdf;
-	GtkCheckMenuItem *viewmeanmincdf;
-	GtkCheckMenuItem *viewmeanminq;
-	GtkCheckMenuItem *viewfitminq;
+	GtkCheckMenuItem *views[VIEW__MAX];
+	GtkMenuItem	 *viewclone;
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
@@ -87,14 +98,7 @@ struct	hwin {
 };
 
 struct	curwin {
-	int		  viewdev; /* raw + variance */
-	int		  viewpoly; /* raw + polynomial */
-	int		  viewpolyminpdf; /* pdf of fitted minima */
-	int		  viewpolymincdf; /* cdf of fitted minima */
-	int		  viewmeanminpdf; /* pdf of raw minima */
-	int		  viewmeanmincdf; /* cdf of raw minima */
-	int		  viewmeanminq; /* raw minima circleq */
-	int		  viewfitminq; /* fitted minima circleq */
+	enum view	  view;
 };
 
 /*
@@ -106,6 +110,7 @@ struct	bmigrate {
 	GList		 *sims; /* active simulations */
 	GTimer		 *status_elapsed; /* elapsed since status update */
 	uint64_t	  lastmatches; /* last seen number of matches */
+	GtkWidget	 *current;
 };
 
 static	const char *const inputs[INPUT__MAX] = {
@@ -142,21 +147,25 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menubar1"));
 	b->wins.menufile = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem1"));
-	b->wins.viewdev = GTK_CHECK_MENU_ITEM
+	b->wins.viewclone = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem15"));
+	b->wins.views[VIEW_NONE] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem8"));
+	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem6"));
-	b->wins.viewpoly = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem7"));
-	b->wins.viewpolyminpdf = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_POLYMINPDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem9"));
-	b->wins.viewpolymincdf = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_POLYMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem11"));
-	b->wins.viewmeanminpdf = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_MEANMINPDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem10"));
-	b->wins.viewmeanmincdf = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_MEANMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem12"));
-	b->wins.viewmeanminq = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_MEANMINQ] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem13"));
-	b->wins.viewfitminq = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_POLYMINQ] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem14"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "checkbutton1"));
@@ -357,6 +366,15 @@ on_sim_deref(gpointer dat)
 		return;
 	g_debug("Simulation %p deref triggering termination", sim);
 	sim->terminate = 1;
+}
+
+static void
+sim_ref(gpointer dat, gpointer arg)
+{
+	struct sim	*sim = dat;
+
+	g_debug("Simulation %p ref (now %zu)", sim, sim->refs);
+	++sim->refs;
 }
 
 static void
@@ -614,11 +632,13 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	cairo_text_extents(cr, "-10.00", &e);
 	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0); 
 
-	/* CDF and PDF graphs have an opaque y-axis. */
-	if ( ! cur->viewpolyminpdf &&
-		! cur->viewpolymincdf &&
-		! cur->viewmeanminpdf &&
-		! cur->viewmeanmincdf) {
+	switch (cur->view) {
+	case (VIEW_POLYMINPDF):
+	case (VIEW_POLYMINCDF):
+	case (VIEW_MEANMINPDF):
+	case (VIEW_MEANMINCDF):
+		break;
+	default:
 		/* Bottom right. */
 		cairo_move_to(cr, width - e.width, 
 			height - e.height * 3.0);
@@ -629,20 +649,20 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 		cairo_move_to(cr, width - e.width, 
 			height * 0.75 - 1.5 * e.height);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", miny + (maxy + miny) * 0.25);
+			"%.2g", miny + (maxy - miny) * 0.25);
 		cairo_show_text(cr, buf);
 
 		/* Middle right. */
 		cairo_move_to(cr, width - e.width, 
 			height * 0.5 - 0.5 * e.height);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", (maxy + miny) * 0.5);
+			"%.2g", miny + (maxy - miny) * 0.5);
 		cairo_show_text(cr, buf);
 
 		/* Middle-top right. */
 		cairo_move_to(cr, width - e.width, height * 0.25);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", miny + (maxy + miny) * 0.75);
+			"%.2g", miny + (maxy - miny) * 0.75);
 		cairo_show_text(cr, buf);
 
 		/* Top right. */
@@ -650,44 +670,9 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 		(void)snprintf(buf, sizeof(buf), "%.2g", maxy);
 		cairo_show_text(cr, buf);
 
-		/* Right bottom. */
-		cairo_move_to(cr, width - e.width * 1.5, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), "%.2g", maxx);
-		cairo_show_text(cr, buf);
-
-		/* Middle-left bottom. */
-		cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", minx + (maxx + minx) * 0.25);
-		cairo_show_text(cr, buf);
-
-		/* Middle bottom. */
-		cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", (maxx + minx) * 0.5);
-		cairo_show_text(cr, buf);
-
-		/* Middle-right bottom. */
-		cairo_move_to(cr, width * 0.75 - e.width, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", minx + (maxx + minx) * 0.75);
-		cairo_show_text(cr, buf);
-
-		/* Left bottom. */
-		cairo_move_to(cr, e.width * 0.25, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), "%.2g", minx);
-		cairo_show_text(cr, buf);
-
 		*widthp -= e.width * 1.3;
-		*heightp -= e.height * 3.0;
-		return;
+		break;
 	}
-
 	/* Right bottom. */
 	cairo_move_to(cr, width - e.width * 1.5, 
 		height - e.height * 0.5);
@@ -698,20 +683,21 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
 		height - e.height * 0.5);
 	(void)snprintf(buf, sizeof(buf), 
-		"%.2g", minx + (maxx + minx) * 0.25);
+		"%.2g", minx + (maxx - minx) * 0.25);
 	cairo_show_text(cr, buf);
 
 	/* Middle bottom. */
 	cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
 		height - e.height * 0.5);
-	(void)snprintf(buf, sizeof(buf), "%.2g", (maxx + minx) * 0.5);
+	(void)snprintf(buf, sizeof(buf), 
+		"%.2g", minx + (maxx - minx) * 0.5);
 	cairo_show_text(cr, buf);
 
 	/* Middle-right bottom. */
 	cairo_move_to(cr, width * 0.75 - e.width, 
 		height - e.height * 0.5);
 	(void)snprintf(buf, sizeof(buf), 
-		"%.2g", minx + (maxx + minx) * 0.75);
+		"%.2g", minx + (maxx - minx) * 0.75);
 	cairo_show_text(cr, buf);
 
 	/* Left bottom. */
@@ -734,58 +720,67 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	size_t	 i;
 	double	 v;
 
-	if (cur->viewdev) {
+	switch (cur->view) {
+	case (VIEW_DEV):
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.means[i] + s->cold.variances[i];
 			if (v > *maxy)
 				*maxy = v;
 		}
-	} else if (cur->viewpolyminpdf) {
+		break;
+	case (VIEW_POLYMINPDF):
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.fitmins[i] / 
 				(double)s->cold.distsz;
 			if (v > *maxy)
 				*maxy = v;
 		}
-	} else if (cur->viewpolymincdf) {
+		break;
+	case (VIEW_POLYMINCDF):
 		for (v = 0.0, i = 0; i < s->dims; i++)
 			v += s->cold.fitmins[i] / 
 				(double)s->cold.distsz;
 		if (v > *maxy)
 			*maxy = v;
-	} else if (cur->viewmeanminpdf) {
+		break;
+	case (VIEW_MEANMINPDF):
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.meanmins[i] / 
 				(double)s->cold.distsz;
 			if (v > *maxy)
 				*maxy = v;
 		}
-	} else if (cur->viewmeanmincdf) {
+		break;
+	case (VIEW_MEANMINCDF):
 		for (v = 0.0, i = 0; i < s->dims; i++)
 			v += s->cold.meanmins[i] / 
 				(double)s->cold.distsz;
 		if (v > *maxy)
 			*maxy = v;
-	} else if (cur->viewmeanminq) {
+		break;
+	case (VIEW_MEANMINQ):
 		for (i = 0; i < MINQSZ; i++) {
 			v = GETS(s, s->cold.meanminq[i]);
 			if (v > *maxy)
 				*maxy = v;
 		}
-	} else if (cur->viewfitminq) {
+		break;
+	case (VIEW_POLYMINQ):
 		for (i = 0; i < MINQSZ; i++) {
 			v = GETS(s, s->cold.fitminq[i]);
 			if (v > *maxy)
 				*maxy = v;
 		}
-	} else if (cur->viewpoly) {
+		break;
+	case (VIEW_POLY):
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.fits[i] > s->cold.means[i] ?
 				s->cold.fits[i] : s->cold.means[i];
 			if (v > *maxy)
 				*maxy = v;
 		}
-	} else {
+		break;
+	default:
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.means[i];
 			if (v > *maxy)
@@ -846,8 +841,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		 b->wins.colours[sim->colour].green, \
 		 b->wins.colours[sim->colour].blue, (_a)
 
-	if (cur->viewpolymincdf || cur->viewfitminq ||
-			cur->viewpolyminpdf) {
+	switch (cur->view) {
+	case (VIEW_POLYMINCDF):
+	case (VIEW_POLYMINPDF):
+	case (VIEW_POLYMINQ):
 		j = 0;
 		cairo_text_extents(cr, "-10.00", &e);
 		for (list = sims; NULL != list; list = list->next) {
@@ -862,8 +859,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			j++;
 		}
 		height -= (j + 1) * e.height;
-	} else if (cur->viewmeanmincdf || cur->viewmeanminq || 
-			cur->viewmeanminpdf) {
+		break;
+	case (VIEW_MEANMINCDF):
+	case (VIEW_MEANMINPDF):
+	case (VIEW_MEANMINQ):
 		j = 0;
 		cairo_text_extents(cr, "-10.00", &e);
 		for (list = sims; NULL != list; list = list->next) {
@@ -878,6 +877,9 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			j++;
 		}
 		height -= (j + 1) * e.height;
+		break;
+	default:
+		break;
 	}
 
 	/*
@@ -892,16 +894,25 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		max_sim(cur, list->data, &xmin, &xmax, &maxy);
 
 	/* CDF's don't get their windows scaled. */
-	if ( ! cur->viewpolymincdf && ! cur->viewmeanmincdf)
+	switch (cur->view) {
+	case (VIEW_POLYMINCDF):
+	case (VIEW_MEANMINCDF):
+		break;
+	default:
 		maxy += maxy * 0.1;
+	}
 
-	/* Draw our labels. */
-	if (cur->viewmeanminq || cur->viewfitminq)
+	switch (cur->view) {
+	case (VIEW_POLYMINQ):
+	case (VIEW_MEANMINQ):
 		drawlabels(cur, cr, &width, 
 			&height, 0.0, maxy, -256.0, 0.0);
-	else
+		break;
+	default:
 		drawlabels(cur, cr, &width, 
 			&height, 0.0, maxy, xmin, xmax);
+		break;
+	}
 
 	/*
 	 * Draw curves as specified.
@@ -911,7 +922,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		sim = list->data;
 		assert(NULL != sim);
 		cairo_set_line_width(cr, 2.0);
-		if (cur->viewdev) {
+		switch (cur->view) {
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
@@ -945,7 +956,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
-		} else if (cur->viewpoly) {
+			break;
+		case (VIEW_POLY):
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
@@ -963,7 +975,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
-		} else if (cur->viewpolyminpdf) {
+			break;
+		case (VIEW_POLYMINPDF):
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.fitmins[j - 1] / 
 					(double)sim->cold.distsz;
@@ -974,7 +987,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
-		} else if (cur->viewpolymincdf) {
+			break;
+		case (VIEW_POLYMINCDF):
 			cairo_move_to(cr, GETX(0), GETY(0.0));
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				v += sim->cold.fitmins[j] / 
@@ -983,7 +997,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
-		} else if (cur->viewmeanminpdf) {
+			break;
+		case (VIEW_MEANMINPDF):
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.meanmins[j - 1] / 
 					(double)sim->cold.distsz;
@@ -994,7 +1009,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
-		} else if (cur->viewmeanmincdf) {
+			break;
+		case (VIEW_MEANMINCDF):
 			cairo_move_to(cr, GETX(0), GETY(0.0));
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				v += sim->cold.meanmins[j] / 
@@ -1003,7 +1019,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
-		} else if (cur->viewmeanminq) {
+			break;
+		case (VIEW_MEANMINQ):
 			for (j = 1; j < MINQSZ; j++) {
 				k = (sim->cold.meanminqpos + j - 1) % 
 					MINQSZ;
@@ -1030,7 +1047,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_dash(cr, dash, 0, 0);
 			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
-		} else if (cur->viewfitminq) {
+			break;
+		case (VIEW_POLYMINQ):
 			for (j = 1; j < MINQSZ; j++) {
 				k = (sim->cold.fitminqpos + j - 1) % 
 					MINQSZ;
@@ -1057,7 +1075,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_dash(cr, dash, 0, 0);
 			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
-		} else {
+			break;
+		default:
 			for (j = 1; j < sim->dims; j++) {
 				v = sim->cold.means[j - 1];
 				cairo_move_to(cr, GETX(j-1), GETY(v));
@@ -1066,6 +1085,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
+			break;
 		}
 	}
 	cairo_restore(cr);
@@ -1075,45 +1095,90 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	return(TRUE);
 }
 
-/*
- * We've requested a different kind of view.
- * First, determine what kind of view update has occured: whether to
- * change to polynomial minimum, etc.
- * Next, iterate through all top-level windows, extracting their current
- * configuration.
- * Finally, update each individual configuration and redraw.
- */
+gboolean
+onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	size_t		 i;
+
+	if (w == GTK_WIDGET(b->wins.config)) {
+		b->current = NULL;
+		for (i = 0; i < VIEW__MAX; i++)
+			gtk_widget_set_sensitive
+				(GTK_WIDGET(b->wins.views[i]), FALSE);
+		gtk_widget_set_sensitive
+			(GTK_WIDGET(b->wins.viewclone), FALSE);
+		return(TRUE);
+	}
+
+	b->current = w;
+	for (i = 0; i < VIEW__MAX; i++)
+		gtk_widget_set_sensitive
+			(GTK_WIDGET(b->wins.views[i]), TRUE);
+	gtk_widget_set_sensitive
+		(GTK_WIDGET(b->wins.viewclone), TRUE);
+	return(TRUE);
+}
+
+void
+onclone(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	struct curwin	*oldcur, *newcur;
+	GtkWidget	*w, *draw;
+	GList		*oldsims, *newsims;
+	GdkRGBA	  	 color = { 1.0, 1.0, 1.0, 1.0 };
+
+	if (NULL == b->current)
+		return;
+
+	oldcur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	oldsims = g_object_get_data(G_OBJECT(b->current), "sims");
+
+	g_list_foreach(oldsims, sim_ref, NULL);
+	newsims = g_list_copy(oldsims);
+
+	newcur = g_malloc0(sizeof(struct curwin));
+	newcur->view = oldcur->view;
+
+	w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
+	gtk_widget_override_background_color
+		(w, GTK_STATE_FLAG_NORMAL, &color);
+	draw = gtk_drawing_area_new();
+	gtk_widget_set_margin_left(draw, 10);
+	gtk_widget_set_margin_right(draw, 10);
+	gtk_widget_set_margin_top(draw, 10);
+	gtk_widget_set_margin_bottom(draw, 10);
+	gtk_widget_set_size_request(draw, 440, 400);
+	g_signal_connect(G_OBJECT(draw), 
+		"draw", G_CALLBACK(ondraw), b);
+	g_signal_connect(G_OBJECT(w),
+		"focus-in-event", 
+		G_CALLBACK(onfocus), b);
+	gtk_container_add(GTK_CONTAINER(w), draw);
+	gtk_widget_show_all(w);
+	g_object_set_data_full(G_OBJECT(w), 
+		"cfg", newcur, g_free);
+	g_object_set_data_full(G_OBJECT(w), 
+		"sims", newsims, on_sims_deref);
+}
+
 void
 onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	GList		*list;
 	struct curwin	*cur;
 
-	list = gtk_window_list_toplevels();
-	for ( ; list != NULL; list = list->next) {
-		/* Is this window a simulation view? */
-		cur = g_object_get_data(G_OBJECT(list->data), "cfg");
-		if (NULL == cur)
-			continue;
-		cur->viewpoly = gtk_check_menu_item_get_active
-			(b->wins.viewpoly);
-		cur->viewdev = gtk_check_menu_item_get_active
-			(b->wins.viewdev);
-		cur->viewpolyminpdf = gtk_check_menu_item_get_active
-			(b->wins.viewpolyminpdf);
-		cur->viewpolymincdf = gtk_check_menu_item_get_active
-			(b->wins.viewpolymincdf);
-		cur->viewmeanminpdf = gtk_check_menu_item_get_active
-			(b->wins.viewmeanminpdf);
-		cur->viewmeanmincdf = gtk_check_menu_item_get_active
-			(b->wins.viewmeanmincdf);
-		cur->viewmeanminq = gtk_check_menu_item_get_active
-			(b->wins.viewmeanminq);
-		cur->viewfitminq = gtk_check_menu_item_get_active
-			(b->wins.viewfitminq);
-		gtk_widget_queue_draw(GTK_WIDGET(list->data));
-	}
+	if (NULL == b->current)
+		return;
+
+	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	assert(NULL != cur);
+	for (cur->view = 0; cur->view < VIEW__MAX; cur->view++) 
+		if (gtk_check_menu_item_get_active
+			(b->wins.views[cur->view]))
+			break;
+	gtk_widget_queue_draw(b->current);
 }
 
 /*
@@ -1315,7 +1380,7 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->d.continuum.xmin = xmin;
 	sim->d.continuum.xmax = xmax;
 	b->sims = g_list_append(b->sims, sim);
-	sim->refs = 1;
+	sim_ref(sim, NULL);
 	sim->threads = g_malloc0_n(sim->nprocs, sizeof(struct simthr));
 	g_debug("New continuum simulation: %zu islands, "
 		"%zu total members (%zu per island) (%zu generations)", 
@@ -1335,22 +1400,6 @@ on_activate(GtkButton *button, gpointer dat)
 
 	sims = g_list_append(NULL, sim);
 	cur = g_malloc0(sizeof(struct curwin));
-	cur->viewpoly = gtk_check_menu_item_get_active
-		(b->wins.viewpoly);
-	cur->viewdev = gtk_check_menu_item_get_active
-		(b->wins.viewdev);
-	cur->viewpolyminpdf = gtk_check_menu_item_get_active
-		(b->wins.viewpolyminpdf);
-	cur->viewpolymincdf = gtk_check_menu_item_get_active
-		(b->wins.viewpolymincdf);
-	cur->viewmeanminpdf = gtk_check_menu_item_get_active
-		(b->wins.viewmeanminpdf);
-	cur->viewmeanmincdf = gtk_check_menu_item_get_active
-		(b->wins.viewmeanmincdf);
-	cur->viewmeanminq = gtk_check_menu_item_get_active
-		(b->wins.viewmeanminq);
-	cur->viewfitminq = gtk_check_menu_item_get_active
-		(b->wins.viewfitminq);
 
 	/*
 	 * Now we create the output window.
@@ -1366,6 +1415,9 @@ on_activate(GtkButton *button, gpointer dat)
 	gtk_widget_set_size_request(draw, 440, 400);
 	g_signal_connect(G_OBJECT(draw), 
 		"draw", G_CALLBACK(ondraw), b);
+	g_signal_connect(G_OBJECT(w),
+		"focus-in-event", 
+		G_CALLBACK(onfocus), b);
 	gtk_container_add(GTK_CONTAINER(w), draw);
 	gtk_widget_show_all(w);
 	g_object_set_data_full(G_OBJECT(w), 
