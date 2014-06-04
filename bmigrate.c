@@ -866,9 +866,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_move_to(cr, 0.0, height - j * e.height * 2.0);
 			(void)g_snprintf(buf, sizeof(buf), 
-				"Mode: %g, mean: %g", 
+				"Mode: %g, mean: %g, runs: %zu, updates: %zu", 
 				GETS(sim, sim->cold.fitminsmode),
-				sim->cold.fitminsmean);
+				sim->cold.fitminsmean, sim->cold.truns,
+				sim->cold.distsz);
 			cairo_show_text(cr, buf);
 			j++;
 		}
@@ -884,9 +885,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_move_to(cr, 0.0, height - j * e.height * 2.0);
 			(void)g_snprintf(buf, sizeof(buf), 
-				"Mode: %g, mean: %g", 
+				"Mode: %g, mean: %g, runs: %zu, updates: %zu", 
 				GETS(sim, sim->cold.meanminsmode),
-				sim->cold.meanminsmean);
+				sim->cold.meanminsmean, sim->cold.truns,
+				sim->cold.distsz);
 			cairo_show_text(cr, buf);
 			j++;
 		}
@@ -1656,7 +1658,6 @@ main(int argc, char *argv[])
 {
 	GtkBuilder	  *builder;
 	struct bmigrate	   b;
-	guint		   rc;
 	gchar	 	  *file;
 #ifdef	MAC_INTEGRATION
 	gchar	 	  *dir;
@@ -1694,8 +1695,13 @@ main(int argc, char *argv[])
 	assert(NULL != builder);
 
 	/* If we fail this, just exit and good-bye. */
+#ifdef __linux__
+	if ( ! gtk_builder_add_from_file(builder, file, NULL))
+		return(EXIT_FAILURE);
+#else
 	builder = gtk_builder_new_from_file(file);
 	g_free(file);
+#endif
 
 	windows_init(&b, builder);
 	b.status_elapsed = g_timer_new();
