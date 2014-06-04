@@ -66,9 +66,14 @@ enum	view {
  */
 struct	hwin {
 	GtkWindow	 *config;
+#ifndef	MAC_INTEGRATION
+	GtkMenu		 *allmenus;
+#endif
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
 	GtkMenuItem	 *menufile;
+	GtkMenuItem	 *menuview;
+	GtkMenuItem	 *menutools;
 	GtkStatusbar	 *status;
 	GtkCheckMenuItem *views[VIEW__MAX];
 	GtkMenuItem	 *viewclone;
@@ -148,6 +153,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menubar1"));
 	b->wins.menufile = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem1"));
+	b->wins.menuview = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem2"));
+	b->wins.menutools = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem3"));
 	b->wins.viewclone = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem15"));
 	b->wins.views[VIEW_NONE] = GTK_CHECK_MENU_ITEM
@@ -1294,6 +1303,19 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 	return(TRUE);
 }
 
+#ifndef MAC_INTEGRATION
+static gboolean
+onpress(GtkWidget *widget, GdkEvent *event, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	gtk_menu_popup(GTK_MENU(b->wins.allmenus), NULL, 
+		NULL, NULL, NULL, 0, gtk_get_current_event_time());
+
+	return(TRUE);
+}
+#endif
+
 static void
 window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 {
@@ -1305,6 +1327,14 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	gtk_widget_override_background_color
 		(w, GTK_STATE_FLAG_NORMAL, &color);
 	draw = gtk_drawing_area_new();
+#ifndef	MAC_INTEGRATION
+	gtk_widget_set_events(draw,
+		gtk_widget_get_events(draw) |
+		GDK_BUTTON_PRESS_MASK);
+	g_signal_connect(G_OBJECT(w),
+		"button-press-event", 
+		G_CALLBACK(onpress), b);
+#endif
 	gtk_widget_set_margin_left(draw, 10);
 	gtk_widget_set_margin_right(draw, 10);
 	gtk_widget_set_margin_top(draw, 10);
@@ -1803,6 +1833,19 @@ main(int argc, char *argv[])
 	g_signal_connect(theApp, "NSApplicationWillTerminate",
 		G_CALLBACK(onterminate), &b);
 	gtkosx_application_ready(theApp);
+#else
+	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
+	b.wins.allmenus = GTK_MENU(gtk_menu_new());
+	gtk_widget_unparent(GTK_WIDGET(b.wins.menufile));
+	gtk_widget_unparent(GTK_WIDGET(b.wins.menuview));
+	gtk_widget_unparent(GTK_WIDGET(b.wins.menutools));
+	gtk_menu_shell_append(GTK_MENU_SHELL
+		(b.wins.allmenus), GTK_WIDGET(b.wins.menufile));
+	gtk_menu_shell_append(GTK_MENU_SHELL
+		(b.wins.allmenus), GTK_WIDGET(b.wins.menuview));
+	gtk_menu_shell_append(GTK_MENU_SHELL
+		(b.wins.allmenus), GTK_WIDGET(b.wins.menutools));
+	gtk_widget_show_all(GTK_WIDGET(b.wins.allmenus));
 #endif
 	g_timeout_add(1000, (GSourceFunc)on_sim_timer, &b);
 	g_timeout_add(1000, (GSourceFunc)on_sim_copyout, &b);
