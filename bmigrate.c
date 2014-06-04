@@ -328,11 +328,20 @@ static void
 sim_stop(gpointer arg, gpointer unused)
 {
 	struct sim	*p = arg;
+	int		 pause;
 
 	if (p->terminate)
 		return;
 	g_debug("Stopping simulation %p", p);
 	p->terminate = 1;
+	g_mutex_lock(&p->hot.mux);
+	if (0 != (pause = p->hot.pause)) {
+		p->hot.pause = 0;
+		g_cond_broadcast(&p->hot.cond);
+	}
+	g_mutex_unlock(&p->hot.mux);
+	if (pause)
+		g_debug("Unpausing simulation %p for stop", p);
 }
 
 /*
@@ -355,6 +364,29 @@ bmigrate_free(struct bmigrate *p)
 }
 
 /*
+ * Pause or unpause (unset pause and broadcast to condition) a given
+ * simulation depending on its current pause status.
+ */
+static void
+on_sim_pause(struct sim *sim, int dopause)
+{
+	int		 pause;
+
+	g_mutex_lock(&sim->hot.mux);
+	if (0 == dopause && sim->hot.pause) {
+		sim->hot.pause = pause = 0;
+		g_cond_broadcast(&sim->hot.cond);
+	} else if (dopause && 0 == sim->hot.pause)
+		sim->hot.pause = pause = 1;
+	g_mutex_unlock(&sim->hot.mux);
+
+	if (0 == pause && 0 == dopause)
+		g_debug("Unpausing simulation %p", sim);
+	else if (pause && dopause)
+		g_debug("Pausing simulation %p", sim);
+}
+
+/*
  * Dereference a simulation.
  * This means that we've closed an output window that's looking at a
  * particular simulation.
@@ -368,7 +400,7 @@ on_sim_deref(gpointer dat)
 	if (0 != --sim->refs) 
 		return;
 	g_debug("Simulation %p deref triggering termination", sim);
-	sim->terminate = 1;
+	sim_stop(sim, NULL);
 }
 
 static void
@@ -417,10 +449,8 @@ on_sim_copyout(gpointer dat)
 		if ( ! nocopy)
 			sim->hot.copyout = 1;
 		g_mutex_unlock(&sim->hot.mux);
-		if (nocopy) {
-			g_debug("Simulation %p still in copyout", sim);
+		if (nocopy)
 			continue;
-		}
 		g_mutex_lock(&sim->warm.mux);
 		/*
 		 * Most strutures we simply copy over.
@@ -1345,6 +1375,44 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 			(b->wins.views[cur->view]))
 			break;
 	gtk_widget_queue_draw(b->current);
+}
+
+/*
+ * Pause all simulations connect to a view.
+ */
+void
+onpause(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	GList		*list;
+
+	if (NULL == b->current)
+		return;
+
+	list = g_object_get_data(G_OBJECT(b->current), "sims");
+	assert(NULL != list);
+
+	for ( ; NULL != list; list = list->next)
+		on_sim_pause(list->data, 1);
+}
+
+/*
+ * Unpause all simulations connect to a view.
+ */
+void
+onunpause(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	GList		*list;
+
+	if (NULL == b->current)
+		return;
+
+	list = g_object_get_data(G_OBJECT(b->current), "sims");
+	assert(NULL != list);
+
+	for ( ; NULL != list; list = list->next)
+		on_sim_pause(list->data, 0);
 }
 
 /*

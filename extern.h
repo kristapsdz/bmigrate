@@ -75,6 +75,7 @@ struct	simhot {
 	size_t		*runs; /* runs per mutant */
 	size_t		 truns; /* total number of runs */
 	int		 copyout; /* do we need to snapshot? */
+	int		 pause; /* should we pause? */
 	size_t		 copyblock; /* threads blocking on copy */
 };
 

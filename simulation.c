@@ -160,7 +160,10 @@ on_sim_next(struct simwork *work, struct sim *sim,
 			g_cond_broadcast(&sim->hot.cond);
 		} else
 			g_cond_wait(&sim->hot.cond, &sim->hot.mux);
-	}
+	} 
+	if (sim->hot.pause)
+		g_cond_wait(&sim->hot.cond, &sim->hot.mux);
+	
 	g_mutex_unlock(&sim->hot.mux);
 
 	*mutant = sim->d.continuum.xmin + 
