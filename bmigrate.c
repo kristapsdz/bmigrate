@@ -1437,6 +1437,14 @@ ondestroy(GtkWidget *object, gpointer dat)
 	gtk_main_quit();
 }
 
+void
+on_deactivate(GtkButton *button, gpointer dat)
+{
+
+	bmigrate_free(dat);
+	gtk_main_quit();
+}
+
 /*
  * We want to run the given simulation.
  * First, verify all data.
