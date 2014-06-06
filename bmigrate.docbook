@@ -1,0 +1,362 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE article [
+	<!ENTITY % allent SYSTEM "http://www.w3.org/2003/entities/2007/w3centities-f.ent">
+	%allent;
+]>
+<article xmlns="http://docbook.org/ns/docbook" version="5.0" xmlns:mml="http://www.w3.org/1998/Math/MathML" xml:lang="en">
+	<title>Simulating the Island Model of Evolutionary Algorithms</title>
+	<sect1>
+		<title>Introduction</title>
+		<para>
+			<command>bmigrate</command> is a high-performance scientific application simulating the island model for
+			evolutionary algorithms.
+			A <firstterm>simulation</firstterm> consists of one or more <firstterm>runs</firstterm>, with each run consisting of a
+			finite sequence of <firstterm>generations</firstterm>.
+		</para>
+		<orderedlist>
+			<listitem>
+				Initialise a simulation with a fixed number of islands <mathphrase>N</mathphrase>, individuals per island
+				<mathphrase>n</mathphrase>, migration probability <mathphrase>m</mathphrase>, utility function
+				<mathphrase>&pi;</mathphrase>, and strategy domain <mathphrase>X</mathphrase>.
+			</listitem>
+			<listitem>
+				Iterate over simulation runs:
+				<orderedlist>
+					<listitem>
+						Initialise all individuals as incumbents, then assign one individual as a mutant.
+						Assign a strategy to each individual based on the individual's type, incumbent or mutant.
+					</listitem>
+					<listitem>
+						Iterate over generations:
+						<orderedlist>
+							<listitem>
+								On each island, compute each individual's number of offspring
+								(<firstterm>reproduction</firstterm>), which inherit the parent's type.
+							</listitem>
+							<listitem>
+								Assign individuals' offspring to islands (<firstterm>migration</firstterm>).
+							</listitem>
+							<listitem>
+								On each island, replace a single inhabitant with a migrant (<firstterm>selection</firstterm> and
+								<firstterm>replacement</firstterm>), then repeat.
+							</listitem>
+						</orderedlist>
+					</listitem>
+					<listitem>
+						Terminate the run after a fixed number of generations or when the global mutant or incumbent tally reaches zero.
+					</listitem>
+					<listitem>
+						Re-assign the incumbent and mutant strategies, then repeat.
+					</listitem>
+				</orderedlist>
+			</listitem>
+		</orderedlist>
+		<para>
+			The following sub-sections define specific behaviour.
+		</para>
+		<sect2>
+			<title>Generations</title>
+			<para>
+				When a generation begins, each island consists of a non-zero number of individuals of either a mutant or
+				incumbent type, each with an assigned type-specific strategy.
+				A generation proceeds exactly as follows:
+			</para>
+			<orderedlist>
+				<listitem>
+					Compute an individual's reproductive fertility from a Poisson-distributed random number with mean 
+					<inlineequation>
+						<alt>&alpha;(1 + &delta;&InvisibleTimes;&pi;)</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mi>&alpha;</mi>
+							<mfenced>
+								<mrow>
+									<mn>1</mn>
+									<mo>+</mo>
+									<mi>&delta;</mi>
+									<mo>&InvisibleTimes;</mo>
+									<mi>&pi;</mi>
+									<mfenced>
+										<msub><mi>x</mi><mi>i</mi></msub>
+										<msub><mi>x</mi><mrow><mo>-</mo><mi>i</mi></mrow></msub>
+									</mfenced>
+								</mrow>
+							</mfenced>
+						</math>
+					</inlineequation>, 
+					where 
+					<mathphrase>&pi;</mathphrase>
+					is a function accepting the individual's strategy
+					<inlineequation>
+						<alt>x_i</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<msub><mi>x</mi><mi>i</mi></msub>
+						</math>
+					</inlineequation> 
+					and all other individuals' strategies
+					<inlineequation>
+						<alt>x_{-i}</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<msub><mi>x</mi><mrow><mo>-</mo><mi>i</mi></mrow></msub>
+						</math>
+					</inlineequation> on her island.
+					For example, on an island with two individuals having strategies 
+					<inlineequation>
+						<alt>x = 5</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mi>x</mi><mo>=</mo><mn>5</mn>
+						</math>
+					</inlineequation> 
+					and
+					<inlineequation>
+						<alt>y = 2</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mi>y</mi><mo>=</mo><mn>2</mn>
+						</math>
+					</inlineequation>,
+					with the function simply being
+					<inlineequation>
+						<alt>x_i + x_{-i}&InvisibleTimes;x_i</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<msub><mi>x</mi><mi>i</mi></msub>
+							<mo>+</mo>
+							<msub><mi>x</mi><mrow><mo>-</mo><mi>i</mi></mrow></msub>
+							<mo>&InvisibleTimes;</mo>
+							<msub><mi>x</mi><mi>i</mi></msub>
+						</math>
+					</inlineequation>,
+					the first individual's fertility is
+					<inlineequation>
+						<alt>&alpha;(1 + &delta;15)</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mi>&alpha;</mi>
+							<mfenced>
+								<mrow>
+									<mn>1</mn>
+									<mo>+</mo>
+									<mi>&delta;</mi>
+									<mo>&InvisibleTimes;</mo>
+									<mn>15</mn>
+								</mrow>
+							</mfenced>
+						</math>
+					</inlineequation>
+					and the second individual's is
+					<inlineequation>
+						<alt>&alpha;(1 + &delta;12)</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mi>&alpha;</mi>
+							<mfenced>
+								<mrow>
+									<mn>1</mn>
+									<mo>+</mo>
+									<mi>&delta;</mi>
+									<mo>&InvisibleTimes;</mo>
+									<mn>12</mn>
+								</mrow>
+							</mfenced>
+						</math>
+					</inlineequation>.
+				</listitem>
+				<listitem>
+					Once each individual's offspring count has been computed, the offspring (which inherit the parent's type)
+					migrate to other islands.
+					With probability <mathphrase>m</mathphrase>,
+					an offspring will migrate to a randomly-selected other island.
+					Otherwise, the offspring will migrate to the parent's (i.e., the current) island.
+				</listitem>
+				<listitem>
+					Lastly, on each island with a queue of individuals migrated from other islands (or the same island), a single
+					randomly-selected individual replaces a single randomly-selected individual on the island.
+				</listitem>
+			</orderedlist>
+			<para>
+				The tally of mutants and incumbents globally and per-island is recomputed following each generation.
+			</para>
+		</sect2>
+		<sect2>
+			<title>Runs</title>
+			<para>
+				A simulation run begins with all individuals but one being incumbents.
+				The mutant type is assigned to a random individual in the total population.
+				Each individual is assigned a strategy 
+				<inlineequation>
+					<alt>x_i</alt>
+					<math xmlns="http://www.w3.org/1998/Math/MathML">
+						<msub><mi>x</mi><mi>i</mi></msub>
+					</math>
+				</inlineequation> 
+				based on their type.
+				A simulation run proceeds exactly as follows:
+			</para>
+			<orderedlist>
+				<listitem>
+					Execute a single generation.
+				</listitem>
+				<listitem>
+					Increment the generation count.
+				</listitem>
+				<listitem>
+					If the generation meets a fixed termination count, stop the run.
+					If the global tally of mutants or incumbents reaches zero, stop the run.
+					Otherwise, repeat.
+				</listitem>
+			</orderedlist>
+			<para>
+				When a simulation run terminates, the fraction of mutants remaining is accumulated to the mean and sum of
+				squares of differences from the current mean for the given incumbent.
+				In any simulation run <mathphrase>t</mathphrase> &gt; 1, the mean mutant fraction of an incumbent strategy,
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML">
+						<msub>
+							<mover accent="true">
+								<mi>x</mi>
+								<mo stretchy="true">&OverBar;</mo>
+							</mover>
+							<mi>t</mi>
+						</msub>
+					</math>
+				</inlineequation>,
+				is computed as
+				<inlineequation>
+					<alt>x_t = x_{t-1} + (x - x_{t-1})/t</alt>
+					<math xmlns="http://www.w3.org/1998/Math/MathML">
+						<mover accent="true">
+							<msub><mi>x</mi><mi>t</mi></msub>
+							<mo stretchy="true">&OverBar;</mo>
+						</mover>
+						<mo>=</mo>
+						<msub>
+							<mover accent="true">
+								<mi>x</mi>
+								<mo stretchy="true">&OverBar;</mo>
+							</mover>
+							<mrow><mi>t</mi><mo>-</mo><mn>1</mn></mrow>
+						</msub>
+						<mo>+</mo>
+						<mfenced>
+							<mrow>
+								<mi>x</mi>
+								<mo>-</mo>
+								<msub>
+									<mover accent="true">
+										<mi>x</mi>
+										<mo stretchy="true">&OverBar;</mo>
+									</mover>
+									<mrow><mi>t</mi><mo>-</mo><mn>1</mn></mrow>
+								</msub>
+							</mrow>
+						</mfenced>
+						<mo>&frasl;</mo>
+						<mi>t</mi>
+					</math>
+				</inlineequation>
+				for the last run's mutant fraction <mathphrase>x</mathphrase>.
+				The sum of squares of differences from the incumbent's current mean is then computed as
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML">
+						<msub>
+							<mi>M</mi>
+							<mrow>
+								<mn>2</mn>
+								<mo>,</mo>
+								<mi>t</mi>
+							</mrow>
+						</msub>
+						<mo>=</mo>
+						<msub>
+							<mi>M</mi>
+							<mrow>
+								<mn>2</mn>
+								<mo>,</mo>
+								<mrow><mi>t</mi><mo>-</mo><mn>1</mn></mrow>
+							</mrow>
+						</msub>
+						<mo>+</mo>
+						<mfenced>
+							<mrow>
+								<mi>x</mi>
+								<mo>-</mo>
+								<msub>
+									<mover accent="true">
+										<mi>x</mi>
+										<mo stretchy="true">&OverBar;</mo>
+									</mover>
+									<mrow><mi>t</mi><mo>-</mo><mn>1</mn></mrow>
+								</msub>
+							</mrow>
+						</mfenced>
+						<mo>&InvisibleTimes;</mo>
+						<mfenced>
+							<mrow>
+								<mi>x</mi>
+								<mo>-</mo>
+								<msub>
+									<mover accent="true">
+										<mi>x</mi>
+										<mo stretchy="true">&OverBar;</mo>
+									</mover>
+									<mi>t</mi>
+								</msub>
+							</mrow>
+						</mfenced>
+					</math>
+				</inlineequation>.
+				This is used to compute the sample variance at the current run,
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML">
+						<msub>
+							<mi>M</mi>
+							<mrow>
+								<mn>2</mn>
+								<mo>,</mo>
+								<mi>t</mi>
+							</mrow>
+						</msub>
+						<mo>&frasl;</mo>
+						<mfenced>
+							<mrow><mi>t</mi><mo>-</mo><mn>1</mn></mrow>
+						</mfenced>
+					</math>
+				</inlineequation>.
+			</para>
+			<para>
+				After accumulating statistics, the run is re-started in its initial configuration with mutant and incumbent
+				strategy re-assigned.
+			</para>
+		</sect2>
+		<sect2>
+			<title>Simulation</title>
+			<para>
+				Simulations are configured with a number of islands <mathphrase>N</mathphrase>, individuals per island
+				<mathphrase>n</mathphrase>, migration probability <mathphrase>m</mathphrase>, utility function
+				<mathphrase>&pi;</mathphrase>, and strategy domain <mathphrase>X</mathphrase>, maximum generation
+				<mathphrase>T</mathphrase>, and variables <mathphrase>&alpha;</mathphrase> and <mathphrase>&delta;</mathphrase>
+				for transforming utility into the Poisson mean.
+				A simulation repeats runs until stopped or paused by the system user.
+			</para>
+			<para>
+				For each run, the mutant and incumbent strategies are assigned from a discrete grid over the real-valued
+				strategy domain <mathphrase>X</mathphrase>.
+				The grid's boundaries are inclusive of the domain's lower bound, non-inclusive of the domain's upper bound.
+				Thus, if 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML">
+						<mi>X</mi>
+						<mo>&isin;</mo>
+						<mfenced open="[" close="]">
+							<mn>0</mn>
+							<mn>1</mn>
+						</mfenced>
+					</math>
+				</inlineequation>
+				and the grid has 100 slots, possible strategies will be 0, 0.01, 0.02, ..., 0.99.
+			</para>
+			<para>
+				After each simulation run, the mutant strategy is assigned from the next grid position, e.g., from 0.01 to 0.02.
+				If the grid position is at the upper bound, it is re-set to the lower bound.
+				The incumbent strategy is only re-assigned when the mutant grid position is re-set to the lower bound.
+				This behaviour ensures that all mutants and incumbents are treated equally over many simulation runs.
+			</para>
+		</sect2>
+	</sect1>
+</article>

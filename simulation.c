@@ -440,15 +440,21 @@ again:
 			break;
 	}
 
+#if 1
+	for (len1 = j = 0; j < sim->islands; j++)
+		len1 += imutants[j];
+	assert(len1 == mutants);
+#endif
+
 	v = mutants / (double)sim->totalpop;
 	mold = sim->hot.means[incumbentidx];
 	sim->hot.runs[incumbentidx]++;
+
 	/*
 	 * Use Knuth's algorithm for computing the mean and sum of
 	 * squares of difference from the mean.
 	 */
-	sim->hot.means[incumbentidx] +=
-		(v - sim->hot.means[incumbentidx]) /
+	sim->hot.means[incumbentidx] += (v - mold) /
 		(double)sim->hot.runs[incumbentidx];
 	sim->hot.meandiff[incumbentidx] +=
 		(v - mold) * (v - sim->hot.means[incumbentidx]);

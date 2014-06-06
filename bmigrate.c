@@ -81,6 +81,7 @@ struct	hwin {
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
 	GtkEntry	 *payoff;
+	GtkEntry	 *name;
 	GtkEntry	 *xmin;
 	GtkEntry	 *xmax;
 	GtkNotebook	 *inputs;
@@ -103,8 +104,12 @@ struct	hwin {
 	GdkRGBA		  colours[SIZE_COLOURS];
 };
 
+/*
+ * This describes a window.
+ * There's very little in here right now, which is fine.
+ */
 struct	curwin {
-	enum view	  view;
+	enum view	  view; /* what view are we seeing? */
 };
 
 /*
@@ -114,9 +119,9 @@ struct	bmigrate {
 	struct hwin	  wins; /* GUI components */
 	size_t		  nextcolour; /* next colour to assign */
 	GList		 *sims; /* active simulations */
-	GTimer		 *status_elapsed; /* elapsed since status update */
-	uint64_t	  lastmatches; /* last seen number of matches */
-	GtkWidget	 *current;
+	GTimer		 *status_elapsed; /* elapsed since update */
+	uint64_t	  lastmatches; /* last seen no. matches */
+	GtkWidget	 *current; /* the current window or NULL */
 };
 
 static	const char *const inputs[INPUT__MAX] = {
@@ -139,6 +144,7 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 {
 	GObject		*w;
 	gchar		 buf[1024];
+	GTimeVal	 gt;
 	int		 onlprocs;
 #ifdef	__linux__
 	onlprocs = sysconf(_SC_NPROCESSORS_ONLN);
@@ -187,6 +193,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry3"));
 	b->wins.payoff = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry11"));
+	b->wins.name = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry16"));
 	b->wins.stop = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry9"));
 	b->wins.xmin = GTK_ENTRY
@@ -247,6 +255,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		"%g", gtk_adjustment_get_value(b->wins.pop) *
 		gtk_adjustment_get_value(b->wins.islands));
 	gtk_entry_set_text(b->wins.totalpop, buf);
+
+	/* Initialise the name of our simulation. */
+	g_get_current_time(&gt);
+	gtk_entry_set_text(b->wins.name, g_time_val_to_iso8601(&gt));
 
 	/* Initialise our helpful run-load. */
 	gtk_label_set_text(b->wins.curthreads, "(0% active)");
@@ -1489,6 +1501,7 @@ on_activate(GtkButton *button, gpointer dat)
 	gint	 	  input, payoff;
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
+	GTimeVal	  gt;
 	const gchar	 *txt;
 	gdouble		  xmin, xmax, delta, alpha, m;
 	size_t		  i, totalpop, islandpop, islands, 
@@ -1671,6 +1684,10 @@ on_activate(GtkButton *button, gpointer dat)
 
 	window_init(b, g_malloc0(sizeof(struct curwin)), 
 		g_list_append(NULL, sim));
+
+	/* Initialise the name of our simulation. */
+	g_get_current_time(&gt);
+	gtk_entry_set_text(b->wins.name, g_time_val_to_iso8601(&gt));
 }
 
 /*
