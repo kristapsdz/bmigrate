@@ -359,4 +359,225 @@
 			</para>
 		</sect2>
 	</sect1>
+	<sect1>
+		<title>Installation</title>
+		<para>
+			You'll need a UNIX machine to use <command>bmigrate</command>.
+			The more powerful your machine, the better:
+			<command>bmigrate</command> takes advantage of as many processors as possible.
+			It has been run on up to 64 cores.
+			To date, the software has been compiled and run on <ulink url="https://www.apple.com/osx/">Mac OS X</ulink> Snow
+			Leopard (10.6) and later, GNU/Linux (<ulink url="https://www.debian.org/">Debian</ulink>), and <ulink
+				url="http://www.openbsd.org">OpenBSD</ulink>.
+			In theory, the software may be ported to Microsoft Windows as well, but it's unlikely to happen without external
+			contribution.
+		</para>
+		<sect2>
+			<title>Binary Installation</title>
+			<para>
+				Application binaries are available for Mac OS X Snow Leopard (10.6) and later.
+				To use these, simply download the ZIP file from the website.
+				You may need to configure your system to allow downloaded binaries to run.
+			</para>
+		</sect2>
+		<sect2>
+			<title>Source Installation</title>
+			<para>
+				To compile <command>bmigrate</command>, you'll need a number of dependencies.
+				First, you'll need a UNIX machine.
+				(If you're running on Mac OS X, just use the binary application: it's a real pain in the neck to configure the
+				build system for GTK+3 applications.)
+			</para>
+			<orderedlist>
+				<title>Build dependencies</title>
+				<listitem>
+					<ulink url="https://www.gnu.org/software/make/">gmake</ulink>: GNU Make, for the build system (the
+					default <command>make</command> implementation on Mac OS X and GNU/Linux)
+				</listitem>
+				<listitem>
+					<ulink url="http://www.gtk.org/">GTK+3</ulink>: GNOME Toolkit, for the graphics
+				</listitem>
+				<listitem>
+					<ulink url="https://www.gnu.org/software/gsl/">GSL</ulink>: GNU Scientific Library, for mathematical
+					functions
+				</listitem>
+				<listitem>
+					<ulink url="http://www.docbook.org/">DocBook5</ulink>: DocBook-XML, for this documentation
+				</listitem>
+				<listitem>
+					<ulink url="http://libbsd.freedesktop.org/wiki/">libbsd</ulink>: BSD libraries (only relevant for
+					GNU/Linux systems)
+				</listitem>
+			</orderedlist>
+			<para>
+				These are all available as packages for modern UNIX systems.
+				If you're downloading and installing any components on you're own, something is wrong.
+			</para>
+			<para>
+				To compile and install the software, simply run the following.
+				(This will use <command>pkg-config</command> to locate relevant GNU tools.)
+			</para>
+			<screen>
+% make
+% sudo make install
+			</screen>
+			<para>
+				If you're on a BSD system, you may need to use <command>gmake</command>, if <command>make</command> defaults to
+				the BSD implemenation of the same utility.
+			</para>
+			<para>
+				By default, this will install into <filename>/usr/local</filename>.
+				To specify an alternative root, pass the <envar>PREFIX</envar> environment variable to the install command.
+				Assuming that the <envar>PREFIX</envar><filename>/bin</filename> is in your <envar>PATH</envar>, you can then
+				run the system by invoking <command>bmigrate</command>.
+			</para>
+		</sect2>
+	</sect1>
+	<sect1>
+		<title>Configuration</title>
+		<para>
+			When invoked, the <command>bmigrate</command> utility will pop up a configuration screen.
+			You use this to configure and deploy simulations.
+		</para>
+		<screenshot>
+			<graphic fileref="screen-config.png" />
+		</screenshot>
+		<para>
+			To quit the system, simply press <guibutton>Quit</guibutton>.
+			To start a simulation (after entering configuration data), press <guibutton>Simulate</guibutton>.
+			The configuration screen will remain open so that you can start subsequent simulations.
+		</para>
+		<para>
+			The remainder of this section describes each configuration element.
+			Configuration begins with the game structure itself.
+			This desribes the physical landscape of the simulation.
+		</para>
+		<variablelist>
+			<title>Environment Structure</title>
+			<varlistentry>
+				<term>Uniform</term>
+				<listitem>
+					<para>
+						The simplest configuration of a fixed number of islands <mathphrase>N</mathphrase>; a fixed,
+						uniform number of individuals per island <mathphrase>n</mathphrase>; and a probability
+						<mathphrase>m</mathphrase> of inter-island migration uniform to all islands.
+						The default is 100 individuals across 50 islands.
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>Mapped</term>
+				<listitem>
+					<para>
+						This is not yet used.
+					</para>
+				</listitem>
+			</varlistentry>
+		</variablelist>
+		<para>
+			Next, configure the utility function <mathphrase>&pi;</mathphrase>, which dictates the reproduction of individuals.
+		</para>
+		<variablelist>
+			<title>Game Configuration</title>
+			<varlistentry>
+				<term>Continuum</term>
+				<listitem>
+					<para>
+						Configure a utility function accepting individuals' strategies.
+						You can either select a preset function or provide one yourself.
+					</para>
+					<para>
+						The utility function <mathphrase>&pi;</mathphrase> accepts the current individual's strategy
+						<mathphrase>x</mathphrase>, the sum of all other individuals' strategies
+						<mathphrase>X</mathphrase> on the individual's island, and the number of individuals
+						<mathphrase>n</mathphrase> on the individual's island.  The function accepts basic binary and
+						unary arithmetic operations, nested expressions, the <mathphrase>exp</mathphrase> function, the
+						<mathphrase>sqrt</mathphrase> function, and double-precision numbers.
+					</para>
+					<para>
+						You can also change the strategy domain for any individual's strategy, which is inclusive of the
+						lower bound, non-inclusive of the upper bound.
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>Finite 2-strategy, 2-player</term>
+				<listitem>
+					<para>
+						This is not yet used.
+					</para>
+				</listitem>
+			</varlistentry>
+		</variablelist>
+		<para>
+			Lastly, configure the process machinery itself.
+		</para>
+		<variablelist>
+			<title>Process Configuration</title>
+			<varlistentry>
+				<term>Threads</term>
+				<listitem>
+					<para>
+						The number of threads of execution.
+						The maximum number of threads is the number of processors (or cores) of your system.
+						You should plan your simulations so as not to oversubscribe your machine, e.g., if you're
+						running 4 simulations on a 64-processor machine, you should allocate 16 threads per simulation.
+						(This assumes that each simulation is equally time-consuming.)
+						Assume that each thread will consume 100% of a processor's resources.
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>Analysis</term>
+				<listitem>
+					<para>
+						For now, this only accepts the multiple runs option.
+						Here you can set the maximum number of generations per simulation run.
+						Note that a simulation run may terminate before the maximum if a population type goes extinct.
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>Parameters</term>
+				<listitem>
+					<para>
+						The linear transform from utility function to Poisson process mean.
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>Incumbents</term>
+				<listitem>
+					<para>
+						This sets how finely the strategy domain is sliced for assigning incumbents and mutants to
+						discrete strategies.
+						For example, if this value is 100 (the default), then a strategy domain in the unit interval
+						results in strategies of 0, 0.01, 0.02, ..., 0.99.
+						A higher number will make a finer mesh, but take more time to process.
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>Fit polynomial</term>
+				<listitem>
+					<para>
+						If you wish to fit incumbents' mean mutant fraction to a polynomial during run-time, you may
+						specify the degree of that polynomial here.
+						If set to 0, fitting will not be performed.
+						If set to non-zero, you may also specify that the fitting be weighed by the variance of each
+						incumbent mean mutant fraction.
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>Name</term>
+				<listitem>
+					<para>
+						A free-form name for the simulation.
+						Defaults to the current time.
+					</para>
+				</listitem>
+			</varlistentry>
+		</variablelist>
+	</sect1>
 </article>
