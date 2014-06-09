@@ -167,7 +167,8 @@ enum	payoff {
 
 enum	mutants {
 	MUTANTS_DISCRETE = 0,
-	MUTANTS_GAUSSIAN
+	MUTANTS_GAUSSIAN,
+	MUTANTS__MAX
 };
 
 struct	simthr;
@@ -188,6 +189,7 @@ struct	sim {
 	size_t		  refs; /* GUI references */
 	int		  terminate; /* terminate the process */
 	enum mutants	  mutants; /* mutant assignation */
+	double		  mutantsigma; /* mutant gaussian sigma */
 	size_t		  stop; /* when to stop */
 	double		  alpha; /* outer multiplier */
 	double		  delta; /* inner multiplier */

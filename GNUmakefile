@@ -11,15 +11,18 @@ ifeq ($(shell uname),Darwin)
 GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk-mac-integration)
 GTK_LIBS := $(shell pkg-config --libs gsl gtk-mac-integration)
 GTK_PREFIX = ${HOME}/gtk/inst
+DOCBOOK_PREFIX = ${HOME}/gtk/inst
 else
 GTK_LIBS := $(shell pkg-config --libs gsl gtk+-3.0) -export-dynamic
 GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk+-3.0)
+DOCBOOK_PREFIX = $(PREFIX)
 endif
 ifeq ($(shell uname),Linux)
 BSDLIB = -lbsd
 else
 BSDLIB = 
 endif
+DOCBOOK = $(DOCBOOK_PREFIX)/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl
 
 all: bmigrate bmigrate.html
 
@@ -61,7 +64,7 @@ bmigrate: $(GTK_OBJS)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -c -o $@ $<
 
 .docbook.html:
-	xsltproc --stringparam html.stylesheet bmigrate.css -o $@~ /Users/kristaps/gtk/inst/share/xml/docbook/stylesheet/nwalsh/html/docbook.xsl $<
+	xsltproc --stringparam html.stylesheet bmigrate.css -o $@~ $(DOCBOOK) $<
 	( echo '<!DOCTYPE html>' ; cat $@~ ) | sed "s!@VERSION@!$(VERSION)!g" >$@
 	rm -f $@~
 

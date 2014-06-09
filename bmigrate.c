@@ -76,6 +76,8 @@ struct	hwin {
 	GtkMenuItem	 *menutools;
 	GtkStatusbar	 *status;
 	GtkCheckMenuItem *views[VIEW__MAX];
+	GtkEntry	 *mutantsigma;
+	GtkRadioButton   *mutants[MUTANTS__MAX];
 	GtkMenuItem	 *viewclone;
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
@@ -165,6 +167,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem3"));
 	b->wins.viewclone = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem15"));
+	b->wins.mutants[MUTANTS_DISCRETE] = GTK_RADIO_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton1"));
+	b->wins.mutants[MUTANTS_GAUSSIAN] = GTK_RADIO_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton2"));
 	b->wins.views[VIEW_NONE] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem8"));
 	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
@@ -193,6 +199,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry3"));
 	b->wins.payoff = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry11"));
+	b->wins.mutantsigma = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry17"));
 	b->wins.name = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry16"));
 	b->wins.stop = GTK_ENTRY
@@ -1503,7 +1511,8 @@ on_activate(GtkButton *button, gpointer dat)
 	struct hnode	**exp;
 	GTimeVal	  gt;
 	const gchar	 *txt;
-	gdouble		  xmin, xmax, delta, alpha, m;
+	gdouble		  xmin, xmax, delta, alpha, m, sigma;
+	enum mutants	  mutants;
 	size_t		  i, totalpop, islandpop, islands, 
 			  stop, slices;
 	struct sim	 *sim;
@@ -1567,6 +1576,12 @@ on_activate(GtkButton *button, gpointer dat)
 			 "Error: bad minimum/maximum strategy order.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
+	} else if ( ! entry2double(b->wins.mutantsigma, &sigma)) {
+		gtk_label_set_text
+			(b->wins.error,
+			 "Error: Gaussian sigma not a number");
+		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+		return;
 	} else if ( ! entry2double(b->wins.alpha, &alpha)) {
 		gtk_label_set_text
 			(b->wins.error,
@@ -1603,6 +1618,11 @@ on_activate(GtkButton *button, gpointer dat)
 		return;
 	}
 
+	for (mutants = 0; mutants < MUTANTS__MAX; mutants++)
+		if (gtk_toggle_button_get_active
+			(GTK_TOGGLE_BUTTON(b->wins.mutants[mutants])))
+			break;
+
 	/* 
 	 * All parameters check out!
 	 * Start the simulation now.
@@ -1611,6 +1631,8 @@ on_activate(GtkButton *button, gpointer dat)
 
 	sim = g_malloc0(sizeof(struct sim));
 	sim->dims = slices;
+	sim->mutants = mutants;
+	sim->mutantsigma = sigma;
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	g_mutex_init(&sim->hot.mux);
@@ -1673,7 +1695,13 @@ on_activate(GtkButton *button, gpointer dat)
 		sim->m, sim->alpha, sim->delta);
 	g_debug("New continuum threads: %zu", sim->nprocs);
 	g_debug("New continuum polynomial: %zu (%s)", 
-		sim->fitpoly, sim->weighted ? "weighted" : "unweighted");
+		sim->fitpoly, sim->weighted ? 
+		"weighted" : "unweighted");
+	if (MUTANTS_GAUSSIAN == sim->mutants)
+		g_debug("New continuum Gaussian mutants: "
+			"%g", sim->mutantsigma);
+	else
+		g_debug("New continuum discrete mutants");
 
 	for (i = 0; i < sim->nprocs; i++) {
 		sim->threads[i].rank = i;

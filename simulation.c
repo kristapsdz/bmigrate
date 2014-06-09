@@ -166,14 +166,26 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	
 	g_mutex_unlock(&sim->hot.mux);
 
-	*mutant = sim->d.continuum.xmin + 
-		(sim->d.continuum.xmax - 
-		 sim->d.continuum.xmin) * 
-		(*mutantidx / (double)sim->dims);
 	*incumbent = sim->d.continuum.xmin + 
 		(sim->d.continuum.xmax - 
 		 sim->d.continuum.xmin) * 
 		(*incumbentidx / (double)sim->dims);
+
+	if (MUTANTS_GAUSSIAN == sim->mutants) {
+		do {
+			*mutant = *incumbent + 
+				gsl_ran_gaussian(rng, sim->mutantsigma);
+			g_debug("incumbent = %g, mutant = %g", *incumbent, *mutant);
+		} while (*mutant < sim->d.continuum.xmin ||
+			 *mutant >= sim->d.continuum.xmax);
+		g_debug("final incumbent = %g, mutant = %g", *incumbent, *mutant);
+	} else {
+		assert(MUTANTS_DISCRETE == sim->mutants);
+		*mutant = sim->d.continuum.xmin + 
+			(sim->d.continuum.xmax - 
+			 sim->d.continuum.xmin) * 
+			(*mutantidx / (double)sim->dims);
+	}
 
 	(*mutantidx)++;
 	if (*mutantidx == sim->dims) {
