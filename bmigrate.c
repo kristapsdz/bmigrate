@@ -458,11 +458,10 @@ on_sim_copyout(gpointer dat)
 	struct bmigrate	*b = dat;
 	GList		*list;
 	struct sim	*sim;
-	size_t		 i, changed;
+	size_t		 i;
 	int		 nocopy;
 	double		 v;
 
-	changed = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = list->data;
 		if (0 == sim->nprocs)
@@ -532,16 +531,7 @@ on_sim_copyout(gpointer dat)
 			v += i * sim->cold.fitmins[i] /
 				(double)sim->cold.distsz;
 		sim->cold.fitminsmean = GETS(sim, v);
-		changed++;
 	}
-
-	if (0 == changed)
-		return(TRUE);
-
-	/* Update our windows IFF we've changed some data. */
-	list = gtk_window_list_toplevels();
-	for ( ; list != NULL; list = list->next)
-		gtk_widget_queue_draw(GTK_WIDGET(list->data));
 
 	return(TRUE);
 }
@@ -563,7 +553,7 @@ on_sim_timer(gpointer dat)
 	double		 elapsed, onlprocs;
 
 #ifdef	__linux__
-	onlprocs = sysconf( _SC_NPROCESSORS_ONLN );
+	onlprocs = sysconf(_SC_NPROCESSORS_ONLN);
 #else
 	onlprocs = g_get_num_processors();
 #endif
@@ -607,6 +597,12 @@ on_sim_timer(gpointer dat)
 	gtk_statusbar_push(b->wins.status, 0, buf);
 	g_timer_start(b->status_elapsed);
 	b->lastmatches = runs;
+
+	/* Update our windows IFF we've changed some data. */
+	list = gtk_window_list_toplevels();
+	for ( ; list != NULL; list = list->next)
+		gtk_widget_queue_draw(GTK_WIDGET(list->data));
+
 	return(TRUE);
 }
 
@@ -1896,7 +1892,7 @@ main(int argc, char *argv[])
 	gtk_widget_show_all(GTK_WIDGET(b.wins.allmenus));
 #endif
 	g_timeout_add(1000, (GSourceFunc)on_sim_timer, &b);
-	g_timeout_add(1000, (GSourceFunc)on_sim_copyout, &b);
+	g_timeout_add(500, (GSourceFunc)on_sim_copyout, &b);
 	gtk_statusbar_push(b.wins.status, 0, "No simulations.");
 	gtk_main();
 	bmigrate_free(&b);

@@ -175,10 +175,8 @@ on_sim_next(struct simwork *work, struct sim *sim,
 		do {
 			*mutant = *incumbent + 
 				gsl_ran_gaussian(rng, sim->mutantsigma);
-			g_debug("incumbent = %g, mutant = %g", *incumbent, *mutant);
 		} while (*mutant < sim->d.continuum.xmin ||
 			 *mutant >= sim->d.continuum.xmax);
-		g_debug("final incumbent = %g, mutant = %g", *incumbent, *mutant);
 	} else {
 		assert(MUTANTS_DISCRETE == sim->mutants);
 		*mutant = sim->d.continuum.xmin + 

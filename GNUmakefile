@@ -19,6 +19,7 @@ DOCBOOK_PREFIX = $(PREFIX)
 endif
 ifeq ($(shell uname),Linux)
 BSDLIB = -lbsd
+DOCBOOK_PREFIX = /usr
 else
 BSDLIB = 
 endif
