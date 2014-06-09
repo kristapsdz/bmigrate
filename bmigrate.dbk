@@ -343,8 +343,8 @@
 				A simulation repeats runs until stopped or paused by the system user.
 			</para>
 			<para>
-				For each run, the mutant and incumbent strategies are assigned from a discrete grid over the real-valued
-				strategy domain <mathphrase>X</mathphrase>.
+				For each run, the incumbent strategy is assigned from a discrete grid over the real-valued strategy domain
+				<mathphrase>X</mathphrase>.
 				The grid's boundaries are inclusive of the domain's lower bound, non-inclusive of the domain's upper bound.
 				Thus, if 
 				<inlineequation>
@@ -358,12 +358,32 @@
 					</math>
 				</inlineequation>
 				and the grid has 100 slots, possible strategies will be 0, 0.01, 0.02, ..., 0.99.
+				The mutant strategy may be configured in two ways:
 			</para>
+			<itemizedlist>
+				<listitem>
+					<para>
+						After each simulation run, the mutant strategy is assigned from the next grid position, e.g.,
+						from 0.01 to 0.02.
+						If the grid position is at the upper bound, it is re-set to the lower bound.
+						The incumbent strategy is only re-assigned when the mutant grid position is re-set to the lower
+						bound.
+						This behaviour ensures that all mutants and incumbents are treated equally over many simulation
+						runs.
+					</para>
+				</listitem>
+				<listitem>
+					<para>
+						The mutant strategy is assigned from a Gaussian distribution with a preconfigured standard
+						deviation and the mean set to the incumbent strategy.
+						The strategy is redrawn until it falls within the strategy domain <mathphrase>X</mathphrase>,
+						inclusive of the lower bound, non-inclusive of the upper bound.
+						The incumbent strategy is re-assigned when the number of mutants for that incumbent have reached
+						the number of slots.
+					</para>
+				</listitem>
+			</itemizedlist>
 			<para>
-				After each simulation run, the mutant strategy is assigned from the next grid position, e.g., from 0.01 to 0.02.
-				If the grid position is at the upper bound, it is re-set to the lower bound.
-				The incumbent strategy is only re-assigned when the mutant grid position is re-set to the lower bound.
-				This behaviour ensures that all mutants and incumbents are treated equally over many simulation runs.
 			</para>
 		</sect2>
 	</sect1>
@@ -446,19 +466,15 @@
 		<para>
 			When invoked, the <command>bmigrate</command> utility will pop up a configuration screen.
 			You use this to configure and deploy simulations.
+			To quit the system, simply press <guibutton>Quit</guibutton>.
+			To start a simulation (after entering configuration data), press <guibutton>Simulate</guibutton>.
+			The configuration screen will remain open so that you can start subsequent simulations.
 		</para>
 		<screenshot>
 			<graphic fileref="screen-config.png" />
 		</screenshot>
 		<para>
-			To quit the system, simply press <guibutton>Quit</guibutton>.
-			To start a simulation (after entering configuration data), press <guibutton>Simulate</guibutton>.
-			The configuration screen will remain open so that you can start subsequent simulations.
-		</para>
-		<para>
-			The remainder of this section describes each configuration element.
-			Configuration begins with the game structure itself.
-			This desribes the physical landscape of the simulation.
+			Begin by assigning <mathphrase>N</mathphrase>, <mathphrase>n</mathphrase>, and <mathphrase>m</mathphrase>.
 		</para>
 		<variablelist>
 			<title>Environment Structure</title>
@@ -566,6 +582,20 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
+				<term>Mutants</term>
+				<listitem>
+					<para>
+						Determines how mutants are assigned.
+						If discrete, mutants are assigned in sequence from the incumbent grid.
+						If Gaussian, mutants are assigned from a Gaussian distribution around the incumbent strategy
+						with the given standard deviation.
+						The distribution is truncated to the strategy domain inclusive of the lower bound, non-inclusive
+						of the upper bound.
+						The Box-Muller algorithm is used for producing Gaussian-distributed random numbers.
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
 				<term>Fit polynomial</term>
 				<listitem>
 					<para>
@@ -574,6 +604,7 @@
 						If set to 0, fitting will not be performed.
 						If set to non-zero, you may also specify that the fitting be weighed by the variance of each
 						incumbent mean mutant fraction.
+						The fitting algorithm is the modified Golub-Reinsch SVD algorithm with column scaling.
 					</para>
 				</listitem>
 			</varlistentry>

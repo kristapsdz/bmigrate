@@ -1,4 +1,4 @@
-.SUFFIXES: .xml .html .docbook 
+.SUFFIXES: .xml .html .dbk 
 
 VERSION = 0.0.7
 PREFIX = /usr/local
@@ -63,7 +63,7 @@ bmigrate: $(GTK_OBJS)
 .c.o:
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -c -o $@ $<
 
-.docbook.html:
+.dbk.html:
 	xsltproc --stringparam html.stylesheet bmigrate.css -o $@~ $(DOCBOOK) $<
 	( echo '<!DOCTYPE html>' ; cat $@~ ) | sed "s!@VERSION@!$(VERSION)!g" >$@
 	rm -f $@~
