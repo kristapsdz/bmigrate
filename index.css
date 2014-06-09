@@ -1,0 +1,44 @@
+body, html			{ border: 0; 
+				  font-family: serif;
+		 	  	  font-size: 12pt; }
+header, nav, article, footer	{ width: 80%; margin-left: auto; margin-right: auto; }
+header				{ background: #ccc;
+				  width: 81%;
+				  padding: 1.5ex 1ex;
+				  border-radius: 1ex;
+				  box-shadow: 1px 1px 1px #ccc; }
+header h1			{ margin: 0; }
+a				{ text-decoration: none; }
+footer				{ color: #666;
+				  margin-top: 3em;
+				  font-size: smaller; }
+footer a			{ color: #444; 
+		 		 font-weight: bold; }
+footer a:hover			{ color: #000; }
+nav ul				{ padding: 0; 
+				  margin-bottom: 0em;
+				  display: inline-block; }
+nav li				{ list-style-type: none; 
+				  border-right: thin solid silver; 
+				  margin-right: 0.25ex;
+				  padding-right: 0.5ex;
+				  display: inline-block; }
+nav li:last-child		{ border: 0; }
+.nm				{ font-style: italic; }
+.version			{ font-weight: bold; }
+h1				{ font-size: 18pt; }
+figure				{ text-align: center; 
+				  margin: 0; }
+figure img			{ width: 100%; 
+				  max-width: 610px; }
+p				{ line-height: 150%; }
+@media only screen and (max-width: 600px), only screen and (max-device-width: 600px) {
+	header, nav, article, footer { width: 95%; }
+	h1			{ font-size: larger; }
+	footer			{ margin-top: 1em; }
+	nav			{ margin-top: 1em; }
+	nav ul			{ display: block; }
+	nav li			{ list-style-type: circle; 
+				  border: 0;
+				  display: block; }
+}

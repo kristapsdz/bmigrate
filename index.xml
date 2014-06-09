@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		<meta charset='utf-8' /> 
+		<link rel="stylesheet" href="index.css" type="text/css" />
+		<title>bmigrate</title>
+	</head>
+	<body>
+		<header>
+			<h1>Simulating the Island Model of Evolutionary Algorithms</h1>
+		</header>
+		<nav>
+			Download version <span class="version">@VERSION@</span>:
+			<ul>
+				<li><a href="snapshots/bmigrate.tgz">Source Code</a> (<a href="snapshots">Archives</a>)</li>
+				<li><a href="snapshots/bmigrate.app.zip">Mac OS X Application</a></li>
+			</ul>
+		</nav>
+		<article>
+			<p>
+				The <span class="nm">bmigrate</span> utility simulates the island model of evolutionary algorithms, allowing
+				for real-time visualisation, analysis, and control.
+				It is <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> and runs on UNIX (GNU/Linux,
+				Mac OS X Snow Leopard and later, BSD) systems, requiring <a href="http://www.gtk.org">GTK+3</a>, <a
+					href="https://www.gnu.org/software/gsl/">GSL</a>, <a href="https://www.gnu.org/software/make/">GNU
+					make</a>, and <a href="http://www.docbook.org">DocBook</a> to build.
+				It's heavily multi-threaded, so the larger your machine, the more robust your simulations.
+			</p>
+			<p>
+				The system has an extensive <a href="bmigrate.html">manual</a>.
+			</p>
+			<p>
+				For source questions, contact <a href="http://www.kcons.eu">Kristaps</a>.
+			</p>
+		</article>
+		<footer>
+			&copy; <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 2014
+		</footer>
+	</body>
+</html>

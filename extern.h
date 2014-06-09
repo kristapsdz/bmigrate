@@ -165,6 +165,11 @@ enum	payoff {
 	PAYOFF__MAX
 };
 
+enum	mutants {
+	MUTANTS_DISCRETE = 0,
+	MUTANTS_GAUSSIAN
+};
+
 struct	simthr;
 
 /*
@@ -182,6 +187,7 @@ struct	sim {
 	size_t		  islands; /* island population */
 	size_t		  refs; /* GUI references */
 	int		  terminate; /* terminate the process */
+	enum mutants	  mutants; /* mutant assignation */
 	size_t		  stop; /* when to stop */
 	double		  alpha; /* outer multiplier */
 	double		  delta; /* inner multiplier */

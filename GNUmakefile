@@ -31,7 +31,7 @@ install: all
 
 ifeq ($(shell uname),Darwin)
 bmigrate.app.zip: bmigrate.app
-	zip -r bmigrate.app.zip bmigrate.app
+	zip -r -q bmigrate.app.zip bmigrate.app
 
 Info.plist: Info.plist.xml
 	sed "s!@VERSION@!$(VERSION)!g" Info.plist.xml >$@
@@ -44,10 +44,12 @@ bmigrate.app: all Info.plist
 	rm -rf bmigrate.app
 	gtk-mac-bundler bmigrate.bundle
 
-installwww: bmigrate.app.zip
+www: bmigrate.app.zip index.html
+
+installwww: www
 	mkdir -p $(PREFIX)
 	install -m 0644 bmigrate.app.zip $(PREFIX)
-	install -m 0644 $(IMAGES) bmigrate.html bmigrate.css $(PREFIX)
+	install -m 0644 $(IMAGES) index.html index.css bmigrate.html bmigrate.css $(PREFIX)
 endif
 
 $(GTK_OBJS): extern.h
@@ -60,10 +62,13 @@ bmigrate: $(GTK_OBJS)
 
 .docbook.html:
 	xsltproc --stringparam html.stylesheet bmigrate.css -o $@~ /Users/kristaps/gtk/inst/share/xml/docbook/stylesheet/nwalsh/html/docbook.xsl $<
-	( echo '<!DOCTYPE html>' ; cat $@~ ) >$@
+	( echo '<!DOCTYPE html>' ; cat $@~ ) | sed "s!@VERSION@!$(VERSION)!g" >$@
 	rm -f $@~
 
+index.html: index.xml
+	sed "s!@VERSION@!$(VERSION)!g" index.xml >$@
+
 clean:
-	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.html~
+	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.html~ index.html
 	rm -rf bmigrate.app *.dSYM
 	rm -f bmigrate.app.zip Info.plist
