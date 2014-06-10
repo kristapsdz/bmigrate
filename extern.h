@@ -23,7 +23,7 @@
  */
 #define STACKSZ 128
 
-enum htype {
+enum 	htype {
 	HNODE_P1, /* player strategy */
 	HNODE_PN, /* sum of players' strategies */
 	HNODE_N, /* n players */
@@ -43,9 +43,17 @@ enum htype {
 /*
  * A node in the ordered expression list.
  */
-struct hnode {
+struct 	hnode {
 	enum htype	  type; /* type of operation */
 	double		  real; /* HNODE_NUMBER value */
+};
+
+struct	stats {
+	size_t	n;
+	double	M1;
+	double	M2;
+	double	M3;
+	double	M4;
 };
 
 /*
@@ -70,10 +78,8 @@ struct	sim_continuum {
 struct	simhot {
 	GMutex		 mux; /* lock for changing data */
 	GCond		 cond; /* mutex for waiting on snapshot */
-	double		*means; /* sample mean per incumbent */
-	double		*meandiff; /* sum of squares difference */
-	size_t		*runs; /* runs per mutant */
 	size_t		 truns; /* total number of runs */
+	struct stats	*stats; /* statistics per incumbent */
 	int		 copyout; /* do we need to snapshot? */
 	int		 pause; /* should we pause? */
 	size_t		 copyblock; /* threads blocking on copy */
@@ -82,19 +88,16 @@ struct	simhot {
 /*
  * A simulation thread group will snapshot its "struct simhot" structure
  * to this when its "copyout" is set to 1.
- * The fields are the same but with the addition of variances (the
- * current variances of the sample means) and that "coeffs", "fits", and
+ * The fields are the same but with the addition "coeffs", "fits", and
  * "fitmin" are set (if applicable) to the fitted polynomial.
  */
 struct	simwarm {
 	GMutex		 mux; /* lock to change fields */
-	double		*means; /* sample mean per incumbent */
 	size_t		 meanmin; /* minimum sample mean */
-	double		*variances; /* sample variance */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
+	struct stats	*stats; /* statistics per incumbent */
 	size_t		 fitmin; /* index of minimum fitpoly point */
-	size_t		*runs; /* runs per mutant */
 	size_t		 truns; /* total number of runs */
 };
 
@@ -120,12 +123,10 @@ struct	simwork {
  * This is done in the main thread of execution, so it is not locked.
  */
 struct	simcold {
-	double		*means;
-	size_t		 meanmin;
-	double		*variances;
-	size_t		*runs;
-	double	   	*coeffs;
-	double	   	*fits;
+	size_t		 meanmin; /* minimum sample mean */
+	struct stats	*stats; /* statistics per incumbent */
+	double	   	*coeffs; /* fitpoly coefficients */
+	double	   	*fits; /* fitpoly points */
 	size_t		 fitmin;
 	size_t		*fitmins; /* pdf of fitted minima */
 	size_t		 fitminsmode; /* mode of fitmins */ 
@@ -228,6 +229,15 @@ void		  hnode_test(void);
 void		  hnode_print(struct hnode **p);
 #endif
 void		*simulation(void *arg);
+
+struct stats	*stats_alloc0(size_t sz);
+void		 stats_push(struct stats *p, double x);
+size_t		 stats_samples(const struct stats *p);
+double		 stats_mean(const struct stats *p);
+double		 stats_variance(const struct stats *p);
+double		 stats_stddev(const struct stats *p);
+double		 stats_skewness(const struct stats *p);
+double		 stats_kurtosis(const struct stats *p);
 
 __END_DECLS
 

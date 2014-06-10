@@ -40,7 +40,7 @@
  */
 enum	view {
 	VIEW_NONE,
-	VIEW_DEV,
+	VIEW_DEV, 
 	VIEW_POLY,
 	VIEW_POLYDEV,
 	VIEW_POLYMINCDF,
@@ -334,21 +334,15 @@ sim_free(gpointer arg)
 	g_mutex_clear(&p->warm.mux);
 	g_cond_clear(&p->hot.cond);
 	g_free(p->name);
-	g_free(p->hot.means);
-	g_free(p->hot.meandiff);
-	g_free(p->hot.runs);
-	g_free(p->warm.means);
-	g_free(p->warm.variances);
+	g_free(p->hot.stats);
+	g_free(p->warm.stats);
 	g_free(p->warm.coeffs);
 	g_free(p->warm.fits);
-	g_free(p->warm.runs);
-	g_free(p->cold.means);
-	g_free(p->cold.variances);
+	g_free(p->cold.stats);
 	g_free(p->cold.fitmins);
 	g_free(p->cold.meanmins);
 	g_free(p->cold.coeffs);
 	g_free(p->cold.fits);
-	g_free(p->cold.runs);
 	g_free(p->pops);
 	g_free(p->threads);
 	g_free(p);
@@ -489,13 +483,10 @@ on_sim_copyout(gpointer dat)
 		/*
 		 * Most strutures we simply copy over.
 		 */
-		memcpy(sim->cold.means, 
-			sim->warm.means,
-			sizeof(double) * sim->dims);
+		memcpy(sim->cold.stats, 
+			sim->warm.stats,
+			sizeof(struct stats) * sim->dims);
 		sim->cold.meanmin = sim->warm.meanmin;
-		memcpy(sim->cold.variances, 
-			sim->warm.variances,
-			sizeof(double) * sim->dims);
 		memcpy(sim->cold.fits, 
 			sim->warm.fits,
 			sizeof(double) * sim->dims);
@@ -503,9 +494,6 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.coeffs, 
 			sim->warm.coeffs,
 			sizeof(double) * (sim->fitpoly + 1));
-		memcpy(sim->cold.runs, 
-			sim->warm.runs,
-			sizeof(size_t) * sim->dims);
 		sim->cold.truns = sim->warm.truns;
 		g_mutex_unlock(&sim->warm.mux);
 		/*
@@ -796,7 +784,8 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	switch (cur->view) {
 	case (VIEW_DEV):
 		for (i = 0; i < s->dims; i++) {
-			v = s->cold.means[i] + s->cold.variances[i];
+			v = stats_mean(&s->cold.stats[i]) +
+				stats_stddev(&s->cold.stats[i]);
 			if (v > *maxy)
 				*maxy = v;
 		}
@@ -853,25 +842,29 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		break;
 	case (VIEW_POLY):
 		for (i = 0; i < s->dims; i++) {
-			v = s->cold.fits[i] > s->cold.means[i] ?
-				s->cold.fits[i] : s->cold.means[i];
+			v = s->cold.fits[i] > 
+				stats_mean(&s->cold.stats[i]) ?
+				s->cold.fits[i] : 
+				stats_mean(&s->cold.stats[i]);
 			if (v > *maxy)
 				*maxy = v;
 		}
 		break;
 	case (VIEW_POLYDEV):
 		for (i = 0; i < s->dims; i++) {
-			v = s->cold.fits[i] > s->cold.means[i] + 
-				s->cold.variances[i] ?
-				s->cold.fits[i] : s->cold.means[i] +
-				s->cold.variances[i];
+			v = s->cold.fits[i] > 
+				stats_mean(&s->cold.stats[i]) + 
+				stats_stddev(&s->cold.stats[i]) ?
+				s->cold.fits[i] : 
+				stats_mean(&s->cold.stats[i]) +
+				stats_stddev(&s->cold.stats[i]);
 			if (v > *maxy)
 				*maxy = v;
 		}
 		break;
 	default:
 		for (i = 0; i < s->dims; i++) {
-			v = s->cold.means[i];
+			v = stats_mean(&s->cold.stats[i]);
 			if (v > *maxy)
 				*maxy = v;
 		}
@@ -1044,22 +1037,22 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		switch (cur->view) {
 		case (VIEW_DEV):
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.means[j - 1];
+				v = stats_mean(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.means[j];
+				v = stats_mean(&sim->cold.stats[j]);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			cairo_set_line_width(cr, 1.5);
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.means[j - 1];
-				v -= sim->cold.variances[j - 1];
+				v = stats_mean(&sim->cold.stats[j - 1]);
+				v -= stats_stddev(&sim->cold.stats[j - 1]);
 				if (v < 0.0)
 					v = 0.0;
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.means[j];
-				v -= sim->cold.variances[j];
+				v = stats_mean(&sim->cold.stats[j]);
+				v -= stats_stddev(&sim->cold.stats[j]);
 				if (v < 0.0)
 					v = 0.0;
 				cairo_line_to(cr, GETX(j), GETY(v));
@@ -1067,11 +1060,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.means[j - 1];
-				v += sim->cold.variances[j - 1];
+				v = stats_mean(&sim->cold.stats[j - 1]);
+				v += stats_stddev(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.means[j];
-				v += sim->cold.variances[j];
+				v = stats_mean(&sim->cold.stats[j]);
+				v += stats_stddev(&sim->cold.stats[j]);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(0.5));
@@ -1079,9 +1072,9 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			break;
 		case (VIEW_POLY):
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.means[j - 1];
+				v = stats_mean(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.means[j];
+				v = stats_mean(&sim->cold.stats[j]);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -1098,9 +1091,9 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			break;
 		case (VIEW_POLYDEV):
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.means[j - 1];
+				v = stats_mean(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.means[j];
+				v = stats_mean(&sim->cold.stats[j]);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -1116,13 +1109,13 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_stroke(cr);
 			cairo_set_line_width(cr, 1.5);
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.means[j - 1];
-				v -= sim->cold.variances[j - 1];
+				v = stats_mean(&sim->cold.stats[j - 1]);
+				v -= stats_stddev(&sim->cold.stats[j - 1]);
 				if (v < 0.0)
 					v = 0.0;
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.means[j];
-				v -= sim->cold.variances[j];
+				v = stats_mean(&sim->cold.stats[j]);
+				v -= stats_stddev(&sim->cold.stats[j]);
 				if (v < 0.0)
 					v = 0.0;
 				cairo_line_to(cr, GETX(j), GETY(v));
@@ -1130,11 +1123,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.means[j - 1];
-				v += sim->cold.variances[j - 1];
+				v = stats_mean(&sim->cold.stats[j - 1]);
+				v += stats_stddev(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.means[j];
-				v += sim->cold.variances[j];
+				v = stats_mean(&sim->cold.stats[j]);
+				v += stats_stddev(&sim->cold.stats[j]);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(0.5));
@@ -1260,9 +1253,9 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			break;
 		default:
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.means[j - 1];
+				v = stats_mean(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.means[j];
+				v = stats_mean(&sim->cold.stats[j]);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -1716,28 +1709,16 @@ on_activate(GtkButton *button, gpointer dat)
 	g_mutex_init(&sim->hot.mux);
 	g_mutex_init(&sim->warm.mux);
 	g_cond_init(&sim->hot.cond);
-	sim->hot.runs = g_malloc0_n
-		(sim->dims, sizeof(size_t));
-	sim->warm.runs = g_malloc0_n
-		(sim->dims, sizeof(size_t));
-	sim->cold.runs = g_malloc0_n
-		(sim->dims, sizeof(size_t));
-	sim->hot.means = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->hot.meandiff = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->warm.means = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->warm.variances = g_malloc0_n
-		(sim->dims, sizeof(double));
+	sim->hot.stats = g_malloc0_n
+		(sim->dims, sizeof(struct stats));
+	sim->warm.stats = g_malloc0_n
+		(sim->dims, sizeof(struct stats));
+	sim->cold.stats = g_malloc0_n
+		(sim->dims, sizeof(struct stats));
 	sim->warm.fits = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->warm.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
-	sim->cold.means = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->cold.variances = g_malloc0_n
-		(sim->dims, sizeof(double));
 	sim->cold.fits = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.coeffs = g_malloc0_n

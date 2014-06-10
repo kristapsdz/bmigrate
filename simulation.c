@@ -37,8 +37,6 @@
  * the necessary dependent variable.
  * Do this all as quickly as possible, as we're holding both the
  * simulation "hot" lock and the "warm" lock as well.
- * XXX: some of this work (variances, meanmin) we can run outside of the
- * hot lock.
  */
 static void
 on_sim_snapshot(struct simwork *work, struct sim *sim)
@@ -47,30 +45,17 @@ on_sim_snapshot(struct simwork *work, struct sim *sim)
 	double	 min;
 
 	g_mutex_lock(&sim->warm.mux);
-	memcpy(sim->warm.means, 
-		sim->hot.means,
-		sizeof(double) * sim->dims);
-	memcpy(sim->warm.runs, 
-		sim->hot.runs,
-		sizeof(size_t) * sim->dims);
+	memcpy(sim->warm.stats, 
+		sim->hot.stats,
+		sizeof(struct stats) * sim->dims);
 
 	/* Compute the empirical minimum. */
 	min = FLT_MAX;
 	for (i = 0; i < sim->dims; i++)
-		if (sim->warm.means[i] < min) {
-			min = sim->warm.means[i];
+		if (stats_mean(&sim->warm.stats[i]) < min) {
+			min = stats_mean(&sim->warm.stats[i]);
 			sim->warm.meanmin = i;
 		}
-
-	/* 
-	 * Compute the variance using Knuth's algorithm from the
-	 * difference of sum-of-squares from the mean.
-	 */
-	for (i = 0; i < sim->dims; i++)
-		if (sim->hot.runs[i] > 1)
-			sim->warm.variances[i] = 
-				sim->hot.meandiff[i] /
-				(double)(sim->hot.runs[i] - 1);
 
 	/*
 	 * If we're going to fit to a polynomial, set the dependent
@@ -78,8 +63,8 @@ on_sim_snapshot(struct simwork *work, struct sim *sim)
 	 */
 	if (sim->fitpoly)
 		for (i = 0; i < sim->dims; i++)
-			gsl_vector_set(work->y, i, 
-				sim->warm.means[i]);
+			gsl_vector_set(work->y, i,
+				 stats_mean(&sim->warm.stats[i]));
 
 	/*
 	 * If we're going to run a weighted polynomial multifit, then
@@ -87,8 +72,8 @@ on_sim_snapshot(struct simwork *work, struct sim *sim)
 	 */
 	if (sim->weighted)
 		for (i = 0; i < sim->dims; i++) 
-			gsl_vector_set(work->w, i, 
-				sim->warm.variances[i]);
+			gsl_vector_set(work->w, i,
+				 stats_stddev(&sim->warm.stats[i]));
 
 	sim->warm.truns = sim->hot.truns;
 	g_mutex_unlock(&sim->warm.mux);
@@ -291,7 +276,7 @@ simulation(void *arg)
 {
 	struct simthr	*thr = arg;
 	struct sim	*sim = thr->sim;
-	double		 mutant, incumbent, v, lambda, mold;
+	double		 mutant, incumbent, v, lambda;
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, j, k, new, mutants, incumbents,
 			 len1, len2, incumbentidx, mutantidx;
@@ -450,24 +435,8 @@ again:
 			break;
 	}
 
-#if 1
-	for (len1 = j = 0; j < sim->islands; j++)
-		len1 += imutants[j];
-	assert(len1 == mutants);
-#endif
-
 	v = mutants / (double)sim->totalpop;
-	mold = sim->hot.means[incumbentidx];
-	sim->hot.runs[incumbentidx]++;
-
-	/*
-	 * Use Knuth's algorithm for computing the mean and sum of
-	 * squares of difference from the mean.
-	 */
-	sim->hot.means[incumbentidx] += (v - mold) /
-		(double)sim->hot.runs[incumbentidx];
-	sim->hot.meandiff[incumbentidx] +=
-		(v - mold) * (v - sim->hot.means[incumbentidx]);
+	stats_push(&sim->hot.stats[incumbentidx], v);
 	goto again;
 }
 
