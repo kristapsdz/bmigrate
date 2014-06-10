@@ -738,40 +738,47 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 		*widthp -= e.width * 1.3;
 		break;
 	}
-	/* Right bottom. */
-	cairo_move_to(cr, width - e.width * 1.5, 
-		height - e.height * 0.5);
-	(void)snprintf(buf, sizeof(buf), "%.2g", maxx);
-	cairo_show_text(cr, buf);
 
-	/* Middle-left bottom. */
-	cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
-		height - e.height * 0.5);
-	(void)snprintf(buf, sizeof(buf), 
-		"%.2g", minx + (maxx - minx) * 0.25);
-	cairo_show_text(cr, buf);
+	switch (cur->view) {
+	case (VIEW_MEANMINS):
+		break;
+	default:
+		/* Right bottom. */
+		cairo_move_to(cr, width - e.width * 1.5, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), "%.2g", maxx);
+		cairo_show_text(cr, buf);
 
-	/* Middle bottom. */
-	cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
-		height - e.height * 0.5);
-	(void)snprintf(buf, sizeof(buf), 
-		"%.2g", minx + (maxx - minx) * 0.5);
-	cairo_show_text(cr, buf);
+		/* Middle-left bottom. */
+		cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", minx + (maxx - minx) * 0.25);
+		cairo_show_text(cr, buf);
 
-	/* Middle-right bottom. */
-	cairo_move_to(cr, width * 0.75 - e.width, 
-		height - e.height * 0.5);
-	(void)snprintf(buf, sizeof(buf), 
-		"%.2g", minx + (maxx - minx) * 0.75);
-	cairo_show_text(cr, buf);
+		/* Middle bottom. */
+		cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", minx + (maxx - minx) * 0.5);
+		cairo_show_text(cr, buf);
 
-	/* Left bottom. */
-	cairo_move_to(cr, e.width * 0.25, 
-		height - e.height * 0.5);
-	(void)snprintf(buf, sizeof(buf), "%.2g", minx);
-	cairo_show_text(cr, buf);
+		/* Middle-right bottom. */
+		cairo_move_to(cr, width * 0.75 - e.width, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), 
+			"%.2g", minx + (maxx - minx) * 0.75);
+		cairo_show_text(cr, buf);
 
-	*heightp -= e.height * 3.0;
+		/* Left bottom. */
+		cairo_move_to(cr, e.width * 0.25, 
+			height - e.height * 0.5);
+		(void)snprintf(buf, sizeof(buf), "%.2g", minx);
+		cairo_show_text(cr, buf);
+
+		*heightp -= e.height * 3.0;
+		break;
+	}
 }
 
 /*
