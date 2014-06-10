@@ -333,6 +333,7 @@ sim_free(gpointer arg)
 	g_mutex_clear(&p->hot.mux);
 	g_mutex_clear(&p->warm.mux);
 	g_cond_clear(&p->hot.cond);
+	g_free(p->name);
 	g_free(p->hot.means);
 	g_free(p->hot.meandiff);
 	g_free(p->hot.runs);
@@ -912,7 +913,9 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	sims = g_object_get_data(G_OBJECT(top), "sims");
 	assert(NULL != sims);
 
-	/* Initialise the window view to be all white. */
+	/* 
+	 * Initialise the window view to be all white. 
+	 */
 	width = gtk_widget_get_allocated_width(w);
 	height = gtk_widget_get_allocated_height(w);
 	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
@@ -929,48 +932,66 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		 b->wins.colours[sim->colour].green, \
 		 b->wins.colours[sim->colour].blue, (_a)
 
-	switch (cur->view) {
-	case (VIEW_POLYMINCDF):
-	case (VIEW_POLYMINPDF):
-	case (VIEW_POLYMINQ):
-		j = 0;
-		cairo_text_extents(cr, "-10.00", &e);
-		for (list = sims; NULL != list; list = list->next) {
-			sim = list->data;
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_move_to(cr, 0.0, height - j * e.height * 2.0);
+	/*
+	 * Create by drawing a legend.
+	 * To do so, draw the colour representing the current simulation
+	 * followed by the name of the simulation.
+	 */
+	simmax = 0;
+	cairo_text_extents(cr, "lj", &e);
+	for (list = sims; NULL != list; list = list->next, simmax++) {
+		sim = list->data;
+		/* Draw a line with the simulation's colour. */
+		cairo_set_source_rgba(cr, GETC(1.0));
+		v = height - simmax * e.height * 1.75 -
+			e.height * 0.5 + 1.0;
+		v -= e.height * 0.5;
+		cairo_move_to(cr, 0.0, v);
+		cairo_line_to(cr, 20.0, v);
+		cairo_stroke(cr);
+		/* Write the simulation name next to it. */
+		v = height - simmax * e.height * 1.75;
+		v -= e.height * 0.5;
+		cairo_move_to(cr, 25.0, v);
+		cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+		/*
+		 * What we write depends on our simulation view.
+		 * Sometimes we just write the name and number of runs.
+		 * Sometimes we write more.
+		 */
+		switch (cur->view) {
+		case (VIEW_POLYMINCDF):
+		case (VIEW_POLYMINPDF):
+		case (VIEW_POLYMINQ):
 			(void)g_snprintf(buf, sizeof(buf), 
-				"Mode: %g, mean: %g, runs: %zu, updates: %zu", 
+				"%s: mode %g, mean %g, runs %zu",
+				sim->name,
 				GETS(sim, sim->cold.fitminsmode),
-				sim->cold.fitminsmean, sim->cold.truns,
-				sim->cold.distsz);
-			cairo_show_text(cr, buf);
-			j++;
-		}
-		height -= (j + 1) * e.height * 2.0;
-		break;
-	case (VIEW_MEANMINCDF):
-	case (VIEW_MEANMINPDF):
-	case (VIEW_MEANMINQ):
-		j = 0;
-		cairo_text_extents(cr, "-10.00", &e);
-		for (list = sims; NULL != list; list = list->next) {
-			sim = list->data;
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_move_to(cr, 0.0, height - j * e.height * 2.0);
+				sim->cold.fitminsmean, 
+				sim->cold.truns);
+			break;
+		case (VIEW_MEANMINCDF):
+		case (VIEW_MEANMINPDF):
+		case (VIEW_MEANMINQ):
 			(void)g_snprintf(buf, sizeof(buf), 
-				"Mode: %g, mean: %g, runs: %zu, updates: %zu", 
+				"%s: mode %g, mean %g (+-%g), "
+				"runs %zu", sim->name,
 				GETS(sim, sim->cold.meanminsmode),
-				sim->cold.meanminsmean, sim->cold.truns,
-				sim->cold.distsz);
-			cairo_show_text(cr, buf);
-			j++;
+				sim->cold.meanminsmean, 
+				sim->cold.meanminsstddev, 
+				sim->cold.truns);
+			break;
+		default:
+			(void)g_snprintf(buf, sizeof(buf), 
+				"%s: runs %zu", sim->name,
+				sim->cold.truns);
+			break;
 		}
-		height -= (j + 1) * e.height * 2.0;
-		break;
-	default:
-		break;
+		cairo_show_text(cr, buf);
 	}
+
+	/* Make space for our legend. */
+	height -= simmax * e.height * 1.75 + e.height * 0.5;
 
 	/*
 	 * Determine the boundaries of the graph.
@@ -980,8 +1001,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	 */
 	xmin = FLT_MAX;
 	xmax = maxy = -FLT_MAX;
-	simmax = 0;
-	for (list = sims; NULL != list; list = list->next, simmax++)
+	for (list = sims; NULL != list; list = list->next)
 		max_sim(cur, list->data, &xmin, &xmax, &maxy);
 
 	/* CDF's don't get their windows scaled. */
@@ -993,6 +1013,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		maxy += maxy * 0.1;
 	}
 
+	/*
+	 * History views show the last n updates instead of the domain
+	 * of the x-axis.
+	 */
 	switch (cur->view) {
 	case (VIEW_POLYMINQ):
 	case (VIEW_MEANMINQ):
@@ -1006,7 +1030,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	}
 
 	/*
-	 * Draw curves as specified.
+	 * Finally, draw our curves.
+	 * There are many ways of doing this.
 	 */
 	simnum = 0;
 	cairo_save(cr);
@@ -1557,7 +1582,7 @@ on_activate(GtkButton *button, gpointer dat)
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
 	GTimeVal	  gt;
-	const gchar	 *txt;
+	const gchar	 *txt, *name;
 	gdouble		  xmin, xmax, delta, alpha, m, sigma;
 	enum mutants	  mutants;
 	size_t		  i, totalpop, islandpop, islands, 
@@ -1665,6 +1690,10 @@ on_activate(GtkButton *button, gpointer dat)
 		return;
 	}
 
+	name = gtk_entry_get_text(b->wins.name);
+	if ('\0' == *name)
+		name = "unnamed";
+
 	for (mutants = 0; mutants < MUTANTS__MAX; mutants++)
 		if (gtk_toggle_button_get_active
 			(GTK_TOGGLE_BUTTON(b->wins.mutants[mutants])))
@@ -1680,6 +1709,7 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->dims = slices;
 	sim->mutants = mutants;
 	sim->mutantsigma = sigma;
+	sim->name = g_strdup(name);
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	g_mutex_init(&sim->hot.mux);

@@ -192,6 +192,7 @@ struct	sim {
 	enum mutants	  mutants; /* mutant assignation */
 	double		  mutantsigma; /* mutant gaussian sigma */
 	size_t		  stop; /* when to stop */
+	gchar		 *name; /* name of simulation */
 	double		  alpha; /* outer multiplier */
 	double		  delta; /* inner multiplier */
 	double		  m; /* migration probability */

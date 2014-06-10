@@ -619,4 +619,18 @@
 			</varlistentry>
 		</variablelist>
 	</sect1>
+	<sect1>
+		<title>Visualisation</title>
+		<para>
+			When you've configured a simulation, press <guibutton>Simulate</guibutton> to start the visualisation.
+			A window will pop up visualising the simulation in a variety of ways.
+			Each window visualises at least one simulation: to compare different simulations, you can drag and drop simulation
+			windows into each other.
+			On Mac OS X machines, window controls appear in the menu bar.
+			On other UNIX machines, you can pop up a menu bar by right-clicking within a simulation window.
+		</para>
+		<sect2>
+			<title>Sample Mean</title>
+		</sect2>
+	</sect1>
 </article>
