@@ -1312,6 +1312,7 @@ gboolean
 onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 {
 	struct bmigrate	*b = dat;
+	struct curwin	*cur;
 	size_t		 i;
 
 	if (w == GTK_WIDGET(b->wins.config)) {
@@ -1329,9 +1330,13 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 	}
 
 	b->current = w;
+
 	for (i = 0; i < VIEW__MAX; i++)
 		gtk_widget_set_sensitive
 			(GTK_WIDGET(b->wins.views[i]), TRUE);
+
+	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	gtk_check_menu_item_set_active(b->wins.views[cur->view], TRUE);
 
 	gtk_widget_set_sensitive
 		(GTK_WIDGET(b->wins.viewclone), TRUE);
