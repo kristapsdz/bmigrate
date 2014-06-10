@@ -824,6 +824,10 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
+	case (VIEW_MEANMINS):
+		if (s->cold.meanminsmean > *maxy)
+			*maxy = s->cold.meanminsmean;
+		break;
 	case (VIEW_POLYMINQ):
 		for (i = 0; i < MINQSZ; i++) {
 			v = GETS(s, s->cold.fitminq[i]);
@@ -876,7 +880,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	double		 width, height, maxy, v, xmin, xmax;
 	GtkWidget	*top;
 	struct sim	*sim;
-	size_t		 j, k, simnum;
+	size_t		 j, k, simnum, simmax;
 	GList		*sims, *list;
 	cairo_text_extents_t e;
 	gchar		 buf[1024];
@@ -961,7 +965,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	 */
 	xmin = FLT_MAX;
 	xmax = maxy = -FLT_MAX;
-	for (list = sims; NULL != list; list = list->next)
+	simmax = 0;
+	for (list = sims; NULL != list; list = list->next, simmax++)
 		max_sim(cur, list->data, &xmin, &xmax, &maxy);
 
 	/* CDF's don't get their windows scaled. */
@@ -993,6 +998,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	for (list = sims; NULL != list; list = list->next, simnum++) {
 		sim = list->data;
 		assert(NULL != sim);
+		assert(simnum < simmax);
 		cairo_set_line_width(cr, 2.0);
 		switch (cur->view) {
 		case (VIEW_DEV):
@@ -1164,6 +1170,16 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_dash(cr, dash, 0, 0);
 			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
+			break;
+		case (VIEW_MEANMINS):
+			v = width * (simnum + 1) / (double)(simmax + 1);
+			cairo_new_path(cr);
+			cairo_arc(cr, v, GETY(sim->cold.meanminsmean),
+				4.0, 0.0, 2.0 * M_PI);
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke_preserve(cr);
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_fill(cr);
 			break;
 		case (VIEW_POLYMINQ):
 			for (j = 1; j < MINQSZ; j++) {
