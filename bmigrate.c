@@ -49,6 +49,7 @@ enum	view {
 	VIEW_MEANMINCDF,
 	VIEW_MEANMINPDF,
 	VIEW_MEANMINQ,
+	VIEW_MEANMINS,
 	VIEW__MAX
 };
 
@@ -79,6 +80,8 @@ struct	hwin {
 	GtkEntry	 *mutantsigma;
 	GtkRadioButton   *mutants[MUTANTS__MAX];
 	GtkMenuItem	 *viewclone;
+	GtkMenuItem	 *viewpause;
+	GtkMenuItem	 *viewunpause;
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
@@ -167,6 +170,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem3"));
 	b->wins.viewclone = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem15"));
+	b->wins.viewpause = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem20"));
+	b->wins.viewunpause = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem21"));
 	b->wins.mutants[MUTANTS_DISCRETE] = GTK_RADIO_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton1"));
 	b->wins.mutants[MUTANTS_GAUSSIAN] = GTK_RADIO_BUTTON
@@ -189,6 +196,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem12"));
 	b->wins.views[VIEW_MEANMINQ] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem13"));
+	b->wins.views[VIEW_MEANMINS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem22"));
 	b->wins.views[VIEW_POLYMINQ] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem14"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
@@ -876,7 +885,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	double		 width, height, maxy, v, xmin, xmax;
 	GtkWidget	*top;
 	struct sim	*sim;
-	size_t		 j, k;
+	size_t		 j, k, simnum;
 	GList		*sims, *list;
 	cairo_text_extents_t e;
 	gchar		 buf[1024];
@@ -988,8 +997,9 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	/*
 	 * Draw curves as specified.
 	 */
+	simnum = 0;
 	cairo_save(cr);
-	for (list = sims; NULL != list; list = list->next) {
+	for (list = sims; NULL != list; list = list->next, simnum++) {
 		sim = list->data;
 		assert(NULL != sim);
 		cairo_set_line_width(cr, 2.0);
@@ -1307,6 +1317,10 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 				(GTK_WIDGET(b->wins.views[i]), FALSE);
 		gtk_widget_set_sensitive
 			(GTK_WIDGET(b->wins.viewclone), FALSE);
+		gtk_widget_set_sensitive
+			(GTK_WIDGET(b->wins.viewpause), FALSE);
+		gtk_widget_set_sensitive
+			(GTK_WIDGET(b->wins.viewunpause), FALSE);
 		return(TRUE);
 	}
 
@@ -1314,8 +1328,13 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 	for (i = 0; i < VIEW__MAX; i++)
 		gtk_widget_set_sensitive
 			(GTK_WIDGET(b->wins.views[i]), TRUE);
+
 	gtk_widget_set_sensitive
 		(GTK_WIDGET(b->wins.viewclone), TRUE);
+	gtk_widget_set_sensitive
+		(GTK_WIDGET(b->wins.viewpause), TRUE);
+	gtk_widget_set_sensitive
+		(GTK_WIDGET(b->wins.viewunpause), TRUE);
 	return(TRUE);
 }
 
@@ -1845,12 +1864,12 @@ main(int argc, char *argv[])
 	assert(NULL != builder);
 
 	/* If we fail this, just exit and good-bye. */
-#ifdef __linux__
-	if ( ! gtk_builder_add_from_file(builder, file, NULL))
-		return(EXIT_FAILURE);
-#else
+#if GLIB_CHECK_VERSION(2, 36, 0)
 	builder = gtk_builder_new_from_file(file);
 	g_free(file);
+#else
+	if ( ! gtk_builder_add_from_file(builder, file, NULL))
+		return(EXIT_FAILURE);
 #endif
 
 	windows_init(&b, builder);

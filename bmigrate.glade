@@ -203,6 +203,22 @@
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem19">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem22">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Sample Mean Minima</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>
@@ -221,6 +237,7 @@
                       <object class="GtkMenuItem" id="menuitem20">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="sensitive">False</property>
                         <property name="label" translatable="yes">Pause Simulation</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onpause" swapped="no"/>
@@ -230,6 +247,7 @@
                       <object class="GtkMenuItem" id="menuitem21">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
+                        <property name="sensitive">False</property>
                         <property name="label" translatable="yes">Unpause Simulations</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onunpause" swapped="no"/>
