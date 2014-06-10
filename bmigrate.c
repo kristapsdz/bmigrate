@@ -127,6 +127,7 @@ struct	bmigrate {
 	GTimer		 *status_elapsed; /* elapsed since update */
 	uint64_t	  lastmatches; /* last seen no. matches */
 	GtkWidget	 *current; /* the current window or NULL */
+	size_t		  nprocs; /* total number processors */
 };
 
 static	const char *const inputs[INPUT__MAX] = {
@@ -150,12 +151,7 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	GObject		*w;
 	gchar		 buf[1024];
 	GTimeVal	 gt;
-	int		 onlprocs;
-#ifdef	__linux__
-	onlprocs = sysconf(_SC_NPROCESSORS_ONLN);
-#else
-	onlprocs = g_get_num_processors();
-#endif
+
 	b->wins.config = GTK_WINDOW
 		(gtk_builder_get_object(builder, "window1"));
 	b->wins.status = GTK_STATUSBAR
@@ -262,9 +258,9 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gtk_combo_box_set_active(GTK_COMBO_BOX(w), 0);
 
 	/* Maximum number of processors. */
-	gtk_adjustment_set_upper(b->wins.nthreads, onlprocs);
+	gtk_adjustment_set_upper(b->wins.nthreads, b->nprocs);
 	w = gtk_builder_get_object(builder, "label12");
-	(void)g_snprintf(buf, sizeof(buf), "%d", onlprocs);
+	(void)g_snprintf(buf, sizeof(buf), "%zu", b->nprocs);
 	gtk_label_set_text(GTK_LABEL(w), buf);
 
 	/* Compute initial total population. */
@@ -559,13 +555,8 @@ on_sim_timer(gpointer dat)
 	GList		*list;
 	uint64_t	 runs;
 	size_t		 i, nprocs;
-	double		 elapsed, onlprocs;
+	double		 elapsed;
 
-#ifdef	__linux__
-	onlprocs = sysconf(_SC_NPROCESSORS_ONLN);
-#else
-	onlprocs = g_get_num_processors();
-#endif
 	nprocs = runs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = (struct sim *)list->data;
@@ -593,7 +584,7 @@ on_sim_timer(gpointer dat)
 
 	/* Remind us of how many threads we're running. */
 	(void)g_snprintf(buf, sizeof(buf),
-		"(%g%% active)", 100 * (nprocs / onlprocs));
+		"(%g%% active)", 100 * (nprocs / (double)b->nprocs));
 	gtk_label_set_text(b->wins.curthreads, buf);
 	
 	/* Tell us how many generations have transpired. */
@@ -1265,12 +1256,9 @@ on_drag_recv(GtkWidget *widget, GdkDragContext *ctx,
 		dstsims = g_list_append(dstsims, l->data);
 	}
 
-#ifdef __linux__
+	/* Old-version friendly instead of replace function. */
 	(void)g_object_steal_data(dstptr, "sims");
 	g_object_set_data_full(dstptr, "sims", dstsims, on_sims_deref);
-#else
-	g_object_replace_data(dstptr, "sims", NULL, dstsims, on_sims_deref, NULL);
-#endif
 }
 
 /*
@@ -1834,6 +1822,11 @@ main(int argc, char *argv[])
 #endif
 	file = NULL;
 	memset(&b, 0, sizeof(struct bmigrate));
+#if GLIB_CHECK_VERSION(2, 36, 0)
+	b.nprocs = g_get_num_processors();
+#else
+	b.nprocs = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
 	gtk_init(&argc, &argv);
 	hnode_test();
 
@@ -1863,15 +1856,13 @@ main(int argc, char *argv[])
 	builder = gtk_builder_new();
 	assert(NULL != builder);
 
-	/* If we fail this, just exit and good-bye. */
-#if GLIB_CHECK_VERSION(2, 36, 0)
+#if GTK_CHECK_VERSION(3, 10, 0)
 	builder = gtk_builder_new_from_file(file);
 	g_free(file);
 #else
 	if ( ! gtk_builder_add_from_file(builder, file, NULL))
 		return(EXIT_FAILURE);
 #endif
-
 	windows_init(&b, builder);
 	b.status_elapsed = g_timer_new();
 
