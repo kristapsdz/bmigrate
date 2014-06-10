@@ -136,7 +136,6 @@ struct	simcold {
 	double		 meanminsmode; /* mode value of meanmins */
 	double		 meanminsmean; /* mean value of meanmins */
 	double		 meanminsstddev; /* stddev value of meanmins */
-	size_t		 distsz; /* updates of fitmins/meamins */
 	size_t		 truns; /* total runs */
 #define	MINQSZ		 256
 	size_t		 meanminq[MINQSZ]; /* circleq of raw minima */

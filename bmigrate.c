@@ -485,14 +485,14 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.stats, 
 			sim->warm.stats,
 			sizeof(struct stats) * sim->dims);
-		sim->cold.meanmin = sim->warm.meanmin;
 		memcpy(sim->cold.fits, 
 			sim->warm.fits,
 			sizeof(double) * sim->dims);
-		sim->cold.fitmin = sim->warm.fitmin;
 		memcpy(sim->cold.coeffs, 
 			sim->warm.coeffs,
 			sizeof(double) * (sim->fitpoly + 1));
+		sim->cold.meanmin = sim->warm.meanmin;
+		sim->cold.fitmin = sim->warm.fitmin;
 		sim->cold.truns = sim->warm.truns;
 		g_mutex_unlock(&sim->warm.mux);
 		/*
@@ -507,12 +507,14 @@ on_sim_copyout(gpointer dat)
 			(sim->cold.meanminqpos + 1) % MINQSZ;
 		sim->cold.fitminqpos = 
 			(sim->cold.fitminqpos + 1) % MINQSZ;
+
 		gsl_histogram_increment
 			(sim->cold.fitmins,
 			 GETS(sim, sim->cold.fitmin));
 		gsl_histogram_increment
 			(sim->cold.meanmins,
 			 GETS(sim, sim->cold.meanmin));
+
 		sim->cold.fitminsmode = GETS(sim, 
 			gsl_histogram_max_bin(sim->cold.fitmins));
 		sim->cold.fitminsmean = 
@@ -525,7 +527,6 @@ on_sim_copyout(gpointer dat)
 			gsl_histogram_mean(sim->cold.meanmins);
 		sim->cold.meanminsstddev = 
 			gsl_histogram_sigma(sim->cold.meanmins);
-		sim->cold.distsz++;
 	}
 
 	return(TRUE);
