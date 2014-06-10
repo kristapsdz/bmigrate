@@ -23,6 +23,7 @@
 
 #include <glib.h>
 #include <gsl/gsl_multifit.h>
+#include <gsl/gsl_histogram.h>
 
 #include "extern.h"
 

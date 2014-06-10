@@ -127,16 +127,17 @@ struct	simcold {
 	struct stats	*stats; /* statistics per incumbent */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
-	size_t		 fitmin;
-	size_t		*fitmins; /* pdf of fitted minima */
-	size_t		 fitminsmode; /* mode of fitmins */ 
+	gsl_histogram	*fitmins; /* fitted minimum dist */
+	gsl_histogram	*meanmins; /* mean minimum dist */
+	size_t		 fitmin; /* current minimum */
+	double		 fitminsmode; /* mode of fitmins */ 
 	double		 fitminsmean; /* mean of fitmins */
-	size_t		*meanmins; /* pdf of empirical minima */
-	size_t		 meanminsmode; /* mode value of meanmins */
+	double		 fitminsstddev; /* stddev of fitmins */
+	double		 meanminsmode; /* mode value of meanmins */
 	double		 meanminsmean; /* mean value of meanmins */
 	double		 meanminsstddev; /* stddev value of meanmins */
 	size_t		 distsz; /* updates of fitmins/meamins */
-	size_t		 truns;
+	size_t		 truns; /* total runs */
 #define	MINQSZ		 256
 	size_t		 meanminq[MINQSZ]; /* circleq of raw minima */
 	size_t		 meanminqpos; /* current (ahead) in meanminq */

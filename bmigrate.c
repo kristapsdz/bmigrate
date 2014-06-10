@@ -32,6 +32,7 @@
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_histogram.h>
 
 #include "extern.h"
 
@@ -339,8 +340,8 @@ sim_free(gpointer arg)
 	g_free(p->warm.coeffs);
 	g_free(p->warm.fits);
 	g_free(p->cold.stats);
-	g_free(p->cold.fitmins);
-	g_free(p->cold.meanmins);
+	gsl_histogram_free(p->cold.fitmins);
+	gsl_histogram_free(p->cold.meanmins);
 	g_free(p->cold.coeffs);
 	g_free(p->cold.fits);
 	g_free(p->pops);
@@ -458,9 +459,7 @@ on_sim_copyout(gpointer dat)
 	struct bmigrate	*b = dat;
 	GList		*list;
 	struct sim	*sim;
-	size_t		 i;
 	int		 nocopy;
-	double		 v, sd;
 
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = list->data;
@@ -508,29 +507,25 @@ on_sim_copyout(gpointer dat)
 			(sim->cold.meanminqpos + 1) % MINQSZ;
 		sim->cold.fitminqpos = 
 			(sim->cold.fitminqpos + 1) % MINQSZ;
-		sim->cold.fitmins[sim->cold.fitmin]++;
-		sim->cold.meanmins[sim->cold.meanmin]++;
-		if (sim->cold.fitmins[sim->cold.fitmin] > 
-			sim->cold.fitmins[sim->cold.fitminsmode])
-			sim->cold.fitminsmode = sim->cold.fitmin;
-		if (sim->cold.meanmins[sim->cold.meanmin] > 
-			sim->cold.meanmins[sim->cold.meanminsmode])
-			sim->cold.meanminsmode = sim->cold.meanmin;
+		gsl_histogram_increment
+			(sim->cold.fitmins,
+			 GETS(sim, sim->cold.fitmin));
+		gsl_histogram_increment
+			(sim->cold.meanmins,
+			 GETS(sim, sim->cold.meanmin));
+		sim->cold.fitminsmode = GETS(sim, 
+			gsl_histogram_max_bin(sim->cold.fitmins));
+		sim->cold.fitminsmean = 
+			gsl_histogram_mean(sim->cold.fitmins);
+		sim->cold.fitminsstddev = 
+			gsl_histogram_sigma(sim->cold.fitmins);
+		sim->cold.meanminsmode = GETS(sim, 
+			gsl_histogram_max_bin(sim->cold.meanmins));
+		sim->cold.meanminsmean = 
+			gsl_histogram_mean(sim->cold.meanmins);
+		sim->cold.meanminsstddev = 
+			gsl_histogram_sigma(sim->cold.meanmins);
 		sim->cold.distsz++;
-		for (v = 0.0, i = 0; i < sim->dims; i++)
-			v += i * sim->cold.meanmins[i] /
-				(double)sim->cold.distsz;
-		sim->cold.meanminsmean = GETS(sim, v);
-		for (sd = 0.0, i = 0; i < sim->dims; i++)
-			sd += sim->cold.meanmins[i] /
-				(double)sim->cold.distsz *
-				((double)i - v) *
-				((double)i - v);
-		sim->cold.meanminsstddev = GETS(sim, sqrt(sd));
-		for (v = 0.0, i = 0; i < sim->dims; i++)
-			v += i * sim->cold.fitmins[i] /
-				(double)sim->cold.distsz;
-		sim->cold.fitminsmean = GETS(sim, v);
 	}
 
 	return(TRUE);
@@ -791,34 +786,20 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		}
 		break;
 	case (VIEW_POLYMINPDF):
-		for (i = 0; i < s->dims; i++) {
-			v = s->cold.fitmins[i] / 
-				(double)s->cold.distsz;
-			if (v > *maxy)
-				*maxy = v;
-		}
+		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
+			*maxy = gsl_histogram_max_val(s->cold.fitmins);
 		break;
 	case (VIEW_POLYMINCDF):
-		for (v = 0.0, i = 0; i < s->dims; i++)
-			v += s->cold.fitmins[i] / 
-				(double)s->cold.distsz;
-		if (v > *maxy)
-			*maxy = v;
+		if (gsl_histogram_sum(s->cold.fitmins) > *maxy)
+			*maxy = gsl_histogram_sum(s->cold.fitmins);
 		break;
 	case (VIEW_MEANMINPDF):
-		for (i = 0; i < s->dims; i++) {
-			v = s->cold.meanmins[i] / 
-				(double)s->cold.distsz;
-			if (v > *maxy)
-				*maxy = v;
-		}
+		if (gsl_histogram_max_val(s->cold.meanmins) > *maxy)
+			*maxy = gsl_histogram_max_val(s->cold.meanmins);
 		break;
 	case (VIEW_MEANMINCDF):
-		for (v = 0.0, i = 0; i < s->dims; i++)
-			v += s->cold.meanmins[i] / 
-				(double)s->cold.distsz;
-		if (v > *maxy)
-			*maxy = v;
+		if (gsl_histogram_sum(s->cold.meanmins) > *maxy)
+			*maxy = gsl_histogram_sum(s->cold.meanmins);
 		break;
 	case (VIEW_MEANMINQ):
 		for (i = 0; i < MINQSZ; i++) {
@@ -959,7 +940,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g, runs %zu",
 				sim->name,
-				GETS(sim, sim->cold.fitminsmode),
+				sim->cold.fitminsmode,
 				sim->cold.fitminsmean, 
 				sim->cold.truns);
 			break;
@@ -970,7 +951,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
 				"runs %zu", sim->name,
-				GETS(sim, sim->cold.meanminsmode),
+				sim->cold.meanminsmode,
 				sim->cold.meanminsmean, 
 				sim->cold.meanminsstddev, 
 				sim->cold.truns);
@@ -1135,11 +1116,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			break;
 		case (VIEW_POLYMINPDF):
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.fitmins[j - 1] / 
-					(double)sim->cold.distsz;
+				v = gsl_histogram_get
+					(sim->cold.fitmins, j - 1);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.fitmins[j] / 
-					(double)sim->cold.distsz;
+				v = gsl_histogram_get
+					(sim->cold.fitmins, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -1148,8 +1129,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		case (VIEW_POLYMINCDF):
 			cairo_move_to(cr, GETX(0), GETY(0.0));
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += sim->cold.fitmins[j] / 
-					(double)sim->cold.distsz;
+				v += gsl_histogram_get
+					(sim->cold.fitmins, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -1157,11 +1138,11 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			break;
 		case (VIEW_MEANMINPDF):
 			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.meanmins[j - 1] / 
-					(double)sim->cold.distsz;
+				v = gsl_histogram_get
+					(sim->cold.meanmins, j - 1);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.meanmins[j] / 
-					(double)sim->cold.distsz;
+				v = gsl_histogram_get
+					(sim->cold.meanmins, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -1170,8 +1151,8 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		case (VIEW_MEANMINCDF):
 			cairo_move_to(cr, GETX(0), GETY(0.0));
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += sim->cold.meanmins[j] / 
-					(double)sim->cold.distsz;
+				v += gsl_histogram_get
+					(sim->cold.meanmins, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -1192,7 +1173,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			cairo_set_line_width(cr, 1.0);
-			v = GETS(sim, sim->cold.meanminsmode);
+			v = sim->cold.meanminsmode;
 			cairo_move_to(cr, 0.0, GETY(v));
 			cairo_line_to(cr, width, GETY(v));
 			cairo_set_dash(cr, dash, 1, 0);
@@ -1238,7 +1219,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			cairo_set_line_width(cr, 1.0);
-			v = GETS(sim, sim->cold.fitminsmode);
+			v = sim->cold.fitminsmode;
 			cairo_move_to(cr, 0.0, GETY(v));
 			cairo_line_to(cr, width, GETY(v));
 			cairo_set_dash(cr, dash, 1, 0);
@@ -1723,10 +1704,17 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->cold.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
-	sim->cold.fitmins = g_malloc0_n
-		(sim->dims, sizeof(size_t));
-	sim->cold.meanmins = g_malloc0_n
-		(sim->dims, sizeof(size_t));
+	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
+	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
+	/* XXX... */
+	if (NULL == sim->cold.fitmins)
+		exit(EXIT_FAILURE);
+	if (NULL == sim->cold.meanmins)
+		exit(EXIT_FAILURE);
+	gsl_histogram_set_ranges_uniform
+		(sim->cold.fitmins, xmin, xmax);
+	gsl_histogram_set_ranges_uniform
+		(sim->cold.meanmins, xmin, xmax);
 
 	sim->type = PAYOFF_CONTINUUM2;
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
