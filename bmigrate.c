@@ -973,6 +973,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 		case (VIEW_MEANMINCDF):
 		case (VIEW_MEANMINPDF):
 		case (VIEW_MEANMINQ):
+		case (VIEW_MEANMINS):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
 				"runs %zu", sim->name,
