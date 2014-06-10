@@ -465,7 +465,7 @@ on_sim_copyout(gpointer dat)
 	struct sim	*sim;
 	size_t		 i;
 	int		 nocopy;
-	double		 v;
+	double		 v, sd;
 
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = list->data;
@@ -532,6 +532,12 @@ on_sim_copyout(gpointer dat)
 			v += i * sim->cold.meanmins[i] /
 				(double)sim->cold.distsz;
 		sim->cold.meanminsmean = GETS(sim, v);
+		for (sd = 0.0, i = 0; i < sim->dims; i++)
+			sd += sim->cold.meanmins[i] /
+				(double)sim->cold.distsz *
+				((double)i - v) *
+				((double)i - v);
+		sim->cold.meanminsstddev = GETS(sim, sqrt(sd));
 		for (v = 0.0, i = 0; i < sim->dims; i++)
 			v += i * sim->cold.fitmins[i] /
 				(double)sim->cold.distsz;
@@ -825,8 +831,10 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		}
 		break;
 	case (VIEW_MEANMINS):
-		if (s->cold.meanminsmean > *maxy)
-			*maxy = s->cold.meanminsmean;
+		v = s->cold.meanminsmean +
+			s->cold.meanminsstddev;
+		if (v > *maxy)
+			*maxy = v;
 		break;
 	case (VIEW_POLYMINQ):
 		for (i = 0; i < MINQSZ; i++) {
@@ -1173,6 +1181,14 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			break;
 		case (VIEW_MEANMINS):
 			v = width * (simnum + 1) / (double)(simmax + 1);
+			cairo_move_to(cr, v, GETY
+				(sim->cold.meanminsmean -
+				 sim->cold.meanminsstddev));
+			cairo_line_to(cr, v, GETY
+				(sim->cold.meanminsmean +
+				 sim->cold.meanminsstddev));
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
 			cairo_new_path(cr);
 			cairo_arc(cr, v, GETY(sim->cold.meanminsmean),
 				4.0, 0.0, 2.0 * M_PI);

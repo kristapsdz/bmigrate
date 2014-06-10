@@ -133,6 +133,7 @@ struct	simcold {
 	size_t		*meanmins; /* pdf of empirical minima */
 	size_t		 meanminsmode; /* mode value of meanmins */
 	double		 meanminsmean; /* mean value of meanmins */
+	double		 meanminsstddev; /* stddev value of meanmins */
 	size_t		 distsz; /* updates of fitmins/meamins */
 	size_t		 truns;
 #define	MINQSZ		 256
