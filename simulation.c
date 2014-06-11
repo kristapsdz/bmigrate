@@ -68,11 +68,17 @@ snapshot(struct simwork *work, struct sim *sim)
 		sim->dims * sizeof(struct stats));
 
 	/* Compute the empirical minimum. */
-	min = FLT_MAX;
-	for (i = 0; i < sim->dims; i++)
+	for (min = FLT_MAX, i = 0; i < sim->dims; i++)
 		if (stats_mean(&sim->warm.stats[i]) < min) {
 			min = stats_mean(&sim->warm.stats[i]);
 			sim->warm.meanmin = i;
+		}
+
+	/* Find the extinct mutant maximum. */
+	for (min = -FLT_MAX, i = 0; i < sim->dims; i++)
+		if (stats_extinctm(&sim->warm.stats[i]) > min) {
+			min = stats_extinctm(&sim->warm.stats[i]);
+			sim->warm.extinctmmax = i;
 		}
 
 	/*

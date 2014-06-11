@@ -97,10 +97,11 @@ struct	simhot {
  */
 struct	simwarm {
 	size_t		 meanmin; /* minimum sample mean */
+	size_t		 fitmin; /* index of minimum fitpoly point */
+	size_t		 extinctmmax;
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
-	size_t		 fitmin; /* index of minimum fitpoly point */
 	size_t		 truns; /* total number of runs */
 };
 
@@ -132,6 +133,8 @@ struct	simcold {
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
 	gsl_histogram	*meanmins; /* mean minimum dist */
+	gsl_histogram	*extinctmmaxs;
+	size_t		 extinctmmax;
 	size_t		 fitmin; /* current minimum */
 	double		 fitminsmode; /* mode of fitmins */ 
 	double		 fitminsmean; /* mean of fitmins */

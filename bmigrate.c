@@ -42,6 +42,7 @@
 enum	view {
 	VIEW_NONE,
 	VIEW_EXTINCTM,
+	VIEW_EXTINCTMMAXPDF,
 	VIEW_EXTINCTI,
 	VIEW_DEV, 
 	VIEW_POLY,
@@ -181,6 +182,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem8"));
 	b->wins.views[VIEW_EXTINCTM] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem25"));
+	b->wins.views[VIEW_EXTINCTMMAXPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem28"));
 	b->wins.views[VIEW_EXTINCTI] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem26"));
 	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
@@ -348,6 +351,7 @@ sim_free(gpointer arg)
 	g_free(p->cold.stats);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
+	gsl_histogram_free(p->cold.extinctmmaxs);
 	g_free(p->cold.coeffs);
 	g_free(p->cold.fits);
 	g_free(p->pops);
@@ -499,6 +503,7 @@ on_sim_copyout(gpointer dat)
 			sizeof(double) * (sim->fitpoly + 1));
 		sim->cold.meanmin = sim->warm.meanmin;
 		sim->cold.fitmin = sim->warm.fitmin;
+		sim->cold.extinctmmax = sim->warm.extinctmmax;
 		sim->cold.truns = sim->warm.truns;
 		/*
 		 * Now we compute data that's managed by this function
@@ -519,6 +524,9 @@ on_sim_copyout(gpointer dat)
 		gsl_histogram_increment
 			(sim->cold.meanmins,
 			 GETS(sim, sim->cold.meanmin));
+		gsl_histogram_increment
+			(sim->cold.extinctmmaxs,
+			 GETS(sim, sim->cold.extinctmmax));
 
 		sim->cold.fitminsmode = GETS(sim, 
 			gsl_histogram_max_bin(sim->cold.fitmins));
@@ -692,6 +700,7 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	case (VIEW_POLYMINCDF):
 	case (VIEW_MEANMINPDF):
 	case (VIEW_MEANMINCDF):
+	case (VIEW_EXTINCTMMAXPDF):
 		break;
 	default:
 		/* Bottom right. */
@@ -804,6 +813,10 @@ max_sim(const struct curwin *cur, const struct sim *s,
 			if (v > *maxy)
 				*maxy = v;
 		}
+		break;
+	case (VIEW_EXTINCTMMAXPDF):
+		if (gsl_histogram_max_val(s->cold.extinctmmaxs) > *maxy)
+			*maxy = gsl_histogram_max_val(s->cold.extinctmmaxs);
 		break;
 	case (VIEW_POLYMINPDF):
 		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
@@ -1267,6 +1280,18 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				v = stats_extinctm(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = stats_extinctm(&sim->cold.stats[j]);
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_EXTINCTMMAXPDF):
+			for (j = 1; j < sim->dims; j++) {
+				v = gsl_histogram_get
+					(sim->cold.extinctmmaxs, j - 1);
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = gsl_histogram_get
+					(sim->cold.extinctmmaxs, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
@@ -1747,15 +1772,20 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->fitpoly + 1, sizeof(double));
 	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
 	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
+	sim->cold.extinctmmaxs = gsl_histogram_alloc(sim->dims);
 	/* XXX... */
 	if (NULL == sim->cold.fitmins)
 		exit(EXIT_FAILURE);
 	if (NULL == sim->cold.meanmins)
 		exit(EXIT_FAILURE);
+	if (NULL == sim->cold.extinctmmaxs)
+		exit(EXIT_FAILURE);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.fitmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.meanmins, xmin, xmax);
+	gsl_histogram_set_ranges_uniform
+		(sim->cold.extinctmmaxs, xmin, xmax);
 
 	sim->type = PAYOFF_CONTINUUM2;
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
