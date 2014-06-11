@@ -43,6 +43,7 @@ enum	view {
 	VIEW_NONE,
 	VIEW_EXTINCTM,
 	VIEW_EXTINCTMMAXPDF,
+	VIEW_EXTINCTMMAXCDF,
 	VIEW_EXTINCTI,
 	VIEW_DEV, 
 	VIEW_POLY,
@@ -184,6 +185,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem25"));
 	b->wins.views[VIEW_EXTINCTMMAXPDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem28"));
+	b->wins.views[VIEW_EXTINCTMMAXCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem29"));
 	b->wins.views[VIEW_EXTINCTI] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem26"));
 	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
@@ -707,6 +710,7 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	case (VIEW_MEANMINPDF):
 	case (VIEW_MEANMINCDF):
 	case (VIEW_EXTINCTMMAXPDF):
+	case (VIEW_EXTINCTMMAXCDF):
 		break;
 	default:
 		/* Bottom right. */
@@ -823,6 +827,10 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_EXTINCTMMAXPDF):
 		if (gsl_histogram_max_val(s->cold.extinctmmaxs) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.extinctmmaxs);
+		break;
+	case (VIEW_EXTINCTMMAXCDF):
+		if (gsl_histogram_sum(s->cold.extinctmmaxs) > *maxy)
+			*maxy = gsl_histogram_sum(s->cold.extinctmmaxs);
 		break;
 	case (VIEW_POLYMINPDF):
 		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
@@ -983,6 +991,7 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				sim->cold.fitminsmean, 
 				sim->cold.truns);
 			break;
+		case (VIEW_EXTINCTMMAXCDF):
 		case (VIEW_EXTINCTMMAXPDF):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
@@ -1295,6 +1304,16 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				v = stats_extinctm(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = stats_extinctm(&sim->cold.stats[j]);
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_EXTINCTMMAXCDF):
+			cairo_move_to(cr, GETX(0), GETY(0.0));
+			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				v += gsl_histogram_get
+					(sim->cold.extinctmmaxs, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
