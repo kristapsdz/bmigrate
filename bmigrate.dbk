@@ -348,8 +348,8 @@
 			</para>
 		</sect2>
 	</sect1>
-	<sect1>
-		<title>Configuration</title>
+	<sect1 id="configuration">
+		<title id="configuration.title">Configuration</title>
 		<para>
 			When invoked, the <command>bmigrate</command> utility will pop up a configuration screen.
 			You use this to configure and deploy simulations.
@@ -516,8 +516,65 @@
 			On Mac OS X machines, window controls appear in the menu bar.
 			On other UNIX machines, you can pop up a menu bar by right-clicking within a simulation window.
 		</para>
+		<sect2 id="samplemean">
+			<title id="samplemean.title">Sample Mean</title>
+			<para>
+				The sample mean graphs incumbents on the x-axis and the mean mutant fraction after <mathphrase>T</mathphrase>
+				generations (or when one of the types goes extinct&mdash;whichever comes first) over all runs to date on the y-axis.
+				If an incumbent does not have any runs yet, it will display as zero.
+				The graph y-maximum will automatically adjust to the highest simulation peak.
+			</para>
+			<screenshot>
+				<graphic fileref="screen-win1.png" />
+			</screenshot>
+			<para>
+				Each simulation is shown in the legend below the graph.
+				The legend shows the simulation colour and name, as well as the number of runs involved in constructing the
+				mean.
+			</para>
+		</sect2>
+		<sect2 id="samplemeansigma">
+			<title id="samplemeansigma.title">Sample Mean and Sigma</title>
+			<para>
+				This graph augments the <link linkend="samplemean" endterm="samplemean.title" /> graph with the standard
+				deviation above and below each incumbent's mean.
+			</para>
+			<screenshot>
+				<graphic fileref="screen-win2.png" />
+			</screenshot>
+			<para>
+				The standard deviation is computed from the variance accumulated online using the Knuth/Welford algorithm.
+			</para>
+		</sect2>
+		<sect2 id="samplemeanfitted">
+			<title id="samplemeanfitted.title">Sample Mean and Fitted Polynomial</title>
+			<para>
+				If a non-zero degree for polynomial fitting was selected at <link linkend="configuration"
+					endterm="configuration.title" />, this will show the <link linkend="samplemean"
+					endterm="samplemean.title" /> along with that polynomial.
+				Otherwise it will only show the <link linkend="samplemean" endterm="samplemean.title" />.
+			</para>
+			<screenshot>
+				<graphic fileref="screen-win3.png" />
+			</screenshot>
+			<para>
+				Unlike the <link linkend="samplemean" endterm="samplemean.title" /> or <link linkend="samplemeansigma"
+					endterm="samplemeansigma.title" />, the data for this graph is computed roughly four times per second
+				instead of with every run.
+				This prevents excessive slow-down.
+			</para>
+		</sect2>
 		<sect2>
-			<title>Sample Mean</title>
+			<title>Sample Mean, Fitted, Sigma</title>
+			<para>
+				Combine <link linkend="samplemeansigma" endterm="samplemeansigma.title" /> with <link linkend="samplemeanfitted"
+					endterm="samplemeanfitted.title" />.
+				If a fit polynomial was not provided during <link linkend="configuration" endterm="configuration.title" />, this
+				is equivalent to just the <link linkend="samplemeansigma" endterm="samplemeansigma.title" />.
+			</para>
+			<screenshot>
+				<graphic fileref="screen-win4.png" />
+			</screenshot>
 		</sect2>
 	</sect1>
 </article>
