@@ -50,6 +50,8 @@ struct 	hnode {
 
 struct	stats {
 	size_t	n;
+	size_t	extm;
+	size_t	exti;
 	double	M1;
 	double	M2;
 	double	M3;
@@ -239,6 +241,8 @@ double		 stats_variance(const struct stats *p);
 double		 stats_stddev(const struct stats *p);
 double		 stats_skewness(const struct stats *p);
 double		 stats_kurtosis(const struct stats *p);
+double		 stats_extinctm(const struct stats *p);
+double		 stats_extincti(const struct stats *p);
 
 __END_DECLS
 

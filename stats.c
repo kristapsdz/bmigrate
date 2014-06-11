@@ -34,6 +34,12 @@ stats_push(struct stats *p, double x)
 	size_t	n1;
 
 	n1 = p->n;
+
+	if (0.0 == x)
+		p->extm++;
+	else if (1.0 == x)
+		p->exti++;
+
 	p->n++;
 
 	delta = x - p->M1;
@@ -49,6 +55,24 @@ stats_push(struct stats *p, double x)
 	p->M3 += term1 * delta_n * 
 		((double)p->n - 2.0) - 3.0 * delta_n * p->M2;
 	p->M2 += term1;
+}
+
+double
+stats_extinctm(const struct stats *p)
+{
+
+	if (0 == p->n)
+		return(0.0);
+	return(p->extm / (double)p->n);
+}
+
+double
+stats_extincti(const struct stats *p)
+{
+
+	if (0 == p->n)
+		return(0.0);
+	return(p->exti / (double)p->n);
 }
 
 size_t

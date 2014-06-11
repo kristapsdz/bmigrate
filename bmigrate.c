@@ -41,6 +41,8 @@
  */
 enum	view {
 	VIEW_NONE,
+	VIEW_EXTINCTM,
+	VIEW_EXTINCTI,
 	VIEW_DEV, 
 	VIEW_POLY,
 	VIEW_POLYDEV,
@@ -177,6 +179,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "radiobutton2"));
 	b->wins.views[VIEW_NONE] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem8"));
+	b->wins.views[VIEW_EXTINCTM] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem25"));
+	b->wins.views[VIEW_EXTINCTI] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem26"));
 	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem6"));
 	b->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
@@ -785,6 +791,20 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
+	case (VIEW_EXTINCTM):
+		for (i = 0; i < s->dims; i++) {
+			v = stats_extinctm(&s->cold.stats[i]);
+			if (v > *maxy)
+				*maxy = v;
+		}
+		break;
+	case (VIEW_EXTINCTI):
+		for (i = 0; i < s->dims; i++) {
+			v = stats_extincti(&s->cold.stats[i]);
+			if (v > *maxy)
+				*maxy = v;
+		}
+		break;
 	case (VIEW_POLYMINPDF):
 		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.fitmins);
@@ -1230,6 +1250,26 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 			cairo_line_to(cr, width, GETY(v));
 			cairo_set_dash(cr, dash, 0, 0);
 			cairo_set_source_rgba(cr, GETC(0.75));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_EXTINCTI):
+			for (j = 1; j < sim->dims; j++) {
+				v = stats_extincti(&sim->cold.stats[j - 1]);
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = stats_extincti(&sim->cold.stats[j]);
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_EXTINCTM):
+			for (j = 1; j < sim->dims; j++) {
+				v = stats_extinctm(&sim->cold.stats[j - 1]);
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = stats_extinctm(&sim->cold.stats[j]);
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;
 		default:

@@ -170,6 +170,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	if (sim->terminate)
 		return(0);
 
+	assert(*incumbentidx < sim->dims);
 	g_mutex_lock(&sim->hot.mux);
 
 	/*
@@ -329,6 +330,7 @@ simulation(void *arg)
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 	vp = NULL;
+	incumbentidx = 0;
 
 again:
 	/* 
@@ -456,7 +458,15 @@ again:
 	 * Assign the result pointer to the last population fraction.
 	 * This will be processed by on_sim_next().
 	 */
-	v = mutants / (double)sim->totalpop;
+	if (incumbents == 0) {
+		assert(mutants == sim->totalpop);
+		v = 1.0;
+	} else if (mutants == 0) {
+		assert(incumbents == sim->totalpop);
+		v = 0.0;
+	} else
+		v = mutants / (double)sim->totalpop;
+
 	vp = &v;
 	goto again;
 }
