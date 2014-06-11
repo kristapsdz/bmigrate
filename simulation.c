@@ -250,8 +250,6 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	 * When we're finished, lower the copyout semaphor.
 	 */
 	if (fit) {
-		g_debug("Thread %p of simulation %p "
-			"doing copyout", g_thread_self(), sim);
 		snapshot(work, sim);
 		g_mutex_lock(&sim->hot.mux);
 		assert(2 == sim->hot.copyout);

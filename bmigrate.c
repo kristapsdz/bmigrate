@@ -347,6 +347,7 @@ sim_free(gpointer arg)
 	g_free(p->pops);
 	g_free(p->threads);
 	g_free(p);
+	g_debug("Simulation %p freed", p);
 }
 
 /*
@@ -478,7 +479,6 @@ on_sim_copyout(gpointer dat)
 		g_mutex_unlock(&sim->hot.mux);
 		if (nocopy)
 			continue;
-		g_debug("Copying in simulation %p", sim);
 		/*
 		 * Most strutures we simply copy over.
 		 */
@@ -1935,9 +1935,12 @@ main(int argc, char *argv[])
 #else
 	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
 	b.wins.allmenus = GTK_MENU(gtk_menu_new());
-	gtk_widget_unparent(GTK_WIDGET(b.wins.menufile));
-	gtk_widget_unparent(GTK_WIDGET(b.wins.menuview));
-	gtk_widget_unparent(GTK_WIDGET(b.wins.menutools));
+	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
+		GTK_WIDGET(b.wins.menufile));
+	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
+		GTK_WIDGET(b.wins.menuview));
+	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
+		GTK_WIDGET(b.wins.menutools));
 	gtk_menu_shell_append(GTK_MENU_SHELL
 		(b.wins.allmenus), GTK_WIDGET(b.wins.menufile));
 	gtk_menu_shell_append(GTK_MENU_SHELL
