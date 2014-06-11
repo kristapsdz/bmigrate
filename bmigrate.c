@@ -540,6 +540,12 @@ on_sim_copyout(gpointer dat)
 			gsl_histogram_mean(sim->cold.meanmins);
 		sim->cold.meanminsstddev = 
 			gsl_histogram_sigma(sim->cold.meanmins);
+		sim->cold.extinctmmaxsmode = GETS(sim, 
+			gsl_histogram_max_bin(sim->cold.extinctmmaxs));
+		sim->cold.extinctmmaxsmean = 
+			gsl_histogram_mean(sim->cold.extinctmmaxs);
+		sim->cold.extinctmmaxsstddev = 
+			gsl_histogram_sigma(sim->cold.extinctmmaxs);
 	}
 
 	return(TRUE);
@@ -975,6 +981,15 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 				sim->name,
 				sim->cold.fitminsmode,
 				sim->cold.fitminsmean, 
+				sim->cold.truns);
+			break;
+		case (VIEW_EXTINCTMMAXPDF):
+			(void)g_snprintf(buf, sizeof(buf), 
+				"%s: mode %g, mean %g (+-%g), "
+				"runs %zu", sim->name,
+				sim->cold.extinctmmaxsmode,
+				sim->cold.extinctmmaxsmean, 
+				sim->cold.extinctmmaxsstddev, 
 				sim->cold.truns);
 			break;
 		case (VIEW_MEANMINCDF):
