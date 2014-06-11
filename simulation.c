@@ -107,11 +107,11 @@ fitpoly(const double *fits, size_t poly, double x)
  */
 static int
 on_sim_next(struct simwork *work, struct sim *sim, 
-	const gsl_rng *rng, double *mutant, 
-	double *incumbent, size_t *incumbentidx, size_t *mutantidx)
+	const gsl_rng *rng, double *mutantp, 
+	double *incumbentp, size_t *incumbentidx, double *vp)
 {
-	int		 fit;
-	size_t		 i, j, k;
+	int		 fit = 0;
+	size_t		 i, j, k, mutant;
 	double		 v, chisq, x, min;
 
 	if (sim->terminate) {
@@ -125,19 +125,27 @@ on_sim_next(struct simwork *work, struct sim *sim,
 		return(0);
 	}
 
-	fit = 0;
 	g_mutex_lock(&sim->hot.mux);
-	sim->hot.truns++;
+
+	/*
+	 * If we're entering this with a result value, then plug it into
+	 * the index associated with the run and increment our count.
+	 * This prevents us from overwriting others' results.
+	 */
+	if (NULL != vp) {
+		stats_push(&sim->hot.stats[*incumbentidx], *vp);
+		sim->hot.truns++;
+	}
+
+	/*
+	 * Check if we've been instructed by the main thread of
+	 * execution to snapshot hot data into warm storage.
+	 * To do this synchronously, all threads will wait to finish
+	 * their work.
+	 * The last thread will then do the actual snapshot and
+	 * broadcast to the wait condition.
+	 */
 	if (1 == sim->hot.copyout) {
-		/*
-		 * If this happens, we've been instructed by the main
-		 * thread of execution to snapshot hot data into warm
-		 * storage.
-		 * To do this synchronously, all threads will wait to
-		 * finish their work.
-		 * The last thread will then do the actual snapshot and
-		 * broadcast to the wait condition.
-		 */
 		if (++sim->hot.copyblock == sim->nprocs) {
 			fit = 1;
 			sim->hot.copyout = 2;
@@ -147,35 +155,54 @@ on_sim_next(struct simwork *work, struct sim *sim,
 		} else
 			g_cond_wait(&sim->hot.cond, &sim->hot.mux);
 	} 
-	if (sim->hot.pause)
+
+	/*
+	 * Check if we've been requested to pause.
+	 * If so, go directly into the conditional.
+	 */
+	if (1 == sim->hot.pause)
 		g_cond_wait(&sim->hot.cond, &sim->hot.mux);
+
+	/*
+	 * Reassign our mutant and incumbent from the ring sized by the
+	 * configured lattice dimensions.
+	 * These both increment in single movements until the end of the
+	 * lattice, then wrap around.
+	 */
+	mutant = sim->hot.mutant;
+	*incumbentidx = sim->hot.incumbent;
+	sim->hot.mutant++;
+	if (sim->hot.mutant == sim->dims) {
+		sim->hot.incumbent = (sim->hot.incumbent + 1) % sim->dims;
+		sim->hot.mutant = 0;
+	}
 	
 	g_mutex_unlock(&sim->hot.mux);
 
-	*incumbent = sim->d.continuum.xmin + 
+	/*
+	 * Assign our incumbent and mutant.
+	 * The incumbent just gets the current lattice position,
+	 * ensuring an even propogation.
+	 * The mutant is either assigned the same way or from a Gaussian
+	 * distribution around the current incumbent.
+	 */
+	*incumbentp = sim->d.continuum.xmin + 
 		(sim->d.continuum.xmax - 
 		 sim->d.continuum.xmin) * 
 		(*incumbentidx / (double)sim->dims);
 
 	if (MUTANTS_GAUSSIAN == sim->mutants) {
 		do {
-			*mutant = *incumbent + 
-				gsl_ran_gaussian(rng, sim->mutantsigma);
-		} while (*mutant < sim->d.continuum.xmin ||
-			 *mutant >= sim->d.continuum.xmax);
-	} else {
-		assert(MUTANTS_DISCRETE == sim->mutants);
-		*mutant = sim->d.continuum.xmin + 
+			*mutantp = *incumbentp + 
+				gsl_ran_gaussian
+				(rng, sim->mutantsigma);
+		} while (*mutantp < sim->d.continuum.xmin ||
+			 *mutantp >= sim->d.continuum.xmax);
+	} else
+		*mutantp = sim->d.continuum.xmin + 
 			(sim->d.continuum.xmax - 
 			 sim->d.continuum.xmin) * 
-			(*mutantidx / (double)sim->dims);
-	}
-
-	(*mutantidx)++;
-	if (*mutantidx == sim->dims) {
-		*incumbentidx = (*incumbentidx + sim->nprocs) % sim->dims;
-		*mutantidx = 0;
-	}
+			(mutant / (double)sim->dims);
 
 	/* If we weren't the last thread blocking, return now. */
 	if ( ! fit)
@@ -278,9 +305,10 @@ simulation(void *arg)
 	struct simthr	*thr = arg;
 	struct sim	*sim = thr->sim;
 	double		 mutant, incumbent, v, lambda;
+	double		*vp;
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, j, k, new, mutants, incumbents,
-			 len1, len2, incumbentidx, mutantidx;
+			 len1, len2, incumbentidx;
 	int		 mutant_old, mutant_new;
 	struct simwork	 work;
 	gsl_rng		*rng;
@@ -314,13 +342,15 @@ simulation(void *arg)
 	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
-	incumbentidx = thr->rank;
-	mutantidx = 0;
+	vp = NULL;
 
 again:
-	/* Repeat til we're instructed to terminate. */
+	/* 
+	 * Repeat til we're instructed to terminate. 
+	 * We also pass in our last result for processing.
+	 */
 	if ( ! on_sim_next(&work, sim, rng, 
-		&mutant, &incumbent, &incumbentidx, &mutantidx)) {
+		&mutant, &incumbent, &incumbentidx, vp)) {
 		/*
 		 * Upon termination, free up all of the memory
 		 * associated with our simulation.
@@ -436,8 +466,12 @@ again:
 			break;
 	}
 
+	/*
+	 * Assign the result pointer to the last population fraction.
+	 * This will be processed by on_sim_next().
+	 */
 	v = mutants / (double)sim->totalpop;
-	stats_push(&sim->hot.stats[incumbentidx], v);
+	vp = &v;
 	goto again;
 }
 

@@ -83,6 +83,8 @@ struct	simhot {
 	int		 copyout; /* do we need to snapshot? */
 	int		 pause; /* should we pause? */
 	size_t		 copyblock; /* threads blocking on copy */
+	size_t		 incumbent; /* current incumbent index */
+	size_t		 mutant; /* current mutant index */
 };
 
 /*
