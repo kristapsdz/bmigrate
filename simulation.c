@@ -88,7 +88,7 @@ snapshot(struct simwork *work, struct sim *sim)
 	 * If we're going to run a weighted polynomial multifit, then
 	 * use the variance as the weight.
 	 */
-	if (sim->weighted)
+	if (sim->fitpoly && sim->weighted)
 		for (i = 0; i < sim->dims; i++) 
 			gsl_vector_set(work->w, i,
 				 stats_stddev(&sim->warm.stats[i]));
