@@ -348,10 +348,102 @@
 			</para>
 		</sect2>
 	</sect1>
+	<sect1>
+		<title>Mechanics</title>
+		<para>
+			Being a high-performance scientific application, <command>bmigrate</command> concerns itself a great deal with mechanics
+			such as randomness, parallelism, and data-flow.
+			This section briefly touches upon these concepts.
+		</para>
+		<sect2>
+			<title>Data-Flow</title>
+			<para>
+				Having data analysed or graphed directly from simulation data would significantly slow down data collection.
+				To accomodate for this, data is copied in several stages, minimising simulation lock contention and user
+				interfacing stalling.
+			</para>
+			<variablelist>
+				<varlistentry>
+					<term>Hot Storage</term>
+					<listitem>
+						Statistics (e.g., on-line mutant fractions mean per incumbent) written to directly by simulation
+						threads.
+					</listitem>
+				</varlistentry>
+				<varlistentry>
+					<term>Hot Storage (LAB)</term>
+					<listitem>
+						When a simulation thread detects the copyout flag set by the main graphical thread, it copies
+						hot storage into a hot storage look-aside buffer (LAB).
+					</listitem>
+				</varlistentry>
+				<varlistentry>
+					<term>Warm Storage</term>
+					<listitem>
+						When the main graphical thread requests data copyout by setting a flag with the simulation, a
+						simulation thread that populated its LAB copies from the LAB into warm storage and unsets the
+						copyout flag.
+					</listitem>
+				</varlistentry>
+				<varlistentry>
+					<term>Cold Storage</term>
+					<listitem>
+						When the main graphical thread sees its data copyout flag has been unset, it copies from warm
+						storage into cold storage.
+						Cold storage is used for all graphing and analysis, as it does not change outside of the main
+						graphical thread.
+					</listitem>
+				</varlistentry>
+			</variablelist>
+		</sect2>
+		<sect2>
+			<title>Parallelism</title>
+			<para>
+				Simulations may be executed in parallel if assigned multiple threads during <link linkend="configuration"
+					endterm="configuration.title" />.
+				By default, each simulation is assigned a single thread.
+				Thus, there are several moments when synchronisation between threads occurs to ensure simulations and data-flow
+				processes are race-free with minimum contention.
+			</para>
+			<itemizedlist>
+				<listitem>
+					Before each simulation, assignment of incumbent and mutant strategies must be synchronised.
+					The index for both of these strategies increases monotonically within a critical section (modulo the
+					lattice dimensions).
+					For Gaussian-distributed mutants, of course, the mutant monotonicity is irrelevant.
+				</listitem>
+				<listitem>
+					After each simulation, the result for a given incumbent must be tallied in a critical section.
+					This is required because, in some situations, a single run might take long enough that another processor
+					starts running with the same incumbent, with both finishing simultaneously.
+				</listitem>
+				<listitem>
+					When data is copied from hot storage into the LAB, it is copied within a critical section.
+					This prevents partial modification to the data in-copy.
+				</listitem>
+				<listitem>
+					When the main graphical thread requests a data copyout, it does so in a critical section.
+					This ensures that only a single simulation thread will perform the copyout, and also that the main
+					calling thread won't have its copyout flag unset before all data has been copied.
+				</listitem>
+			</itemizedlist>
+		</sect2>
+		<sect2>
+			<title>Randomness</title>
+			<para>
+				By default, <command>bmigrate</command> uses the MT19937 generator of Makoto Matsumoto and Takuji Nishimura.
+				This ensures good-quality randomness with a very high period.
+			</para>
+			<para>
+				Each simulation thread is allocated its own randomn number generator.
+				Each generator is assigned seed from the ARC4 random number source.
+			</para>
+		</sect2>
+	</sect1>
 	<sect1 id="configuration">
 		<title id="configuration.title">Configuration</title>
 		<para>
-			When invoked, the <command>bmigrate</command> utility will pop up a configuration screen.
+			When invoked, <command>bmigrate</command> will pop up a configuration screen.
 			You use this to configure and deploy simulations.
 			To quit the system, simply press <guibutton>Quit</guibutton>.
 			To start a simulation (after entering configuration data), press <guibutton>Simulate</guibutton>.
