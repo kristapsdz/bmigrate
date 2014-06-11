@@ -33,6 +33,25 @@
 #include "extern.h"
 
 /*
+ * For a given point "x" in the domain, fit ourselves to the polynomial
+ * coefficients of degree "fitpoly + 1".
+ */
+static double
+fitpoly(const double *fits, size_t poly, double x)
+{
+	double	 y, v;
+	size_t	 i, j;
+
+	for (y = 0.0, i = 0; i < poly; i++) {
+		v = fits[i];
+		for (j = 0; j < i; j++)
+			v *= x;
+		y += v;
+	}
+	return(y);
+}
+
+/*
  * Copy the "hot" data into "warm" holding.
  * While here, set our "work" parameter (if "fitpoly" is set) to contain
  * the necessary dependent variable.
@@ -40,15 +59,13 @@
  * simulation "hot" lock and the "warm" lock as well.
  */
 static void
-on_sim_snapshot(struct simwork *work, struct sim *sim)
+snapshot(struct simwork *work, struct sim *sim)
 {
-	size_t	 i;
-	double	 min;
+	double	 min, v, chisq, x;
+	size_t	 i, j, k;
 
-	g_mutex_lock(&sim->warm.mux);
-	memcpy(sim->warm.stats, 
-		sim->hot.stats,
-		sizeof(struct stats) * sim->dims);
+	memcpy(sim->warm.stats, sim->hot.statslsb,
+		sim->dims * sizeof(struct stats));
 
 	/* Compute the empirical minimum. */
 	min = FLT_MAX;
@@ -77,26 +94,63 @@ on_sim_snapshot(struct simwork *work, struct sim *sim)
 				 stats_stddev(&sim->warm.stats[i]));
 
 	sim->warm.truns = sim->hot.truns;
-	g_mutex_unlock(&sim->warm.mux);
-}
 
-/*
- * For a given point "x" in the domain, fit ourselves to the polynomial
- * coefficients of degree "fitpoly + 1".
- */
-static double
-fitpoly(const double *fits, size_t poly, double x)
-{
-	double	 y, v;
-	size_t	 i, j;
+	/*
+	 * If we're not fitting to a polynomial, simply notify that
+	 * we've copied out and continue on our way.
+	 */
+	if (0 == sim->fitpoly)
+		return;
 
-	for (y = 0.0, i = 0; i < poly; i++) {
-		v = fits[i];
-		for (j = 0; j < i; j++)
-			v *= x;
-		y += v;
+	/* 
+	 * If we're fitting to a polynomial, initialise our independent
+	 * variables now.
+	 */
+	for (i = 0; i < sim->dims; i++) {
+		gsl_matrix_set(work->X, i, 0, 1.0);
+		for (j = 0; j < sim->fitpoly; j++) {
+			v = sim->d.continuum.xmin +
+				(sim->d.continuum.xmax -
+				 sim->d.continuum.xmin) *
+				(i / (double)sim->dims);
+			for (k = 0; k < j; k++)
+				v *= v;
+			gsl_matrix_set(work->X, i, j + 1, v);
+		}
 	}
-	return(y);
+
+	/*
+	 * Now perform the actual fitting.
+	 * We either use weighted (weighted with the variance) or
+	 * non-weighted fitting algorithms.
+	 */
+	if (sim->weighted) 
+		gsl_multifit_wlinear(work->X, work->w, work->y, 
+			work->c, work->cov, &chisq, work->work);
+	else
+		gsl_multifit_linear(work->X, work->y, 
+			work->c, work->cov, &chisq, work->work);
+
+	/*
+	 * Now snapshot the fitted polynomial coefficients and compute
+	 * the fitted approximation for all incumbents (along with the
+	 * minimum value).
+	 */
+	for (i = 0; i < sim->fitpoly + 1; i++)
+		sim->warm.coeffs[i] = gsl_vector_get(work->c, i);
+	min = FLT_MAX;
+	for (i = 0; i < sim->dims; i++) {
+		x = sim->d.continuum.xmin + 
+			(sim->d.continuum.xmax -
+			 sim->d.continuum.xmin) *
+			i / (double)sim->dims;
+		sim->warm.fits[i] = fitpoly
+			(sim->warm.coeffs, sim->fitpoly + 1, x);
+		if (sim->warm.fits[i] < min) {
+			sim->warm.fitmin = i;
+			min = sim->warm.fits[i];
+		}
+	}
 }
 
 /*
@@ -111,19 +165,10 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	double *incumbentp, size_t *incumbentidx, double *vp)
 {
 	int		 fit = 0;
-	size_t		 i, j, k, mutant;
-	double		 v, chisq, x, min;
+	size_t		 mutant;
 
-	if (sim->terminate) {
-		/*
-		 * We can have people waiting to copy-out data, so make
-		 * them exit right now.
-		 */
-		g_mutex_lock(&sim->hot.mux);
-		g_cond_broadcast(&sim->hot.cond);
-		g_mutex_unlock(&sim->hot.mux);
+	if (sim->terminate)
 		return(0);
-	}
 
 	g_mutex_lock(&sim->hot.mux);
 
@@ -138,30 +183,25 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	}
 
 	/*
-	 * Check if we've been instructed by the main thread of
-	 * execution to snapshot hot data into warm storage.
-	 * To do this synchronously, all threads will wait to finish
-	 * their work.
-	 * The last thread will then do the actual snapshot and
-	 * broadcast to the wait condition.
-	 */
-	if (1 == sim->hot.copyout) {
-		if (++sim->hot.copyblock == sim->nprocs) {
-			fit = 1;
-			sim->hot.copyout = 2;
-			sim->hot.copyblock = 0;
-			on_sim_snapshot(work, sim);
-			g_cond_broadcast(&sim->hot.cond);
-		} else
-			g_cond_wait(&sim->hot.cond, &sim->hot.mux);
-	} 
-
-	/*
 	 * Check if we've been requested to pause.
-	 * If so, go directly into the conditional.
+	 * If so, wait for a broadcast on our condition.
+	 * This will unlock the mutex for others to process.
 	 */
 	if (1 == sim->hot.pause)
 		g_cond_wait(&sim->hot.cond, &sim->hot.mux);
+
+	/*
+	 * Check if we've been instructed by the main thread of
+	 * execution to snapshot hot data into warm storage.
+	 * We do this in two parts: first, we register that we're in a
+	 * copyout (it's now 2) and then actually do the copyout outside
+	 * of the hot mutex.
+	 */
+	if (1 == sim->hot.copyout) {
+		memcpy(sim->hot.statslsb, sim->hot.stats,
+			sim->dims * sizeof(struct stats));
+		sim->hot.copyout = fit = 2;
+	} 
 
 	/*
 	 * Reassign our mutant and incumbent from the ring sized by the
@@ -204,73 +244,21 @@ on_sim_next(struct simwork *work, struct sim *sim,
 			 sim->d.continuum.xmin) * 
 			(mutant / (double)sim->dims);
 
-	/* If we weren't the last thread blocking, return now. */
-	if ( ! fit)
-		return(1);
-
 	/*
-	 * If we're not fitting to a polynomial, simply notify that
-	 * we've copied out and continue on our way.
+	 * If we were the ones to set the copyout bit, then do the
+	 * copyout right now.
+	 * When we're finished, lower the copyout semaphor.
 	 */
-	if (0 == sim->fitpoly) {
-		g_mutex_lock(&sim->warm.mux);
+	if (fit) {
+		g_debug("Thread %p of simulation %p "
+			"doing copyout", g_thread_self(), sim);
+		snapshot(work, sim);
+		g_mutex_lock(&sim->hot.mux);
+		assert(2 == sim->hot.copyout);
 		sim->hot.copyout = 0;
-		g_mutex_unlock(&sim->warm.mux);
-		return(1);
+		g_mutex_unlock(&sim->hot.mux);
 	}
 
-	/* 
-	 * If we're fitting to a polynomial, initialise our independent
-	 * variables now.
-	 */
-	for (i = 0; i < sim->dims; i++) {
-		gsl_matrix_set(work->X, i, 0, 1.0);
-		for (j = 0; j < sim->fitpoly; j++) {
-			v = sim->d.continuum.xmin +
-				(sim->d.continuum.xmax -
-				 sim->d.continuum.xmin) *
-				(i / (double)sim->dims);
-			for (k = 0; k < j; k++)
-				v *= v;
-			gsl_matrix_set(work->X, i, j + 1, v);
-		}
-	}
-
-	/*
-	 * Now perform the actual fitting.
-	 * We either use weighted (weighted with the variance) or
-	 * non-weighted fitting algorithms.
-	 */
-	if (sim->weighted) 
-		gsl_multifit_wlinear(work->X, work->w, work->y, 
-			work->c, work->cov, &chisq, work->work);
-	else
-		gsl_multifit_linear(work->X, work->y, 
-			work->c, work->cov, &chisq, work->work);
-
-	/*
-	 * Now snapshot the fitted polynomial coefficients and compute
-	 * the fitted approximation for all incumbents (along with the
-	 * minimum value).
-	 */
-	g_mutex_lock(&sim->warm.mux);
-	for (i = 0; i < sim->fitpoly + 1; i++)
-		sim->warm.coeffs[i] = gsl_vector_get(work->c, i);
-	sim->hot.copyout = 0;
-	min = FLT_MAX;
-	for (i = 0; i < sim->dims; i++) {
-		x = sim->d.continuum.xmin + 
-			(sim->d.continuum.xmax -
-			 sim->d.continuum.xmin) *
-			i / (double)sim->dims;
-		sim->warm.fits[i] = fitpoly
-			(sim->warm.coeffs, sim->fitpoly + 1, x);
-		if (sim->warm.fits[i] < min) {
-			sim->warm.fitmin = i;
-			min = sim->warm.fits[i];
-		}
-	}
-	g_mutex_unlock(&sim->warm.mux);
 	return(1);
 }
 

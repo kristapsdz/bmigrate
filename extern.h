@@ -72,14 +72,14 @@ struct	sim_continuum {
  * running simulation.
  * All reads/writes must lock the mutex before modifications.
  * This data is periodically snapshotted to "struct simwarm", which is
- * triggered by the last thread to encounter a "copyout" = 1 (threads
- * prior to that will wait on "cond").
+ * triggered by the first thread encountering copyout == 1.
  */
 struct	simhot {
 	GMutex		 mux; /* lock for changing data */
 	GCond		 cond; /* mutex for waiting on snapshot */
 	size_t		 truns; /* total number of runs */
 	struct stats	*stats; /* statistics per incumbent */
+	struct stats	*statslsb; /* lookaside for stats */
 	int		 copyout; /* do we need to snapshot? */
 	int		 pause; /* should we pause? */
 	size_t		 copyblock; /* threads blocking on copy */
@@ -94,7 +94,6 @@ struct	simhot {
  * "fitmin" are set (if applicable) to the fitted polynomial.
  */
 struct	simwarm {
-	GMutex		 mux; /* lock to change fields */
 	size_t		 meanmin; /* minimum sample mean */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */

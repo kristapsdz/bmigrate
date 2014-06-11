@@ -332,10 +332,10 @@ sim_free(gpointer arg)
 	}
 
 	g_mutex_clear(&p->hot.mux);
-	g_mutex_clear(&p->warm.mux);
 	g_cond_clear(&p->hot.cond);
 	g_free(p->name);
 	g_free(p->hot.stats);
+	g_free(p->hot.statslsb);
 	g_free(p->warm.stats);
 	g_free(p->warm.coeffs);
 	g_free(p->warm.fits);
@@ -478,7 +478,7 @@ on_sim_copyout(gpointer dat)
 		g_mutex_unlock(&sim->hot.mux);
 		if (nocopy)
 			continue;
-		g_mutex_lock(&sim->warm.mux);
+		g_debug("Copying in simulation %p", sim);
 		/*
 		 * Most strutures we simply copy over.
 		 */
@@ -494,7 +494,6 @@ on_sim_copyout(gpointer dat)
 		sim->cold.meanmin = sim->warm.meanmin;
 		sim->cold.fitmin = sim->warm.fitmin;
 		sim->cold.truns = sim->warm.truns;
-		g_mutex_unlock(&sim->warm.mux);
 		/*
 		 * Now we compute data that's managed by this function
 		 * and thread alone (no need for locking).
@@ -1689,9 +1688,10 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	g_mutex_init(&sim->hot.mux);
-	g_mutex_init(&sim->warm.mux);
 	g_cond_init(&sim->hot.cond);
 	sim->hot.stats = g_malloc0_n
+		(sim->dims, sizeof(struct stats));
+	sim->hot.statslsb = g_malloc0_n
 		(sim->dims, sizeof(struct stats));
 	sim->warm.stats = g_malloc0_n
 		(sim->dims, sizeof(struct stats));
