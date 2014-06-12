@@ -25,6 +25,7 @@
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 
+#include <gsl/gsl_rng.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_histogram.h>
 

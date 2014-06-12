@@ -312,8 +312,9 @@ simulation(void *arg)
 {
 	struct simthr	*thr = arg;
 	struct sim	*sim = thr->sim;
-	double		 mutant, incumbent, v, lambda;
+	double		 mutant, incumbent, v, lambda, lincumbent;
 	double		*vp;
+	double		*icache, *mcache;
 	size_t		*kids[2], *migrants[2], *imutants;
 	size_t		 t, j, k, new, mutants, incumbents,
 			 len1, len2, incumbentidx;
@@ -353,6 +354,12 @@ simulation(void *arg)
 	vp = NULL;
 	incumbentidx = 0;
 	t = 0;
+	lincumbent = FLT_MAX;
+
+	icache = g_malloc0_n(sim->pops[0] + 1, sizeof(double));
+	mcache = g_malloc0_n(sim->pops[0] + 1, sizeof(double));
+	for (j = 1; j < sim->islands; j++) 
+		assert(sim->pops[j] == sim->pops[0]);
 
 again:
 	/* 
@@ -378,6 +385,8 @@ again:
 			gsl_matrix_free(work.cov);
 			gsl_multifit_linear_free(work.work);
 		}
+		g_free(icache);
+		g_free(mcache);
 		g_debug("Thread %p (simulation %p) exiting", 
 			g_thread_self(), sim);
 		return(NULL);
@@ -392,6 +401,13 @@ again:
 	mutants = 1;
 	incumbents = sim->totalpop - mutants;
 
+	for (j = 0; j <= sim->pops[0]; j++)
+		mcache[j] = continuum_lambda(sim, mutant,
+			mutant, incumbent, j, sim->pops[0]);
+	for (j = 0; j <= sim->pops[0]; j++)
+		icache[j] = continuum_lambda(sim, incumbent,
+			mutant, incumbent, j, sim->pops[0]);
+
 	for (t = 0; t < sim->stop; t++) {
 		/*
 		 * Birth process: have each individual (first mutants,
@@ -404,18 +420,12 @@ again:
 			assert(0 == kids[1][j]);
 			assert(0 == migrants[0][j]);
 			assert(0 == migrants[1][j]);
-			lambda = continuum_lambda
-				(sim, mutant, mutant, 
-				 incumbent, imutants[j], sim->pops[j]);
+			lambda = mcache[imutants[j]];
 			for (k = 0; k < imutants[j]; k++) 
-				kids[0][j] += gsl_ran_poisson
-					(rng, lambda);
-			lambda = continuum_lambda
-				(sim, incumbent, mutant, 
-				 incumbent, imutants[j], sim->pops[j]);
+				kids[0][j] += poisson(rng, lambda);
+			lambda = icache[imutants[j]];
 			for ( ; k < sim->pops[j]; k++)
-				kids[1][j] += gsl_ran_poisson
-					(rng, lambda);
+				kids[1][j] += poisson(rng, lambda);
 		}
 
 		/*

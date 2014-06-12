@@ -362,6 +362,8 @@ double		  stats_kurtosis(const struct stats *p);
 double		  stats_extinctm(const struct stats *p);
 double		  stats_extincti(const struct stats *p);
 
+size_t		  poisson(const gsl_rng *rng, double l);
+
 __END_DECLS
 
 #endif
