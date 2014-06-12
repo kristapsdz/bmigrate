@@ -76,14 +76,18 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "radiobutton2"));
 	b->wins.views[VIEW_NONE] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem8"));
-	b->wins.views[VIEW_EXTINCTM] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_EXTM] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem25"));
-	b->wins.views[VIEW_EXTINCTMMAXPDF] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_EXTMMAXPDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem28"));
-	b->wins.views[VIEW_EXTINCTMMAXCDF] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_EXTMMAXCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem29"));
 	b->wins.views[VIEW_EXTINCTI] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem26"));
+	b->wins.views[VIEW_EXTIMINPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem27"));
+	b->wins.views[VIEW_EXTIMINCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem30"));
 	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem6"));
 	b->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
@@ -249,7 +253,8 @@ sim_free(gpointer arg)
 	g_free(p->cold.stats);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
-	gsl_histogram_free(p->cold.extinctmmaxs);
+	gsl_histogram_free(p->cold.extmmaxs);
+	gsl_histogram_free(p->cold.extimins);
 	g_free(p->cold.coeffs);
 	g_free(p->cold.fits);
 	g_free(p->pops);
@@ -401,7 +406,8 @@ on_sim_copyout(gpointer dat)
 			sizeof(double) * (sim->fitpoly + 1));
 		sim->cold.meanmin = sim->warm.meanmin;
 		sim->cold.fitmin = sim->warm.fitmin;
-		sim->cold.extinctmmax = sim->warm.extinctmmax;
+		sim->cold.extmmax = sim->warm.extmmax;
+		sim->cold.extimin = sim->warm.extimin;
 		sim->cold.truns = sim->warm.truns;
 		/*
 		 * Now we compute data that's managed by this function
@@ -423,8 +429,11 @@ on_sim_copyout(gpointer dat)
 			(sim->cold.meanmins,
 			 GETS(sim, sim->cold.meanmin));
 		gsl_histogram_increment
-			(sim->cold.extinctmmaxs,
-			 GETS(sim, sim->cold.extinctmmax));
+			(sim->cold.extmmaxs,
+			 GETS(sim, sim->cold.extmmax));
+		gsl_histogram_increment
+			(sim->cold.extimins,
+			 GETS(sim, sim->cold.extimin));
 
 		sim->cold.fitminsmode = GETS(sim, 
 			gsl_histogram_max_bin(sim->cold.fitmins));
@@ -438,12 +447,18 @@ on_sim_copyout(gpointer dat)
 			gsl_histogram_mean(sim->cold.meanmins);
 		sim->cold.meanminsstddev = 
 			gsl_histogram_sigma(sim->cold.meanmins);
-		sim->cold.extinctmmaxsmode = GETS(sim, 
-			gsl_histogram_max_bin(sim->cold.extinctmmaxs));
-		sim->cold.extinctmmaxsmean = 
-			gsl_histogram_mean(sim->cold.extinctmmaxs);
-		sim->cold.extinctmmaxsstddev = 
-			gsl_histogram_sigma(sim->cold.extinctmmaxs);
+		sim->cold.extmmaxsmode = GETS(sim, 
+			gsl_histogram_max_bin(sim->cold.extmmaxs));
+		sim->cold.extmmaxsmean = 
+			gsl_histogram_mean(sim->cold.extmmaxs);
+		sim->cold.extmmaxsstddev = 
+			gsl_histogram_sigma(sim->cold.extmmaxs);
+		sim->cold.extiminsmode = GETS(sim, 
+			gsl_histogram_max_bin(sim->cold.extimins));
+		sim->cold.extiminsmean = 
+			gsl_histogram_mean(sim->cold.extimins);
+		sim->cold.extiminsstddev = 
+			gsl_histogram_sigma(sim->cold.extimins);
 	}
 
 	return(TRUE);
@@ -974,20 +989,25 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->fitpoly + 1, sizeof(double));
 	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
 	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
-	sim->cold.extinctmmaxs = gsl_histogram_alloc(sim->dims);
+	sim->cold.extmmaxs = gsl_histogram_alloc(sim->dims);
+	sim->cold.extimins = gsl_histogram_alloc(sim->dims);
 	/* XXX... */
 	if (NULL == sim->cold.fitmins)
 		exit(EXIT_FAILURE);
 	if (NULL == sim->cold.meanmins)
 		exit(EXIT_FAILURE);
-	if (NULL == sim->cold.extinctmmaxs)
+	if (NULL == sim->cold.extmmaxs)
+		exit(EXIT_FAILURE);
+	if (NULL == sim->cold.extimins)
 		exit(EXIT_FAILURE);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.fitmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.meanmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
-		(sim->cold.extinctmmaxs, xmin, xmax);
+		(sim->cold.extmmaxs, xmin, xmax);
+	gsl_histogram_set_ranges_uniform
+		(sim->cold.extimins, xmin, xmax);
 
 	sim->type = PAYOFF_CONTINUUM2;
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);

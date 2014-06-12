@@ -93,8 +93,10 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	case (VIEW_POLYMINCDF):
 	case (VIEW_MEANMINPDF):
 	case (VIEW_MEANMINCDF):
-	case (VIEW_EXTINCTMMAXPDF):
-	case (VIEW_EXTINCTMMAXCDF):
+	case (VIEW_EXTMMAXPDF):
+	case (VIEW_EXTMMAXCDF):
+	case (VIEW_EXTIMINPDF):
+	case (VIEW_EXTIMINCDF):
 		break;
 	default:
 		/* Bottom right. */
@@ -194,7 +196,7 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
-	case (VIEW_EXTINCTM):
+	case (VIEW_EXTM):
 		for (i = 0; i < s->dims; i++) {
 			v = stats_extinctm(&s->cold.stats[i]);
 			if (v > *maxy)
@@ -208,13 +210,21 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
-	case (VIEW_EXTINCTMMAXPDF):
-		if (gsl_histogram_max_val(s->cold.extinctmmaxs) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.extinctmmaxs);
+	case (VIEW_EXTIMINPDF):
+		if (gsl_histogram_max_val(s->cold.extimins) > *maxy)
+			*maxy = gsl_histogram_max_val(s->cold.extimins);
 		break;
-	case (VIEW_EXTINCTMMAXCDF):
-		if (gsl_histogram_sum(s->cold.extinctmmaxs) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.extinctmmaxs);
+	case (VIEW_EXTIMINCDF):
+		if (gsl_histogram_sum(s->cold.extimins) > *maxy)
+			*maxy = gsl_histogram_sum(s->cold.extimins);
+		break;
+	case (VIEW_EXTMMAXPDF):
+		if (gsl_histogram_max_val(s->cold.extmmaxs) > *maxy)
+			*maxy = gsl_histogram_max_val(s->cold.extmmaxs);
+		break;
+	case (VIEW_EXTMMAXCDF):
+		if (gsl_histogram_sum(s->cold.extmmaxs) > *maxy)
+			*maxy = gsl_histogram_sum(s->cold.extmmaxs);
 		break;
 	case (VIEW_POLYMINPDF):
 		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
@@ -375,14 +385,24 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 				sim->cold.fitminsstddev, 
 				sim->cold.truns);
 			break;
-		case (VIEW_EXTINCTMMAXCDF):
-		case (VIEW_EXTINCTMMAXPDF):
+		case (VIEW_EXTIMINCDF):
+		case (VIEW_EXTIMINPDF):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
 				"runs %zu", sim->name,
-				sim->cold.extinctmmaxsmode,
-				sim->cold.extinctmmaxsmean, 
-				sim->cold.extinctmmaxsstddev, 
+				sim->cold.extiminsmode,
+				sim->cold.extiminsmean, 
+				sim->cold.extiminsstddev, 
+				sim->cold.truns);
+			break;
+		case (VIEW_EXTMMAXCDF):
+		case (VIEW_EXTMMAXPDF):
+			(void)g_snprintf(buf, sizeof(buf), 
+				"%s: mode %g, mean %g (+-%g), "
+				"runs %zu", sim->name,
+				sim->cold.extmmaxsmode,
+				sim->cold.extmmaxsmean, 
+				sim->cold.extmmaxsstddev, 
 				sim->cold.truns);
 			break;
 		case (VIEW_MEANMINCDF):
@@ -683,7 +703,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;
-		case (VIEW_EXTINCTM):
+		case (VIEW_EXTM):
 			for (j = 1; j < sim->dims; j++) {
 				v = stats_extinctm(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
@@ -693,23 +713,45 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;
-		case (VIEW_EXTINCTMMAXCDF):
+		case (VIEW_EXTIMINCDF):
 			cairo_move_to(cr, GETX(0), GETY(0.0));
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				v += gsl_histogram_get
-					(sim->cold.extinctmmaxs, j);
+					(sim->cold.extimins, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;
-		case (VIEW_EXTINCTMMAXPDF):
+		case (VIEW_EXTIMINPDF):
 			for (j = 1; j < sim->dims; j++) {
 				v = gsl_histogram_get
-					(sim->cold.extinctmmaxs, j - 1);
+					(sim->cold.extimins, j - 1);
 				cairo_move_to(cr, GETX(j-1), GETY(v));
 				v = gsl_histogram_get
-					(sim->cold.extinctmmaxs, j);
+					(sim->cold.extimins, j);
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_EXTMMAXCDF):
+			cairo_move_to(cr, GETX(0), GETY(0.0));
+			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				v += gsl_histogram_get
+					(sim->cold.extmmaxs, j);
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_EXTMMAXPDF):
+			for (j = 1; j < sim->dims; j++) {
+				v = gsl_histogram_get
+					(sim->cold.extmmaxs, j - 1);
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = gsl_histogram_get
+					(sim->cold.extmmaxs, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));

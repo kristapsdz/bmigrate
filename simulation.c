@@ -78,7 +78,14 @@ snapshot(struct simwork *work, struct sim *sim)
 	for (min = -FLT_MAX, i = 0; i < sim->dims; i++)
 		if (stats_extinctm(&sim->warm.stats[i]) > min) {
 			min = stats_extinctm(&sim->warm.stats[i]);
-			sim->warm.extinctmmax = i;
+			sim->warm.extmmax = i;
+		}
+
+	/* Find the extinct incumbent minimum. */
+	for (min = FLT_MAX, i = 0; i < sim->dims; i++)
+		if (stats_extincti(&sim->warm.stats[i]) < min) {
+			min = stats_extincti(&sim->warm.stats[i]);
+			sim->warm.extimin = i;
 		}
 
 	/*

@@ -99,7 +99,8 @@ struct	simhot {
 struct	simwarm {
 	size_t		 meanmin; /* minimum sample mean */
 	size_t		 fitmin; /* index of minimum fitpoly point */
-	size_t		 extinctmmax;
+	size_t		 extmmax;
+	size_t		 extimin;
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
@@ -134,8 +135,10 @@ struct	simcold {
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
 	gsl_histogram	*meanmins; /* mean minimum dist */
-	gsl_histogram	*extinctmmaxs;
-	size_t		 extinctmmax;
+	gsl_histogram	*extmmaxs;
+	size_t		 extmmax;
+	gsl_histogram	*extimins;
+	size_t		 extimin;
 	size_t		 fitmin; /* current minimum */
 	double		 fitminsmode; /* mode of fitmins */ 
 	double		 fitminsmean; /* mean of fitmins */
@@ -143,9 +146,12 @@ struct	simcold {
 	double		 meanminsmode; /* mode value of meanmins */
 	double		 meanminsmean; /* mean value of meanmins */
 	double		 meanminsstddev; /* stddev value of meanmins */
-	double		 extinctmmaxsmode;
-	double		 extinctmmaxsmean;
-	double		 extinctmmaxsstddev;
+	double		 extmmaxsmode;
+	double		 extmmaxsmean;
+	double		 extmmaxsstddev;
+	double		 extiminsmode;
+	double		 extiminsmean;
+	double		 extiminsstddev;
 	size_t		 truns; /* total runs */
 #define	MINQSZ		 256
 	size_t		 meanminq[MINQSZ]; /* circleq of raw minima */
@@ -241,9 +247,11 @@ struct	simthr {
  */
 enum	view {
 	VIEW_NONE,
-	VIEW_EXTINCTM,
-	VIEW_EXTINCTMMAXPDF,
-	VIEW_EXTINCTMMAXCDF,
+	VIEW_EXTM,
+	VIEW_EXTMMAXPDF,
+	VIEW_EXTMMAXCDF,
+	VIEW_EXTIMINPDF,
+	VIEW_EXTIMINCDF,
 	VIEW_EXTINCTI,
 	VIEW_DEV, 
 	VIEW_POLY,
