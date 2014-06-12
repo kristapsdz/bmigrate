@@ -15,13 +15,11 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <assert.h>
-#include <ctype.h>
 #include <math.h>
-#include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
-#include <string.h>
 
-#include <glib.h>
+#include <gtk/gtk.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_histogram.h>
 

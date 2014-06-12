@@ -24,7 +24,7 @@
 #endif
 #include <string.h>
 
-#include <glib.h>
+#include <gtk/gtk.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>

@@ -15,8 +15,6 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <assert.h>
-#include <errno.h>
-#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,116 +22,13 @@
 #ifdef MAC_INTEGRATION
 #include <gtkosxapplication.h>
 #endif
-#include <cairo.h>
-#include <cairo-pdf.h>
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
 
 #include <gsl/gsl_multifit.h>
-#include <gsl/gsl_rng.h>
-#include <gsl/gsl_randist.h>
 #include <gsl/gsl_histogram.h>
 
 #include "extern.h"
-
-/*
- * Different views of simulation data.
- */
-enum	view {
-	VIEW_NONE,
-	VIEW_EXTINCTM,
-	VIEW_EXTINCTMMAXPDF,
-	VIEW_EXTINCTMMAXCDF,
-	VIEW_EXTINCTI,
-	VIEW_DEV, 
-	VIEW_POLY,
-	VIEW_POLYDEV,
-	VIEW_POLYMINCDF,
-	VIEW_POLYMINPDF,
-	VIEW_POLYMINQ,
-	VIEW_MEANMINCDF,
-	VIEW_MEANMINPDF,
-	VIEW_MEANMINQ,
-	VIEW_MEANMINS,
-	VIEW__MAX
-};
-
-/*
- * Given a current simulation "_s", compute where a given index "_v"
- * (out if the simulation's dimensions) lies within the domain.
- */
-#define	GETS(_s, _v) \
-	((_s)->d.continuum.xmin + \
-	 ((_s)->d.continuum.xmax - (_s)->d.continuum.xmin) * \
-	 (_v) / (double)((_s)->dims))
-
-/*
- * These are all widgets that may be or are visible.
- */
-struct	hwin {
-	GtkWindow	 *config;
-#ifndef	MAC_INTEGRATION
-	GtkMenu		 *allmenus;
-#endif
-	GtkMenuBar	 *menu;
-	GtkMenuItem	 *menuquit;
-	GtkMenuItem	 *menufile;
-	GtkMenuItem	 *menuview;
-	GtkMenuItem	 *menutools;
-	GtkStatusbar	 *status;
-	GtkCheckMenuItem *views[VIEW__MAX];
-	GtkEntry	 *mutantsigma;
-	GtkRadioButton   *mutants[MUTANTS__MAX];
-	GtkMenuItem	 *viewclone;
-	GtkMenuItem	 *viewpause;
-	GtkMenuItem	 *viewunpause;
-	GtkToggleButton	 *weighted;
-	GtkEntry	 *stop;
-	GtkEntry	 *input;
-	GtkEntry	 *payoff;
-	GtkEntry	 *name;
-	GtkEntry	 *xmin;
-	GtkEntry	 *xmax;
-	GtkNotebook	 *inputs;
-	GtkNotebook	 *payoffs;
-	GtkLabel	 *error;
-	GtkEntry	 *func;
-	GtkAdjustment	 *nthreads;
-	GtkAdjustment	 *fitpoly;
-	GtkAdjustment	 *pop;
-	GtkAdjustment	 *islands;
-	GtkEntry	 *totalpop;
-	GtkEntry	 *alpha;
-	GtkEntry	 *delta;
-	GtkEntry	 *migrate;
-	GtkEntry	 *incumbents;
-	GtkLabel	 *curthreads;
-	GtkToggleButton	 *analsingle;
-	GtkToggleButton	 *analmultiple;
-#define	SIZE_COLOURS	  12 
-	GdkRGBA		  colours[SIZE_COLOURS];
-};
-
-/*
- * This describes a window.
- * There's very little in here right now, which is fine.
- */
-struct	curwin {
-	enum view	  view; /* what view are we seeing? */
-};
-
-/*
- * Main structure governing general state of the system.
- */
-struct	bmigrate {
-	struct hwin	  wins; /* GUI components */
-	size_t		  nextcolour; /* next colour to assign */
-	GList		 *sims; /* active simulations */
-	GTimer		 *status_elapsed; /* elapsed since update */
-	uint64_t	  lastmatches; /* last seen no. matches */
-	GtkWidget	 *current; /* the current window or NULL */
-	size_t		  nprocs; /* total number processors */
-};
 
 static	const char *const inputs[INPUT__MAX] = {
 	"uniform",
@@ -642,714 +537,6 @@ entry2double(GtkEntry *entry, gdouble *sz)
 	return(ERANGE != errno && '\0' == *ep);
 }
 
-static void
-drawgrid(cairo_t *cr, double width, double height)
-{
-	static const double dash[] = {6.0};
-
-	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-	cairo_set_line_width(cr, 0.2);
-
-	/* Top line. */
-	cairo_move_to(cr, 0.0, 0.0);
-	cairo_line_to(cr, width, 0.0);
-	/* Bottom line. */
-	cairo_move_to(cr, 0.0, height);
-	cairo_line_to(cr, width, height);
-	/* Left line. */
-	cairo_move_to(cr, 0.0, 0.0);
-	cairo_line_to(cr, 0.0, height);
-	/* Right line. */
-	cairo_move_to(cr, width, 0.0);
-	cairo_line_to(cr, width, height);
-	/* Horizontal middle. */
-	cairo_move_to(cr, width * 0.5, 0.0);
-	cairo_line_to(cr, width * 0.5, height);
-	/* Vertical middle. */
-	cairo_move_to(cr, 0.0, height * 0.5);
-	cairo_line_to(cr, width, height * 0.5);
-
-	cairo_stroke(cr);
-	cairo_set_dash(cr, dash, 1, 0);
-
-	/* Vertical left. */
-	cairo_move_to(cr, 0.0, height * 0.25);
-	cairo_line_to(cr, width, height * 0.25);
-	/* Vertical right. */
-	cairo_move_to(cr, 0.0, height * 0.75);
-	cairo_line_to(cr, width, height * 0.75);
-	/* Horizontal top. */
-	cairo_move_to(cr, width * 0.75, 0.0);
-	cairo_line_to(cr, width * 0.75, height);
-	/* Horizontal bottom. */
-	cairo_move_to(cr, width * 0.25, 0.0);
-	cairo_line_to(cr, width * 0.25, height);
-
-	cairo_stroke(cr);
-	cairo_set_dash(cr, dash, 0, 0);
-}
-
-static void
-drawlabels(const struct curwin *cur, cairo_t *cr, 
-	double *widthp, double *heightp,
-	double miny, double maxy, double minx, double maxx)
-{
-	cairo_text_extents_t e;
-	char	 	 buf[1024];
-	double		 width, height;
-
-	width = *widthp;
-	height = *heightp;
-
-	cairo_text_extents(cr, "-10.00", &e);
-	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0); 
-
-	switch (cur->view) {
-	case (VIEW_POLYMINPDF):
-	case (VIEW_POLYMINCDF):
-	case (VIEW_MEANMINPDF):
-	case (VIEW_MEANMINCDF):
-	case (VIEW_EXTINCTMMAXPDF):
-	case (VIEW_EXTINCTMMAXCDF):
-		break;
-	default:
-		/* Bottom right. */
-		cairo_move_to(cr, width - e.width, 
-			height - e.height * 3.0);
-		(void)snprintf(buf, sizeof(buf), "%.2g", miny);
-		cairo_show_text(cr, buf);
-
-		/* Middle-bottom right. */
-		cairo_move_to(cr, width - e.width, 
-			height * 0.75 - 1.5 * e.height);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", miny + (maxy - miny) * 0.25);
-		cairo_show_text(cr, buf);
-
-		/* Middle right. */
-		cairo_move_to(cr, width - e.width, 
-			height * 0.5 - 0.5 * e.height);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", miny + (maxy - miny) * 0.5);
-		cairo_show_text(cr, buf);
-
-		/* Middle-top right. */
-		cairo_move_to(cr, width - e.width, height * 0.25);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", miny + (maxy - miny) * 0.75);
-		cairo_show_text(cr, buf);
-
-		/* Top right. */
-		cairo_move_to(cr, width - e.width, e.height * 1.5);
-		(void)snprintf(buf, sizeof(buf), "%.2g", maxy);
-		cairo_show_text(cr, buf);
-
-		*widthp -= e.width * 1.3;
-		break;
-	}
-
-	switch (cur->view) {
-	case (VIEW_MEANMINS):
-		break;
-	default:
-		/* Right bottom. */
-		cairo_move_to(cr, width - e.width * 1.5, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), "%.2g", maxx);
-		cairo_show_text(cr, buf);
-
-		/* Middle-left bottom. */
-		cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", minx + (maxx - minx) * 0.25);
-		cairo_show_text(cr, buf);
-
-		/* Middle bottom. */
-		cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", minx + (maxx - minx) * 0.5);
-		cairo_show_text(cr, buf);
-
-		/* Middle-right bottom. */
-		cairo_move_to(cr, width * 0.75 - e.width, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", minx + (maxx - minx) * 0.75);
-		cairo_show_text(cr, buf);
-
-		/* Left bottom. */
-		cairo_move_to(cr, e.width * 0.25, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), "%.2g", minx);
-		cairo_show_text(cr, buf);
-
-		*heightp -= e.height * 3.0;
-		break;
-	}
-}
-
-/*
- * For a given simulation "s", compute the maximum "y" value in a graph
- * given the type of graph we want to produce.
- */
-static void
-max_sim(const struct curwin *cur, const struct sim *s, 
-	double *xmin, double *xmax, double *maxy)
-{
-	size_t	 i;
-	double	 v;
-
-	switch (cur->view) {
-	case (VIEW_DEV):
-		for (i = 0; i < s->dims; i++) {
-			v = stats_mean(&s->cold.stats[i]) +
-				stats_stddev(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
-	case (VIEW_EXTINCTM):
-		for (i = 0; i < s->dims; i++) {
-			v = stats_extinctm(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
-	case (VIEW_EXTINCTI):
-		for (i = 0; i < s->dims; i++) {
-			v = stats_extincti(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
-	case (VIEW_EXTINCTMMAXPDF):
-		if (gsl_histogram_max_val(s->cold.extinctmmaxs) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.extinctmmaxs);
-		break;
-	case (VIEW_EXTINCTMMAXCDF):
-		if (gsl_histogram_sum(s->cold.extinctmmaxs) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.extinctmmaxs);
-		break;
-	case (VIEW_POLYMINPDF):
-		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.fitmins);
-		break;
-	case (VIEW_POLYMINCDF):
-		if (gsl_histogram_sum(s->cold.fitmins) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.fitmins);
-		break;
-	case (VIEW_MEANMINPDF):
-		if (gsl_histogram_max_val(s->cold.meanmins) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.meanmins);
-		break;
-	case (VIEW_MEANMINCDF):
-		if (gsl_histogram_sum(s->cold.meanmins) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.meanmins);
-		break;
-	case (VIEW_MEANMINQ):
-		for (i = 0; i < MINQSZ; i++) {
-			v = GETS(s, s->cold.meanminq[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
-	case (VIEW_MEANMINS):
-		v = s->cold.meanminsmean +
-			s->cold.meanminsstddev;
-		if (v > *maxy)
-			*maxy = v;
-		break;
-	case (VIEW_POLYMINQ):
-		for (i = 0; i < MINQSZ; i++) {
-			v = GETS(s, s->cold.fitminq[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
-	case (VIEW_POLY):
-		for (i = 0; i < s->dims; i++) {
-			v = s->cold.fits[i] > 
-				stats_mean(&s->cold.stats[i]) ?
-				s->cold.fits[i] : 
-				stats_mean(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
-	case (VIEW_POLYDEV):
-		for (i = 0; i < s->dims; i++) {
-			v = s->cold.fits[i] > 
-				stats_mean(&s->cold.stats[i]) + 
-				stats_stddev(&s->cold.stats[i]) ?
-				s->cold.fits[i] : 
-				stats_mean(&s->cold.stats[i]) +
-				stats_stddev(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
-	default:
-		for (i = 0; i < s->dims; i++) {
-			v = stats_mean(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-	}
-
-	if (*xmin > s->d.continuum.xmin)
-		*xmin = s->d.continuum.xmin;
-	if (*xmax < s->d.continuum.xmax)
-		*xmax = s->d.continuum.xmax;
-}
-
-/*
- * Main draw event.
- * There's lots we can do to make this more efficient, e.g., computing
- * the stddev/fitpoly arrays in the worker threads instead of here.
- */
-gboolean
-ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
-{
-	struct bmigrate	*b = dat;
-	struct curwin	*cur;
-	double		 width, height, maxy, v, xmin, xmax;
-	GtkWidget	*top;
-	struct sim	*sim;
-	size_t		 j, k, simnum, simmax;
-	GList		*sims, *list;
-	cairo_text_extents_t e;
-	gchar		 buf[1024];
-	static const double dash[] = {6.0};
-
-	/* 
-	 * Get our window configuration.
-	 * Then get our list of simulations.
-	 * Both of these are stored as pointers to the top-level window.
-	 */
-	top = gtk_widget_get_toplevel(w);
-	cur = g_object_get_data(G_OBJECT(top), "cfg");
-	assert(NULL != cur);
-	sims = g_object_get_data(G_OBJECT(top), "sims");
-	assert(NULL != sims);
-
-	/* 
-	 * Initialise the window view to be all white. 
-	 */
-	width = gtk_widget_get_allocated_width(w);
-	height = gtk_widget_get_allocated_height(w);
-	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
-	cairo_rectangle(cr, 0.0, 0.0, width, height);
-	cairo_fill(cr);
-
-	/*
-	 * These macros shorten the drawing routines by automatically
-	 * computing X and Y coordinates as well as colour.
-	 */
-#define	GETX(_j) (width * (_j) / (double)(sim->dims - 1))
-#define	GETY(_v) (height - ((_v) / maxy * height))
-#define	GETC(_a) b->wins.colours[sim->colour].red, \
-		 b->wins.colours[sim->colour].green, \
-		 b->wins.colours[sim->colour].blue, (_a)
-
-	/*
-	 * Create by drawing a legend.
-	 * To do so, draw the colour representing the current simulation
-	 * followed by the name of the simulation.
-	 */
-	simmax = 0;
-	cairo_text_extents(cr, "lj", &e);
-	for (list = sims; NULL != list; list = list->next, simmax++) {
-		sim = list->data;
-		/* Draw a line with the simulation's colour. */
-		cairo_set_source_rgba(cr, GETC(1.0));
-		v = height - simmax * e.height * 1.75 -
-			e.height * 0.5 + 1.0;
-		v -= e.height * 0.5;
-		cairo_move_to(cr, 0.0, v);
-		cairo_line_to(cr, 20.0, v);
-		cairo_stroke(cr);
-		/* Write the simulation name next to it. */
-		v = height - simmax * e.height * 1.75;
-		v -= e.height * 0.5;
-		cairo_move_to(cr, 25.0, v);
-		cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-		/*
-		 * What we write depends on our simulation view.
-		 * Sometimes we just write the name and number of runs.
-		 * Sometimes we write more.
-		 */
-		switch (cur->view) {
-		case (VIEW_POLYMINCDF):
-		case (VIEW_POLYMINPDF):
-		case (VIEW_POLYMINQ):
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: mode %g, mean %g, runs %zu",
-				sim->name,
-				sim->cold.fitminsmode,
-				sim->cold.fitminsmean, 
-				sim->cold.truns);
-			break;
-		case (VIEW_EXTINCTMMAXCDF):
-		case (VIEW_EXTINCTMMAXPDF):
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: mode %g, mean %g (+-%g), "
-				"runs %zu", sim->name,
-				sim->cold.extinctmmaxsmode,
-				sim->cold.extinctmmaxsmean, 
-				sim->cold.extinctmmaxsstddev, 
-				sim->cold.truns);
-			break;
-		case (VIEW_MEANMINCDF):
-		case (VIEW_MEANMINPDF):
-		case (VIEW_MEANMINQ):
-		case (VIEW_MEANMINS):
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: mode %g, mean %g (+-%g), "
-				"runs %zu", sim->name,
-				sim->cold.meanminsmode,
-				sim->cold.meanminsmean, 
-				sim->cold.meanminsstddev, 
-				sim->cold.truns);
-			break;
-		default:
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: runs %zu", sim->name,
-				sim->cold.truns);
-			break;
-		}
-		cairo_show_text(cr, buf);
-	}
-
-	/* Make space for our legend. */
-	height -= simmax * e.height * 1.75 + e.height * 0.5;
-
-	/*
-	 * Determine the boundaries of the graph.
-	 * These will, for all graphs in our set, compute the range and
-	 * domain extrema (the range minimum is always zero).
-	 * Buffer the maximum range by 110%.
-	 */
-	xmin = FLT_MAX;
-	xmax = maxy = -FLT_MAX;
-	for (list = sims; NULL != list; list = list->next)
-		max_sim(cur, list->data, &xmin, &xmax, &maxy);
-
-	/* CDF's don't get their windows scaled. */
-	switch (cur->view) {
-	case (VIEW_POLYMINCDF):
-	case (VIEW_MEANMINCDF):
-		break;
-	default:
-		maxy += maxy * 0.1;
-	}
-
-	/*
-	 * History views show the last n updates instead of the domain
-	 * of the x-axis.
-	 */
-	switch (cur->view) {
-	case (VIEW_POLYMINQ):
-	case (VIEW_MEANMINQ):
-		drawlabels(cur, cr, &width, 
-			&height, 0.0, maxy, -256.0, 0.0);
-		break;
-	default:
-		drawlabels(cur, cr, &width, 
-			&height, 0.0, maxy, xmin, xmax);
-		break;
-	}
-
-	/*
-	 * Finally, draw our curves.
-	 * There are many ways of doing this.
-	 */
-	simnum = 0;
-	cairo_save(cr);
-	for (list = sims; NULL != list; list = list->next, simnum++) {
-		sim = list->data;
-		assert(NULL != sim);
-		assert(simnum < simmax);
-		cairo_set_line_width(cr, 2.0);
-		switch (cur->view) {
-		case (VIEW_DEV):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.5);
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				v -= stats_stddev(&sim->cold.stats[j - 1]);
-				if (v < 0.0)
-					v = 0.0;
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				v -= stats_stddev(&sim->cold.stats[j]);
-				if (v < 0.0)
-					v = 0.0;
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				v += stats_stddev(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				v += stats_stddev(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_POLY):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.5);
-			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.fits[j - 1];
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.fits[j];
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_POLYDEV):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.5);
-			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.fits[j - 1];
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.fits[j];
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.5);
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				v -= stats_stddev(&sim->cold.stats[j - 1]);
-				if (v < 0.0)
-					v = 0.0;
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				v -= stats_stddev(&sim->cold.stats[j]);
-				if (v < 0.0)
-					v = 0.0;
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				v += stats_stddev(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				v += stats_stddev(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_POLYMINPDF):
-			for (j = 1; j < sim->dims; j++) {
-				v = gsl_histogram_get
-					(sim->cold.fitmins, j - 1);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = gsl_histogram_get
-					(sim->cold.fitmins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_POLYMINCDF):
-			cairo_move_to(cr, GETX(0), GETY(0.0));
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += gsl_histogram_get
-					(sim->cold.fitmins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_MEANMINPDF):
-			for (j = 1; j < sim->dims; j++) {
-				v = gsl_histogram_get
-					(sim->cold.meanmins, j - 1);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = gsl_histogram_get
-					(sim->cold.meanmins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_MEANMINCDF):
-			cairo_move_to(cr, GETX(0), GETY(0.0));
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += gsl_histogram_get
-					(sim->cold.meanmins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_MEANMINQ):
-			for (j = 1; j < MINQSZ; j++) {
-				k = (sim->cold.meanminqpos + j - 1) % 
-					MINQSZ;
-				v = GETS(sim, sim->cold.meanminq[k]);
-				cairo_move_to(cr, width * (j - 1) / 
-					(double)MINQSZ, GETY(v));
-				k = (sim->cold.meanminqpos + j) % MINQSZ;
-				v = GETS(sim, sim->cold.meanminq[k]);
-				cairo_line_to(cr, width * j / 
-					(double)MINQSZ, GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.0);
-			v = sim->cold.meanminsmode;
-			cairo_move_to(cr, 0.0, GETY(v));
-			cairo_line_to(cr, width, GETY(v));
-			cairo_set_dash(cr, dash, 1, 0);
-			cairo_set_source_rgba(cr, GETC(0.75));
-			cairo_stroke(cr);
-			v = sim->cold.meanminsmean;
-			cairo_move_to(cr, 0.0, GETY(v));
-			cairo_line_to(cr, width, GETY(v));
-			cairo_set_dash(cr, dash, 0, 0);
-			cairo_set_source_rgba(cr, GETC(0.75));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_MEANMINS):
-			v = width * (simnum + 1) / (double)(simmax + 1);
-			cairo_move_to(cr, v, GETY
-				(sim->cold.meanminsmean -
-				 sim->cold.meanminsstddev));
-			cairo_line_to(cr, v, GETY
-				(sim->cold.meanminsmean +
-				 sim->cold.meanminsstddev));
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_new_path(cr);
-			cairo_arc(cr, v, GETY(sim->cold.meanminsmean),
-				4.0, 0.0, 2.0 * M_PI);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke_preserve(cr);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_fill(cr);
-			break;
-		case (VIEW_POLYMINQ):
-			for (j = 1; j < MINQSZ; j++) {
-				k = (sim->cold.fitminqpos + j - 1) % 
-					MINQSZ;
-				v = GETS(sim, sim->cold.fitminq[k]);
-				cairo_move_to(cr, width * (j - 1) / 
-					(double)MINQSZ, GETY(v));
-				k = (sim->cold.fitminqpos + j) % MINQSZ;
-				v = GETS(sim, sim->cold.fitminq[k]);
-				cairo_line_to(cr, width * j / 
-					(double)MINQSZ, GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.0);
-			v = sim->cold.fitminsmode;
-			cairo_move_to(cr, 0.0, GETY(v));
-			cairo_line_to(cr, width, GETY(v));
-			cairo_set_dash(cr, dash, 1, 0);
-			cairo_set_source_rgba(cr, GETC(0.75));
-			cairo_stroke(cr);
-			v = sim->cold.fitminsmean;
-			cairo_move_to(cr, 0.0, GETY(v));
-			cairo_line_to(cr, width, GETY(v));
-			cairo_set_dash(cr, dash, 0, 0);
-			cairo_set_source_rgba(cr, GETC(0.75));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_EXTINCTI):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_extincti(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_extincti(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_EXTINCTM):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_extinctm(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_extinctm(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_EXTINCTMMAXCDF):
-			cairo_move_to(cr, GETX(0), GETY(0.0));
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += gsl_histogram_get
-					(sim->cold.extinctmmaxs, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_EXTINCTMMAXPDF):
-			for (j = 1; j < sim->dims; j++) {
-				v = gsl_histogram_get
-					(sim->cold.extinctmmaxs, j - 1);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = gsl_histogram_get
-					(sim->cold.extinctmmaxs, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		default:
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		}
-	}
-	cairo_restore(cr);
-
-	/* Draw a little grid for reference points. */
-	drawgrid(cr, width, height);
-	return(TRUE);
-}
-
 /*
  * Transfer the other widget's data into our own.
  */
@@ -1485,6 +672,14 @@ onpress(GtkWidget *widget, GdkEvent *event, gpointer dat)
 }
 #endif
 
+static gboolean
+ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
+{
+
+	draw(w, cr, dat);
+	return(TRUE);
+}
+
 static void
 window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 {
@@ -1615,39 +810,9 @@ onunpause(GtkMenuItem *menuitem, gpointer dat)
 }
 
 /*
- * Quit everything (gtk_main returns).
- */
-void
-onquit(GtkMenuItem *menuitem, gpointer dat)
-{
-
-	bmigrate_free(dat);
-	gtk_main_quit();
-}
-
-/*
- * Window destroy, quit everything (gtk_main returns).
- */
-void 
-ondestroy(GtkWidget *object, gpointer dat)
-{
-	
-	bmigrate_free(dat);
-	gtk_main_quit();
-}
-
-void
-on_deactivate(GtkButton *button, gpointer dat)
-{
-
-	bmigrate_free(dat);
-	gtk_main_quit();
-}
-
-/*
  * We want to run the given simulation.
- * First, verify all data.
- * Then actually run.
+ * First, verify all data; then, start the simulation; lastly, open a
+ * window assigned specifically to that simulation.
  */
 void
 on_activate(GtkButton *button, gpointer dat)
@@ -1663,6 +828,9 @@ on_activate(GtkButton *button, gpointer dat)
 			  stop, slices;
 	struct sim	 *sim;
 
+	/* 
+	 * Validation.
+	 */
 	input = gtk_notebook_get_current_page(b->wins.inputs);
 	if (INPUT_UNIFORM != input) {
 		gtk_label_set_text
@@ -1871,8 +1039,8 @@ on_activate(GtkButton *button, gpointer dat)
 }
 
 /*
- * One of the preset continuum functions for our two-player continuum
- * game possibility.
+ * One of the preset continuum functions for our continuum game
+ * possibility.
  */
 void
 onpreset(GtkComboBox *widget, gpointer dat)
@@ -1936,11 +1104,15 @@ on_change_input(GtkNotebook *notebook,
 	return(TRUE);
 }
 
+/*
+ * We've changed either the island population or the number of islands,
+ * so set our unmodifiable "total population" field.
+ */
 void
 on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
 {
-	gchar	 	 buf[1024];
 	struct bmigrate	*b = dat;
+	gchar	 	 buf[1024];
 
 	(void)g_snprintf(buf, sizeof(buf),
 		"%g", gtk_adjustment_get_value(b->wins.pop) *
@@ -1948,6 +1120,9 @@ on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
 	gtk_entry_set_text(b->wins.totalpop, buf);
 }
 
+/*
+ * Like onquit() but from the Mac quit menu.
+ */
 #ifdef MAC_INTEGRATION
 gboolean
 onterminate(GtkosxApplication *action, gpointer dat)
@@ -1958,6 +1133,39 @@ onterminate(GtkosxApplication *action, gpointer dat)
 	return(FALSE);
 }
 #endif
+
+/*
+ * Run when we quit from a simulation window.
+ */
+void
+onquit(GtkMenuItem *menuitem, gpointer dat)
+{
+
+	bmigrate_free(dat);
+	gtk_main_quit();
+}
+
+/*
+ * Run when we destroy the config screen.
+ */
+void 
+ondestroy(GtkWidget *object, gpointer dat)
+{
+	
+	bmigrate_free(dat);
+	gtk_main_quit();
+}
+
+/*
+ * Run when we press "Quit" on the config screen.
+ */
+void
+on_deactivate(GtkButton *button, gpointer dat)
+{
+
+	bmigrate_free(dat);
+	gtk_main_quit();
+}
 
 int 
 main(int argc, char *argv[])
@@ -1971,12 +1179,24 @@ main(int argc, char *argv[])
 #endif
 	file = NULL;
 	memset(&b, 0, sizeof(struct bmigrate));
+	gtk_init(&argc, &argv);
+
+	/*
+	 * Right now, the only system I have with this older version of
+	 * glibc is Debian (stable?).
+	 * So use the sysconf() in assuming we're handling that.
+	 */
 #if GLIB_CHECK_VERSION(2, 36, 0)
 	b.nprocs = g_get_num_processors();
 #else
 	b.nprocs = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
-	gtk_init(&argc, &argv);
+	/*
+	 * Sanity-check to make sure that the hnode expression evaluator
+	 * is working properly.
+	 * You'll need to actually look at the debugging output to see
+	 * if that's the case, of course.
+	 */
 	hnode_test();
 
 	/*
@@ -2005,28 +1225,27 @@ main(int argc, char *argv[])
 	builder = gtk_builder_new();
 	assert(NULL != builder);
 
-#if GTK_CHECK_VERSION(3, 10, 0)
-	builder = gtk_builder_new_from_file(file);
-	g_free(file);
-#else
+	/*
+	 * This should be gtk_builder_new_from_file(), but we don't
+	 * support that on older versions of GTK, so do it like this.
+	 */
 	if ( ! gtk_builder_add_from_file(builder, file, NULL))
 		return(EXIT_FAILURE);
-#endif
+
 	windows_init(&b, builder);
 	b.status_elapsed = g_timer_new();
 
 	gtk_builder_connect_signals(builder, &b);
 	g_object_unref(G_OBJECT(builder));
-
-	/*
-	 * Start up the window system.
-	 * First, show all windows.
-	 * If we're on the Mac, do a little dance with menus as
-	 * prescribed in the GTK+OSX manual.
-	 */
 	gtk_widget_show_all(GTK_WIDGET(b.wins.config));
 	gtk_widget_hide(GTK_WIDGET(b.wins.error));
+
 #ifdef	MAC_INTEGRATION
+	/*
+	 * Title-bar dance.
+	 * On Mac OS X, remove the Quit menu and put the menu itself as
+	 * the top-most menu bar, shared by all windows.
+	 */
 	theApp = gtkosx_application_get();
 	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
 	gtk_widget_hide(GTK_WIDGET(b.wins.menufile));
@@ -2037,6 +1256,11 @@ main(int argc, char *argv[])
 		G_CALLBACK(onterminate), &b);
 	gtkosx_application_ready(theApp);
 #else
+	/*
+	 * On regular systems, remove the title bar alltogether and add
+	 * each submenu to a "popup" menu that we'll dynamically pop up
+	 * in each window.
+	 */
 	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
 	b.wins.allmenus = GTK_MENU(gtk_menu_new());
 	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
@@ -2053,8 +1277,13 @@ main(int argc, char *argv[])
 		(b.wins.allmenus), GTK_WIDGET(b.wins.menutools));
 	gtk_widget_show_all(GTK_WIDGET(b.wins.allmenus));
 #endif
+	/*
+	 * Have two running timers: once per second, force a refresh of
+	 * the window system.
+	 * Four times per second, update our cold statistics.
+	 */
 	g_timeout_add(1000, (GSourceFunc)on_sim_timer, &b);
-	g_timeout_add(500, (GSourceFunc)on_sim_copyout, &b);
+	g_timeout_add(250, (GSourceFunc)on_sim_copyout, &b);
 	gtk_statusbar_push(b.wins.status, 0, "No simulations.");
 	gtk_main();
 	bmigrate_free(&b);

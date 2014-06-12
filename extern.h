@@ -19,7 +19,8 @@
 
 /*
  * Maximum number of elements in expression parse stack.
- * It's really, really unlikely we'll hit this...
+ * It's really, really unlikely we'll hit this, and because a fixed
+ * stack reduces complexity, let's just use it.
  */
 #define STACKSZ 128
 
@@ -35,17 +36,17 @@ enum 	htype {
 	HNODE_MUL,
 	HNODE_DIV,
 	HNODE_EXP,
-	HNODE_POSITIVE, /* unary operations */
+	HNODE_POSITIVE, /* unary operations... */
 	HNODE_NEGATIVE,
 	HNODE__MAX
 };
 
 /*
- * A node in the ordered expression list.
+ * A node in the postfix-ordered expression list.
  */
 struct 	hnode {
 	enum htype	  type; /* type of operation */
-	double		  real; /* HNODE_NUMBER value */
+	double		  real; /* HNODE_NUMBER, if applicable */
 };
 
 struct	stats {
@@ -217,6 +218,15 @@ struct	sim {
 };
 
 /*
+ * Given a current simulation "_s", compute where a given index "_v"
+ * (out if the simulation's dimensions) lies within the domain.
+ */
+#define	GETS(_s, _v) \
+	((_s)->d.continuum.xmin + \
+	 ((_s)->d.continuum.xmax - (_s)->d.continuum.xmin) * \
+	 (_v) / (double)((_s)->dims))
+
+/*
  * Each thread of a simulation consists of the simulation and the rank
  * of the thread in its threadgroup.
  */
@@ -224,6 +234,96 @@ struct	simthr {
 	struct sim	 *sim;
 	GThread		 *thread;
 	size_t		  rank;
+};
+
+/*
+ * Different views of simulation data.
+ */
+enum	view {
+	VIEW_NONE,
+	VIEW_EXTINCTM,
+	VIEW_EXTINCTMMAXPDF,
+	VIEW_EXTINCTMMAXCDF,
+	VIEW_EXTINCTI,
+	VIEW_DEV, 
+	VIEW_POLY,
+	VIEW_POLYDEV,
+	VIEW_POLYMINCDF,
+	VIEW_POLYMINPDF,
+	VIEW_POLYMINQ,
+	VIEW_MEANMINCDF,
+	VIEW_MEANMINPDF,
+	VIEW_MEANMINQ,
+	VIEW_MEANMINS,
+	VIEW__MAX
+};
+
+/*
+ * These are all widgets that may be or are visible.
+ */
+struct	hwin {
+	GtkWindow	 *config;
+#ifndef	MAC_INTEGRATION
+	GtkMenu		 *allmenus;
+#endif
+	GtkMenuBar	 *menu;
+	GtkMenuItem	 *menuquit;
+	GtkMenuItem	 *menufile;
+	GtkMenuItem	 *menuview;
+	GtkMenuItem	 *menutools;
+	GtkStatusbar	 *status;
+	GtkCheckMenuItem *views[VIEW__MAX];
+	GtkEntry	 *mutantsigma;
+	GtkRadioButton   *mutants[MUTANTS__MAX];
+	GtkMenuItem	 *viewclone;
+	GtkMenuItem	 *viewpause;
+	GtkMenuItem	 *viewunpause;
+	GtkToggleButton	 *weighted;
+	GtkEntry	 *stop;
+	GtkEntry	 *input;
+	GtkEntry	 *payoff;
+	GtkEntry	 *name;
+	GtkEntry	 *xmin;
+	GtkEntry	 *xmax;
+	GtkNotebook	 *inputs;
+	GtkNotebook	 *payoffs;
+	GtkLabel	 *error;
+	GtkEntry	 *func;
+	GtkAdjustment	 *nthreads;
+	GtkAdjustment	 *fitpoly;
+	GtkAdjustment	 *pop;
+	GtkAdjustment	 *islands;
+	GtkEntry	 *totalpop;
+	GtkEntry	 *alpha;
+	GtkEntry	 *delta;
+	GtkEntry	 *migrate;
+	GtkEntry	 *incumbents;
+	GtkLabel	 *curthreads;
+	GtkToggleButton	 *analsingle;
+	GtkToggleButton	 *analmultiple;
+#define	SIZE_COLOURS	  12 
+	GdkRGBA		  colours[SIZE_COLOURS];
+};
+
+/*
+ * This describes a window.
+ * There's very little in here right now, which is fine.
+ */
+struct	curwin {
+	enum view	  view; /* what view are we seeing? */
+};
+
+/*
+ * Main structure governing general state of the system.
+ */
+struct	bmigrate {
+	struct hwin	  wins; /* GUI components */
+	size_t		  nextcolour; /* next colour to assign */
+	GList		 *sims; /* active simulations */
+	GTimer		 *status_elapsed; /* elapsed since update */
+	uint64_t	  lastmatches; /* last seen no. matches */
+	GtkWidget	 *current; /* the current window or NULL */
+	size_t		  nprocs; /* total number processors */
 };
 
 __BEGIN_DECLS
@@ -234,21 +334,21 @@ struct hnode	**hnode_copy(struct hnode **p);
 double		  hnode_exec(const struct hnode *const *p,
 			double x, double X, size_t n);
 void		  hnode_test(void);
-#if 0
-void		  hnode_print(struct hnode **p);
-#endif
-void		*simulation(void *arg);
 
-struct stats	*stats_alloc0(size_t sz);
-void		 stats_push(struct stats *p, double x);
-size_t		 stats_samples(const struct stats *p);
-double		 stats_mean(const struct stats *p);
-double		 stats_variance(const struct stats *p);
-double		 stats_stddev(const struct stats *p);
-double		 stats_skewness(const struct stats *p);
-double		 stats_kurtosis(const struct stats *p);
-double		 stats_extinctm(const struct stats *p);
-double		 stats_extincti(const struct stats *p);
+void		  draw(GtkWidget *w, cairo_t *cr,
+			struct bmigrate *b);
+void		 *simulation(void *arg);
+
+struct stats	 *stats_alloc0(size_t sz);
+void		  stats_push(struct stats *p, double x);
+size_t		  stats_samples(const struct stats *p);
+double		  stats_mean(const struct stats *p);
+double		  stats_variance(const struct stats *p);
+double		  stats_stddev(const struct stats *p);
+double		  stats_skewness(const struct stats *p);
+double		  stats_kurtosis(const struct stats *p);
+double		  stats_extinctm(const struct stats *p);
+double		  stats_extincti(const struct stats *p);
 
 __END_DECLS
 
