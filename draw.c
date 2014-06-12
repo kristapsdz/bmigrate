@@ -135,6 +135,7 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	}
 
 	switch (cur->view) {
+	case (VIEW_POLYMINS):
 	case (VIEW_MEANMINS):
 		break;
 	default:
@@ -249,9 +250,13 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
+	case (VIEW_POLYMINS):
+		v = s->cold.fitminsmean + s->cold.fitminsstddev;
+		if (v > *maxy)
+			*maxy = v;
+		break;
 	case (VIEW_MEANMINS):
-		v = s->cold.meanminsmean +
-			s->cold.meanminsstddev;
+		v = s->cold.meanminsmean + s->cold.meanminsstddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
@@ -377,6 +382,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_POLYMINCDF):
 		case (VIEW_POLYMINPDF):
 		case (VIEW_POLYMINQ):
+		case (VIEW_POLYMINS):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
 				"runs %zu", sim->name,
@@ -646,6 +652,24 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_set_dash(cr, dash, 0, 0);
 			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
+			break;
+		case (VIEW_POLYMINS):
+			v = width * (simnum + 1) / (double)(simmax + 1);
+			cairo_move_to(cr, v, GETY
+				(sim->cold.fitminsmean -
+				 sim->cold.fitminsstddev));
+			cairo_line_to(cr, v, GETY
+				(sim->cold.fitminsmean +
+				 sim->cold.fitminsstddev));
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			cairo_new_path(cr);
+			cairo_arc(cr, v, GETY(sim->cold.fitminsmean),
+				4.0, 0.0, 2.0 * M_PI);
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke_preserve(cr);
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_fill(cr);
 			break;
 		case (VIEW_MEANMINS):
 			v = width * (simnum + 1) / (double)(simmax + 1);
