@@ -210,11 +210,7 @@
 				</listitem>
 			</orderedlist>
 			<para>
-				When a simulation run terminates, the fraction of mutants remaining is accumulated and the sample mean, standard
-				deviation, kurtosis, skewness, and variance are recorded.
-				The statistical algorithm is from Knuth/Welford.
-			</para>
-			<para>
+				When a simulation run terminates, the fraction of mutants remaining is recorded.
 				After accumulating statistics, the run is re-started in its initial configuration with mutant and incumbent
 				strategy re-assigned.
 			</para>
@@ -280,8 +276,7 @@
 			You'll need a UNIX machine to use <command>bmigrate</command>.
 			The more powerful your machine, the better:
 			<command>bmigrate</command> takes advantage of as many processors as possible.
-			It has been run on up to 64 cores.
-			To date, the software has been compiled and run on <ulink url="https://www.apple.com/osx/">Mac OS X</ulink> Snow
+			It has been compiled and run on <ulink url="https://www.apple.com/osx/">Mac OS X</ulink> Snow
 			Leopard (10.6) and later, GNU/Linux (<ulink url="https://www.debian.org/">Debian</ulink>), and <ulink
 				url="http://www.openbsd.org">OpenBSD</ulink>.
 			In theory, the software may be ported to Microsoft Windows as well, but it's unlikely to happen without external
@@ -337,14 +332,14 @@
 % sudo make install
 			</screen>
 			<para>
-				If you're on a BSD system, you may need to use <command>gmake</command>, if <command>make</command> defaults to
-				the BSD implemenation of the same utility.
+				If you're on a BSD system, you may need to invoke <command>gmake</command> if <command>make</command> defaults
+				to the BSD implemenation of the same utility.
 			</para>
 			<para>
 				By default, this will install into <filename>/usr/local</filename>.
 				To specify an alternative root, pass the <envar>PREFIX</envar> environment variable to the install command.
-				Assuming that the <envar>PREFIX</envar><filename>/bin</filename> is in your <envar>PATH</envar>, you can then
-				run the system by invoking <command>bmigrate</command>.
+				Assuming that <filename>$PREFIX/bin</filename> is in your <envar>PATH</envar>, you can then run the system by
+				invoking <command>bmigrate</command>.
 			</para>
 		</sect2>
 	</sect1>
@@ -358,43 +353,73 @@
 		<sect2>
 			<title>Data-Flow</title>
 			<para>
+				<firstterm>Data-flow</firstterm> defines how data moves from simulations to graphed output.
 				Having data analysed or graphed directly from simulation data would significantly slow down data collection.
-				To accomodate for this, data is copied in several stages, minimising simulation lock contention and user
-				interfacing stalling.
+				To minimise simulation and interface stalling, data is copied and translated in several stages.
+			</para>
+			<para>
+				Data is periodically read by the main graphical thread to fill in the graphical displays.
+				It is written by the simulation threads.
 			</para>
 			<variablelist>
 				<varlistentry>
 					<term>Hot Storage</term>
 					<listitem>
-						Statistics (e.g., on-line mutant fractions mean per incumbent) written to directly by simulation
-						threads.
+						<para>
+							Statistics (e.g., on-line mutant fractions mean per incumbent) are written directly to
+							hot storage by simulation threads.
+							<quote>Hot</quote> refers to the high frequency of data access between the simulation
+							threads.
+						</para>
 					</listitem>
 				</varlistentry>
 				<varlistentry>
-					<term>Hot Storage (LAB)</term>
+					<term>Hot Storage LAB</term>
 					<listitem>
-						When a simulation thread detects the copyout flag set by the main graphical thread, it copies
-						hot storage into a hot storage look-aside buffer (LAB).
+						<para>
+							When the main graphical thread wishes to read fresh data for graphical display, it sets
+							a copy flag to copy-out.
+							The first simulation thread to see that this flag has been set to copy-out updates the
+							flag to copy-pending and copies the hot storage into a look-aside bufffer (LAB).
+							Hot storage may then continue to be modified by the simulation threads.
+						</para>
 					</listitem>
 				</varlistentry>
 				<varlistentry>
 					<term>Warm Storage</term>
 					<listitem>
-						When the main graphical thread requests data copyout by setting a flag with the simulation, a
-						simulation thread that populated its LAB copies from the LAB into warm storage and unsets the
-						copyout flag.
+						<para>
+							After copying data from hot storage into a look-aside buffer, the thread that updated
+							the copy flag copies the look-aside buffer into warm storage.
+							<quote>Warm</quote> refers to the low frequency of data access between the main
+							graphical thread and the copying simulation thread.
+							During the copy, the thread also performs more expensive statistical operations (such as
+							minimum mutant fraction, or fitting of data) as it copies the data.
+							The thread then clears the copy flag.
+						</para>
 					</listitem>
 				</varlistentry>
 				<varlistentry>
 					<term>Cold Storage</term>
 					<listitem>
-						When the main graphical thread sees its data copyout flag has been unset, it copies from warm
-						storage into cold storage.
-						Cold storage is used for all graphing and analysis, as it does not change outside of the main
-						graphical thread.
+						<para>
+							When the main graphical thread detects that the copy flag has been cleared, it copies
+							from warm storage into cold storage.
+							<quote>Cold</quote> means that the data is not changed by anybody but the controlling
+							(graphical main) thread.
+							The main graphical thread also performs some statistical analysis during the copy.
+						</para>
 					</listitem>
 				</varlistentry>
 			</variablelist>
+			<para>
+				This sequence ensures a minimum degree of contention between threads.  The initial copy to the look-aside buffer
+				is a simple linear copy, and allows hot storage to continue being modified after copy.
+				It then computes more time-consuming statistics without blocking the other threads, nor causing the graphical
+				interface to stall.
+				The main graphical thread needs only to wait for the copy flag to be unset before copying the data into its own
+				thread of operation.
+			</para>
 		</sect2>
 		<sect2>
 			<title>Parallelism</title>
@@ -431,12 +456,35 @@
 		<sect2>
 			<title>Randomness</title>
 			<para>
-				By default, <command>bmigrate</command> uses the MT19937 generator of Makoto Matsumoto and Takuji Nishimura.
+				By default, <command>bmigrate</command> uses the MT19937 generator of <citation>matsumoto98</citation>.
 				This ensures good-quality randomness with a very high period.
 			</para>
 			<para>
 				Each simulation thread is allocated its own randomn number generator.
-				Each generator is assigned seed from the ARC4 random number source.
+				Each generator is assigned seed from <function>arc4random</function>, which is implemented differently across
+				operating systems.
+			</para>
+		</sect2>
+		<sect2>
+			<title>Precision</title>
+			<para>
+				All floating-point operations of <command>bmigrate</command> use double-precision (type <type>double</type>)
+				floating point numbers.
+				The statistical algorithms used (see links to algorithm descriptions) provide robust numerical stability.
+			</para>
+			<para>
+				Integral operations (counters) use unsigned 64-bit integers (type <type>uint64_t</type>).
+				No checking is done for additive or multiplicative overflow as a simulation with more than
+				<inlineequation>
+					<alt>2^64</alt>
+					<math xmlns="http://www.w3.org/1998/Math/MathML">
+						<msup>
+							<mn>2</mn>
+							<mn>64</mn>
+						</msup>
+					</math>
+				</inlineequation>
+				runs is pretty unlikely.
 			</para>
 		</sect2>
 	</sect1>
@@ -729,7 +777,7 @@
 					<surname>Knuth</surname>
 				</author>
 			</authorgroup>
-			<copyright><year>1998</year></copyright>
+			<pubdate>1998</pubdate>
 			<publisher>
 				<publishername>Addison-Wesley Publishing Company</publishername>
 				<address><city>Boston</city></address>
@@ -746,9 +794,9 @@
 				<firstname>B. P.</firstname>
 				<surname>Welford</surname>
 			</author>
-			<copyright><year>1962</year></copyright>
+			<pubdate>1962</pubdate>
 			<publishername>Technometrics</publishername>
-			<issuenum>Issue 3</issuenum>
+			<issuenum>Number 3</issuenum>
 			<volumenum>Volume 4</volumenum>
 			<pagenums>419-420</pagenums>
 		</biblioentry>
@@ -758,11 +806,30 @@
 				<firstname>R. M.</firstname>
 				<surname>Barnett</surname>
 			</editor>
-			<copyright><year>1996</year></copyright>
+			<pubdate>1996</pubdate>
 			<publisher>
 				<publishername>Particle Data Group (PDG)</publishername>
 			</publisher>
 			<title>The Review of Particle Physics D.54</title>
+		</biblioentry>
+		<biblioentry>
+			<abbrev>matsumoto98</abbrev>
+			<authorgroup>
+				<author>
+					<firstname>Makato</firstname>
+					<surname>Matsumoto</surname>
+				</author>
+				<author>
+					<firstname>Takuji</firstname>
+					<surname>Nishimura</surname>
+				</author>
+			</authorgroup>
+			<title>Mersenne Twister: A 623-Dimensionally Equidistributed Uniform Pseudorandom Number Generator</title>
+			<publishername>ACM Transactions on Modeling and Computer Simulation</publishername>
+			<volumenum>Volume 8</volumenum>
+			<issuenum>Number 1</issuenum>
+			<pubdate>January 1998</pubdate>
+			<pagenums>3-30</pagenums>
 		</biblioentry>
 	</bibliography>
 </article>
