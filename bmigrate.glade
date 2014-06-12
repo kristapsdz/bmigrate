@@ -132,6 +132,26 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkRadioMenuItem" id="menuitem25">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Mutant Extinctions</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem26">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Incumbent Extinctions</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkSeparatorMenuItem" id="menuitem16">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -158,22 +178,6 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkRadioMenuItem" id="menuitem14">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Fitted Polynomial Minimum History</property>
-                        <property name="group">menuitem8</property>
-                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="menuitem23">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                      </object>
-                    </child>
-                    <child>
                       <object class="GtkRadioMenuItem" id="menuitem10">
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
@@ -189,6 +193,22 @@
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Sample Mean Minimum (CDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem23">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem14">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Fitted Polynomial Minimum History</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -210,21 +230,21 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkRadioMenuItem" id="menuitem22">
+                      <object class="GtkRadioMenuItem" id="menuitem31">
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean Minima</property>
+                        <property name="label" translatable="yes">Fitted Polynomial Minimum Mean</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
                     <child>
-                      <object class="GtkRadioMenuItem" id="menuitem31">
+                      <object class="GtkRadioMenuItem" id="menuitem22">
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Fitted Polynomial Minima</property>
+                        <property name="label" translatable="yes">Sample Mean Minimum Mean</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -233,16 +253,6 @@
                       <object class="GtkSeparatorMenuItem" id="menuitem24">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="menuitem25">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Mutant Extinctions</property>
-                        <property name="group">menuitem8</property>
-                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -266,16 +276,6 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkRadioMenuItem" id="menuitem26">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Incumbent Extinctions</property>
-                        <property name="group">menuitem8</property>
-                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
                       <object class="GtkRadioMenuItem" id="menuitem27">
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
@@ -291,6 +291,22 @@
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Incumbent Extinctions Minimum (CDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem32">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem33">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Mutant Extinctions Minimum Mean</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>

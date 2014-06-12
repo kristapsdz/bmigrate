@@ -108,6 +108,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem22"));
 	b->wins.views[VIEW_POLYMINS] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem31"));
+	b->wins.views[VIEW_EXTMMAXS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem33"));
 	b->wins.views[VIEW_POLYMINQ] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem14"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
