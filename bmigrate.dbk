@@ -635,7 +635,11 @@
 				<graphic fileref="screen-win2.png" />
 			</screenshot>
 			<para>
-				The standard deviation is computed from the variance accumulated online using the Knuth/Welford algorithm.
+				The standard deviation is computed from the unbiased sample variance algorithm of <citation>knuth98</citation>.
+				It shouldn't be confused with the population standard deviation, which is computed over all
+				<mathphrase>t</mathphrase> samples (simulation runs).
+				This is an unbiased estimate computed over <mathphrase>t-1</mathphrase> samples.  See
+				<citation>knuth98</citation> and <citation>welford62</citation> for a discussion.
 			</para>
 		</sect2>
 		<sect2 id="samplemeanfitted">
@@ -645,6 +649,8 @@
 					endterm="configuration.title" />, this will show the <link linkend="samplemean"
 					endterm="samplemean.title" /> along with that polynomial.
 				Otherwise it will only show the <link linkend="samplemean" endterm="samplemean.title" />.
+				If the weighted option was selected during <link linkend="configuration" endterm="configuration.title" />, the
+				incumbents' standard deviation will be used as a weight.
 			</para>
 			<screenshot>
 				<graphic fileref="screen-win3.png" />
@@ -654,6 +660,10 @@
 					endterm="samplemeansigma.title" />, the data for this graph is computed roughly four times per second
 				instead of with every run.
 				This prevents excessive slow-down.
+				The implementations are <function>gsl_multifit_wlinear</function> and <function>gsl_multifit_linear</function>
+				for the weighted and non-weighted fitting algorithm, respectively, of the 
+				<ulink url="https://www.gnu.org/software/gsl/">GNU Scientific Library</ulink>.
+				Both are described in the Statistics chapter of <citation>barnett96</citation>.
 			</para>
 		</sect2>
 		<sect2>
@@ -668,5 +678,91 @@
 				<graphic fileref="screen-win4.png" />
 			</screenshot>
 		</sect2>
+		<sect2>
+			<title>Fitted Polynomial (PDF)</title>
+			<para>
+				Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" /> into an
+				empirical probability distribution.
+				The mean, mode, and standard deviation (population, not sample) are also displayed.
+			</para>
+			<screenshot>
+				<graphic fileref="screen-win5.png" />
+			</screenshot>
+			<para>
+				The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are ignored.
+				Minima are accumulated four times per second.
+			</para>
+		</sect2>
+		<sect2>
+			<title>Fitted Polynomial (CDF)</title>
+			<para>
+				Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" /> into an
+				empirical cumulative distribution.
+				The mean, mode, and standard deviation (population, not sample) are also displayed.
+			</para>
+			<screenshot>
+				<graphic fileref="screen-win6.png" />
+			</screenshot>
+			<para>
+				The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are ignored.
+				Minima are accumulated four times per second.
+			</para>
+		</sect2>
+		<sect2>
+			<title>Fitted Polynomial Minimum History</title>
+			<para>
+				Accumulate the last 256 minimum values of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />.
+				The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
+			</para>
+			<screenshot>
+				<graphic fileref="screen-win7.png" />
+			</screenshot>
+		</sect2>
 	</sect1>
+	<bibliography>
+		<title>Bibliography</title>
+		<biblioentry>
+			<abbrev>knuth98</abbrev>
+			<authorgroup>
+				<author>
+					<firstname>Donald E.</firstname>
+					<surname>Knuth</surname>
+				</author>
+			</authorgroup>
+			<copyright><year>1998</year></copyright>
+			<publisher>
+				<publishername>Addison-Wesley Publishing Company</publishername>
+				<address><city>Boston</city></address>
+			</publisher>
+			<title>The Art of Computer Programming</title>
+			<volumenum>Volume 2</volumenum>
+			<subtitle>Seminumerical Algorithms</subtitle>
+			<pagenums>232</pagenums>
+			<edition>3rd edition</edition>
+		</biblioentry>
+		<biblioentry>
+			<abbrev>welford62</abbrev>
+			<author>
+				<firstname>B. P.</firstname>
+				<surname>Welford</surname>
+			</author>
+			<copyright><year>1962</year></copyright>
+			<publishername>Technometrics</publishername>
+			<issuenum>Issue 3</issuenum>
+			<volumenum>Volume 4</volumenum>
+			<pagenums>419-420</pagenums>
+		</biblioentry>
+		<biblioentry>
+			<abbrev>barnett96</abbrev>
+			<editor>
+				<firstname>R. M.</firstname>
+				<surname>Barnett</surname>
+			</editor>
+			<copyright><year>1996</year></copyright>
+			<publisher>
+				<publishername>Particle Data Group (PDG)</publishername>
+			</publisher>
+			<title>The Review of Particle Physics D.54</title>
+		</biblioentry>
+	</bibliography>
 </article>

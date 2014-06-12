@@ -368,10 +368,11 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_POLYMINPDF):
 		case (VIEW_POLYMINQ):
 			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: mode %g, mean %g, runs %zu",
-				sim->name,
+				"%s: mode %g, mean %g (+-%g), "
+				"runs %zu", sim->name,
 				sim->cold.fitminsmode,
 				sim->cold.fitminsmean, 
+				sim->cold.fitminsstddev, 
 				sim->cold.truns);
 			break;
 		case (VIEW_EXTINCTMMAXCDF):

@@ -5,7 +5,13 @@ PREFIX = /usr/local
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 GTK_OBJS = bmigrate.o parser.o stats.o simulation.o draw.o
-IMAGES = screen-config.png screen-win1.png screen-win2.png screen-win3.png screen-win4.png
+IMAGES = screen-config.png \
+	 screen-win1.png \
+	 screen-win2.png \
+	 screen-win3.png \
+	 screen-win4.png \
+	 screen-win5.png \
+	 screen-win6.png
 SHARE = $(IMAGES) bmigrate.css bmigrate.glade bmigrate.html
 ifeq ($(shell uname),Darwin)
 GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk-mac-integration)
