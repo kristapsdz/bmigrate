@@ -117,6 +117,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem5"));
+	b->wins.menusave = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem34"));
 	b->wins.input = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry3"));
 	b->wins.payoff = GTK_ENTRY
@@ -656,6 +658,8 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 			(GTK_WIDGET(b->wins.viewpause), FALSE);
 		gtk_widget_set_sensitive
 			(GTK_WIDGET(b->wins.viewunpause), FALSE);
+		gtk_widget_set_sensitive
+			(GTK_WIDGET(b->wins.menusave), FALSE);
 		return(TRUE);
 	}
 
@@ -674,6 +678,8 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 		(GTK_WIDGET(b->wins.viewpause), TRUE);
 	gtk_widget_set_sensitive
 		(GTK_WIDGET(b->wins.viewunpause), TRUE);
+	gtk_widget_set_sensitive
+		(GTK_WIDGET(b->wins.menusave), TRUE);
 	return(TRUE);
 }
 
@@ -1147,6 +1153,45 @@ on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
 }
 
 /*
+ * Run when we quit from a simulation window.
+ */
+void
+onsave(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	GtkWidget	*dialog;
+	gint		 res;
+	GtkFileChooser	*chooser;
+	FILE		*f;
+	char 		*filename;
+
+	assert(NULL != b->current);
+
+	dialog = gtk_file_chooser_dialog_new
+		("Open File", GTK_WINDOW(b->current),
+		 GTK_FILE_CHOOSER_ACTION_SAVE,
+		 "_Cancel", GTK_RESPONSE_CANCEL,
+		 "_Save", GTK_RESPONSE_ACCEPT, NULL);
+
+	chooser = GTK_FILE_CHOOSER(dialog);
+	gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
+	gtk_file_chooser_set_current_name(chooser, "bmigrate.dat");
+
+	res = gtk_dialog_run(GTK_DIALOG(dialog));
+	if (res == GTK_RESPONSE_ACCEPT) {
+		filename = gtk_file_chooser_get_filename(chooser);
+		if (NULL != (f = fopen(filename, "w+"))) {
+			save(f, b);
+			fclose(f);
+			g_debug("Saved: %s", filename);
+		}
+		g_free(filename);
+	}
+
+	gtk_widget_destroy(dialog);
+}
+
+/*
  * Like onquit() but from the Mac quit menu.
  */
 #ifdef MAC_INTEGRATION
@@ -1274,7 +1319,7 @@ main(int argc, char *argv[])
 	 */
 	theApp = gtkosx_application_get();
 	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
-	gtk_widget_hide(GTK_WIDGET(b.wins.menufile));
+	gtk_widget_hide(GTK_WIDGET(b.wins.menuquit));
 	gtkosx_application_set_menu_bar
 		(theApp, GTK_MENU_SHELL(b.wins.menu));
 	gtkosx_application_sync_menubar(theApp);

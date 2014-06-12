@@ -281,6 +281,7 @@ struct	hwin {
 #endif
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
+	GtkMenuItem	 *menusave;
 	GtkMenuItem	 *menufile;
 	GtkMenuItem	 *menuview;
 	GtkMenuItem	 *menutools;
@@ -350,6 +351,7 @@ void		  hnode_test(void);
 
 void		  draw(GtkWidget *w, cairo_t *cr,
 			struct bmigrate *b);
+void		  save(FILE *f, struct bmigrate *b);
 void		 *simulation(void *arg);
 
 struct stats	 *stats_alloc0(size_t sz);
