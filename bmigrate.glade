@@ -208,6 +208,46 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkRadioMenuItem" id="menuitem28">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Mutant Extinctions Maximum (PDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem29">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Mutant Extinctions Maximum (CDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem27">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Incumbent Extinctions Minimum (PDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem30">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Incumbent Extinctions Minimum (CDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkSeparatorMenuItem" id="menuitem23">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -260,63 +300,21 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkSeparatorMenuItem" id="menuitem24">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="menuitem28">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Mutant Extinctions Maximum (PDF)</property>
-                        <property name="group">menuitem8</property>
-                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="menuitem29">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Mutant Extinctions Maximum (CDF)</property>
-                        <property name="group">menuitem8</property>
-                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="menuitem27">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Incumbent Extinctions Minimum (PDF)</property>
-                        <property name="group">menuitem8</property>
-                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkRadioMenuItem" id="menuitem30">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Incumbent Extinctions Minimum (CDF)</property>
-                        <property name="group">menuitem8</property>
-                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="menuitem32">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                      </object>
-                    </child>
-                    <child>
                       <object class="GtkRadioMenuItem" id="menuitem33">
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Mutant Extinctions Minimum Mean</property>
+                        <property name="label" translatable="yes">Mutant Extinctions Maximum Mean</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem35">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Incumbent Extinctions Minimum Mean</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>

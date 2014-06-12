@@ -140,6 +140,7 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	case (VIEW_POLYMINS):
 	case (VIEW_MEANMINS):
 	case (VIEW_EXTMMAXS):
+	case (VIEW_EXTIMINS):
 		break;
 	default:
 		/* Right bottom. */
@@ -207,7 +208,7 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
-	case (VIEW_EXTINCTI):
+	case (VIEW_EXTI):
 		for (i = 0; i < s->dims; i++) {
 			v = stats_extincti(&s->cold.stats[i]);
 			if (v > *maxy)
@@ -265,6 +266,11 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		break;
 	case (VIEW_EXTMMAXS):
 		v = s->cold.extmmaxsmean + s->cold.extmmaxsstddev;
+		if (v > *maxy)
+			*maxy = v;
+		break;
+	case (VIEW_EXTIMINS):
+		v = s->cold.extiminsmean + s->cold.extiminsstddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
@@ -401,6 +407,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			break;
 		case (VIEW_EXTIMINCDF):
 		case (VIEW_EXTIMINPDF):
+		case (VIEW_EXTIMINS):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
 				"runs %" PRIu64, sim->name,
@@ -680,6 +687,24 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_fill(cr);
 			break;
+		case (VIEW_EXTIMINS):
+			v = width * (simnum + 1) / (double)(simmax + 1);
+			cairo_move_to(cr, v, GETY
+				(sim->cold.extiminsmean -
+				 sim->cold.extiminsstddev));
+			cairo_line_to(cr, v, GETY
+				(sim->cold.extiminsmean +
+				 sim->cold.extiminsstddev));
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			cairo_new_path(cr);
+			cairo_arc(cr, v, GETY(sim->cold.extiminsmean),
+				4.0, 0.0, 2.0 * M_PI);
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke_preserve(cr);
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_fill(cr);
+			break;
 		case (VIEW_EXTMMAXS):
 			v = width * (simnum + 1) / (double)(simmax + 1);
 			cairo_move_to(cr, v, GETY
@@ -744,7 +769,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_set_source_rgba(cr, GETC(0.75));
 			cairo_stroke(cr);
 			break;
-		case (VIEW_EXTINCTI):
+		case (VIEW_EXTI):
 			for (j = 1; j < sim->dims; j++) {
 				v = stats_extincti(&sim->cold.stats[j - 1]);
 				cairo_move_to(cr, GETX(j-1), GETY(v));

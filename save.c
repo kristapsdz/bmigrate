@@ -155,6 +155,19 @@ save(FILE *f, struct bmigrate *b)
 			    sim->cold.fitminsstddev;
 			fprintf(f, "%g\n", v);
 			break;
+		case (VIEW_EXTIMINS):
+			fprintf(f, "%zu ", simnum + 1);
+			v = sim->cold.extiminsmean;
+			fprintf(f, "%g ", v);
+			v = sim->cold.extiminsmean - 
+			    sim->cold.extiminsstddev;
+			if (v < 0.0)
+				v = 0.0;
+			fprintf(f, "%g ", v);
+			v = sim->cold.extiminsmean +
+			    sim->cold.extiminsstddev;
+			fprintf(f, "%g\n", v);
+			break;
 		case (VIEW_EXTMMAXS):
 			fprintf(f, "%zu ", simnum + 1);
 			v = sim->cold.extmmaxsmean;
@@ -194,7 +207,7 @@ save(FILE *f, struct bmigrate *b)
 				fprintf(f, "%g\n", v);
 			}
 			break;
-		case (VIEW_EXTINCTI):
+		case (VIEW_EXTI):
 			for (j = 0; j < sim->dims; j++) {
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);

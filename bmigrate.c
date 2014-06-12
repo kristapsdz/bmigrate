@@ -83,12 +83,14 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem28"));
 	b->wins.views[VIEW_EXTMMAXCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem29"));
-	b->wins.views[VIEW_EXTINCTI] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_EXTI] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem26"));
 	b->wins.views[VIEW_EXTIMINPDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem27"));
 	b->wins.views[VIEW_EXTIMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem30"));
+	b->wins.views[VIEW_EXTIMINS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem35"));
 	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem6"));
 	b->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
