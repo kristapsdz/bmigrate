@@ -15,6 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <assert.h>
+#include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
 
@@ -391,7 +392,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_POLYMINS):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
-				"runs %zu", sim->name,
+				"runs %" PRIu64, sim->name,
 				sim->cold.fitminsmode,
 				sim->cold.fitminsmean, 
 				sim->cold.fitminsstddev, 
@@ -401,7 +402,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_EXTIMINPDF):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
-				"runs %zu", sim->name,
+				"runs %" PRIu64, sim->name,
 				sim->cold.extiminsmode,
 				sim->cold.extiminsmean, 
 				sim->cold.extiminsstddev, 
@@ -412,7 +413,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_EXTMMAXS):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
-				"runs %zu", sim->name,
+				"runs %" PRIu64, sim->name,
 				sim->cold.extmmaxsmode,
 				sim->cold.extmmaxsmean, 
 				sim->cold.extmmaxsstddev, 
@@ -424,7 +425,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_MEANMINS):
 			(void)g_snprintf(buf, sizeof(buf), 
 				"%s: mode %g, mean %g (+-%g), "
-				"runs %zu", sim->name,
+				"runs %" PRIu64, sim->name,
 				sim->cold.meanminsmode,
 				sim->cold.meanminsmean, 
 				sim->cold.meanminsstddev, 
@@ -432,8 +433,8 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			break;
 		default:
 			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: runs %zu", sim->name,
-				sim->cold.truns);
+				"%s: runs %" PRIu64, 
+				sim->name, sim->cold.truns);
 			break;
 		}
 		cairo_show_text(cr, buf);

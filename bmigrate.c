@@ -413,6 +413,7 @@ on_sim_copyout(gpointer dat)
 		sim->cold.extmmax = sim->warm.extmmax;
 		sim->cold.extimin = sim->warm.extimin;
 		sim->cold.truns = sim->warm.truns;
+		sim->cold.tgens = sim->warm.tgens;
 		/*
 		 * Now we compute data that's managed by this function
 		 * and thread alone (no need for locking).
@@ -487,7 +488,7 @@ on_sim_timer(gpointer dat)
 	nprocs = runs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = (struct sim *)list->data;
-		runs += sim->cold.truns * sim->stop;
+		runs += sim->cold.tgens;
 		/*
 		 * If "terminate" is set, then the thread is (or already
 		 * did finish) exiting, so wait for it.

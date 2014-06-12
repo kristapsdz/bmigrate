@@ -59,33 +59,36 @@ fitpoly(const double *fits, size_t poly, double x)
  * simulation "hot" lock and the "warm" lock as well.
  */
 static void
-snapshot(struct simwork *work, struct sim *sim)
+snapshot(struct simwork *work, const struct sim *sim,
+	struct simwarm *warm, uint64_t truns, uint64_t tgens)
 {
 	double	 min, v, chisq, x;
 	size_t	 i, j, k;
 
-	memcpy(sim->warm.stats, sim->hot.statslsb,
+	memcpy(warm->stats, sim->hot.statslsb, 
 		sim->dims * sizeof(struct stats));
+	warm->truns = truns;
+	warm->tgens = tgens;
 
 	/* Compute the empirical minimum. */
 	for (min = FLT_MAX, i = 0; i < sim->dims; i++)
-		if (stats_mean(&sim->warm.stats[i]) < min) {
-			min = stats_mean(&sim->warm.stats[i]);
-			sim->warm.meanmin = i;
+		if (stats_mean(&warm->stats[i]) < min) {
+			min = stats_mean(&warm->stats[i]);
+			warm->meanmin = i;
 		}
 
 	/* Find the extinct mutant maximum. */
 	for (min = -FLT_MAX, i = 0; i < sim->dims; i++)
-		if (stats_extinctm(&sim->warm.stats[i]) > min) {
-			min = stats_extinctm(&sim->warm.stats[i]);
-			sim->warm.extmmax = i;
+		if (stats_extinctm(&warm->stats[i]) > min) {
+			min = stats_extinctm(&warm->stats[i]);
+			warm->extmmax = i;
 		}
 
 	/* Find the extinct incumbent minimum. */
 	for (min = FLT_MAX, i = 0; i < sim->dims; i++)
-		if (stats_extincti(&sim->warm.stats[i]) < min) {
-			min = stats_extincti(&sim->warm.stats[i]);
-			sim->warm.extimin = i;
+		if (stats_extincti(&warm->stats[i]) < min) {
+			min = stats_extincti(&warm->stats[i]);
+			warm->extimin = i;
 		}
 
 	/*
@@ -95,7 +98,7 @@ snapshot(struct simwork *work, struct sim *sim)
 	if (sim->fitpoly)
 		for (i = 0; i < sim->dims; i++)
 			gsl_vector_set(work->y, i,
-				 stats_mean(&sim->warm.stats[i]));
+				 stats_mean(&warm->stats[i]));
 
 	/*
 	 * If we're going to run a weighted polynomial multifit, then
@@ -104,9 +107,7 @@ snapshot(struct simwork *work, struct sim *sim)
 	if (sim->fitpoly && sim->weighted)
 		for (i = 0; i < sim->dims; i++) 
 			gsl_vector_set(work->w, i,
-				 stats_stddev(&sim->warm.stats[i]));
-
-	sim->warm.truns = sim->hot.truns;
+				 stats_stddev(&warm->stats[i]));
 
 	/*
 	 * If we're not fitting to a polynomial, simply notify that
@@ -150,18 +151,18 @@ snapshot(struct simwork *work, struct sim *sim)
 	 * minimum value).
 	 */
 	for (i = 0; i < sim->fitpoly + 1; i++)
-		sim->warm.coeffs[i] = gsl_vector_get(work->c, i);
+		warm->coeffs[i] = gsl_vector_get(work->c, i);
 	min = FLT_MAX;
 	for (i = 0; i < sim->dims; i++) {
 		x = sim->d.continuum.xmin + 
 			(sim->d.continuum.xmax -
 			 sim->d.continuum.xmin) *
 			i / (double)sim->dims;
-		sim->warm.fits[i] = fitpoly
-			(sim->warm.coeffs, sim->fitpoly + 1, x);
-		if (sim->warm.fits[i] < min) {
-			sim->warm.fitmin = i;
-			min = sim->warm.fits[i];
+		warm->fits[i] = fitpoly
+			(warm->coeffs, sim->fitpoly + 1, x);
+		if (warm->fits[i] < min) {
+			warm->fitmin = i;
+			min = warm->fits[i];
 		}
 	}
 }
@@ -175,13 +176,17 @@ snapshot(struct simwork *work, struct sim *sim)
 static int
 on_sim_next(struct simwork *work, struct sim *sim, 
 	const gsl_rng *rng, double *mutantp, 
-	double *incumbentp, size_t *incumbentidx, double *vp)
+	double *incumbentp, size_t *incumbentidx, double *vp,
+	size_t gen)
 {
 	int		 fit = 0;
 	size_t		 mutant;
+	uint64_t	 truns, tgens;
 
 	if (sim->terminate)
 		return(0);
+
+	truns = tgens = 0; /* Silence compiler. */
 
 	assert(*incumbentidx < sim->dims);
 	g_mutex_lock(&sim->hot.mux);
@@ -193,6 +198,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	 */
 	if (NULL != vp) {
 		stats_push(&sim->hot.stats[*incumbentidx], *vp);
+		sim->hot.tgens += gen;
 		sim->hot.truns++;
 	}
 
@@ -214,6 +220,8 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	if (1 == sim->hot.copyout) {
 		memcpy(sim->hot.statslsb, sim->hot.stats,
 			sim->dims * sizeof(struct stats));
+		truns = sim->hot.truns;
+		tgens = sim->hot.tgens;
 		sim->hot.copyout = fit = 2;
 	} 
 
@@ -264,7 +272,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	 * When we're finished, lower the copyout semaphor.
 	 */
 	if (fit) {
-		snapshot(work, sim);
+		snapshot(work, sim, &sim->warm, truns, tgens);
 		g_mutex_lock(&sim->hot.mux);
 		assert(2 == sim->hot.copyout);
 		sim->hot.copyout = 0;
@@ -344,6 +352,7 @@ simulation(void *arg)
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 	vp = NULL;
 	incumbentidx = 0;
+	t = 0;
 
 again:
 	/* 
@@ -351,7 +360,7 @@ again:
 	 * We also pass in our last result for processing.
 	 */
 	if ( ! on_sim_next(&work, sim, rng, 
-		&mutant, &incumbent, &incumbentidx, vp)) {
+		&mutant, &incumbent, &incumbentidx, vp, t)) {
 		/*
 		 * Upon termination, free up all of the memory
 		 * associated with our simulation.

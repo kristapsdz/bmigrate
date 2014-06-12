@@ -50,13 +50,13 @@ struct 	hnode {
 };
 
 struct	stats {
-	size_t	n;
-	size_t	extm;
-	size_t	exti;
-	double	M1;
-	double	M2;
-	double	M3;
-	double	M4;
+	uint64_t	n;
+	uint64_t	extm;
+	uint64_t	exti;
+	double		M1;
+	double		M2;
+	double		M3;
+	double		M4;
 };
 
 /*
@@ -80,7 +80,8 @@ struct	sim_continuum {
 struct	simhot {
 	GMutex		 mux; /* lock for changing data */
 	GCond		 cond; /* mutex for waiting on snapshot */
-	size_t		 truns; /* total number of runs */
+	uint64_t	 truns; /* total number of runs */
+	uint64_t	 tgens; /* total number of generations */
 	struct stats	*stats; /* statistics per incumbent */
 	struct stats	*statslsb; /* lookaside for stats */
 	int		 copyout; /* do we need to snapshot? */
@@ -98,13 +99,14 @@ struct	simhot {
  */
 struct	simwarm {
 	size_t		 meanmin; /* minimum sample mean */
-	size_t		 fitmin; /* index of minimum fitpoly point */
-	size_t		 extmmax;
-	size_t		 extimin;
+	size_t		 fitmin; /* index of min fitpoly point */
+	size_t		 extmmax; /* index of max mutant extinction */
+	size_t		 extimin; /* index of min incumb extinction */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
-	size_t		 truns; /* total number of runs */
+	uint64_t	 truns; /* total number of runs */
+	uint64_t	 tgens; /* total number of generations */
 };
 
 /*
@@ -129,30 +131,31 @@ struct	simwork {
  * This is done in the main thread of execution, so it is not locked.
  */
 struct	simcold {
-	size_t		 meanmin; /* minimum sample mean */
 	struct stats	*stats; /* statistics per incumbent */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
 	gsl_histogram	*meanmins; /* mean minimum dist */
-	gsl_histogram	*extmmaxs;
-	size_t		 extmmax;
-	gsl_histogram	*extimins;
-	size_t		 extimin;
-	size_t		 fitmin; /* current minimum */
+	gsl_histogram	*extmmaxs; /* mutant extinction dist */
+	gsl_histogram	*extimins; /* incumbent extinction dist */
+	size_t		 extmmax; /* current mutant extinct max */
+	size_t		 extimin; /* current incumbent extinct min */
+	size_t		 fitmin; /* current fitpoly minimum */
+	size_t		 meanmin; /* current sample mean min */
 	double		 fitminsmode; /* mode of fitmins */ 
 	double		 fitminsmean; /* mean of fitmins */
 	double		 fitminsstddev; /* stddev of fitmins */
 	double		 meanminsmode; /* mode value of meanmins */
 	double		 meanminsmean; /* mean value of meanmins */
 	double		 meanminsstddev; /* stddev value of meanmins */
-	double		 extmmaxsmode;
-	double		 extmmaxsmean;
-	double		 extmmaxsstddev;
-	double		 extiminsmode;
-	double		 extiminsmean;
-	double		 extiminsstddev;
-	size_t		 truns; /* total runs */
+	double		 extmmaxsmode; /* mode of extmmaxs */
+	double		 extmmaxsmean; /* mean of extmmaxs */
+	double		 extmmaxsstddev; /* stddev of extmmaxs */
+	double		 extiminsmode; /* mode of extimins */
+	double		 extiminsmean; /* mean of extimins */
+	double		 extiminsstddev; /* stddev of extimins */
+	uint64_t	 truns; /* total runs */
+	uint64_t	 tgens; /* total generations */
 #define	MINQSZ		 256
 	size_t		 meanminq[MINQSZ]; /* circleq of raw minima */
 	size_t		 meanminqpos; /* current (ahead) in meanminq */
@@ -351,7 +354,6 @@ void		 *simulation(void *arg);
 
 struct stats	 *stats_alloc0(size_t sz);
 void		  stats_push(struct stats *p, double x);
-size_t		  stats_samples(const struct stats *p);
 double		  stats_mean(const struct stats *p);
 double		  stats_variance(const struct stats *p);
 double		  stats_stddev(const struct stats *p);

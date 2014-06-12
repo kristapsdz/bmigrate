@@ -73,13 +73,6 @@ stats_extincti(const struct stats *p)
 	return(p->exti / (double)p->n);
 }
 
-size_t
-stats_samples(const struct stats *p)
-{
-
-	return(p->n);
-}
-
 double
 stats_mean(const struct stats *p)
 {
