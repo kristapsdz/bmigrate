@@ -213,6 +213,7 @@ struct	sim {
 	double		  mutantsigma; /* mutant gaussian sigma */
 	size_t		  stop; /* when to stop */
 	gchar		 *name; /* name of simulation */
+	gchar		 *func; /* payoff function */
 	double		  alpha; /* outer multiplier */
 	double		  delta; /* inner multiplier */
 	double		  m; /* migration probability */

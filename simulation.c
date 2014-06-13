@@ -312,7 +312,7 @@ simulation(void *arg)
 {
 	struct simthr	*thr = arg;
 	struct sim	*sim = thr->sim;
-	double		 mutant, incumbent, v, lambda, lincumbent;
+	double		 mutant, incumbent, v, lambda;
 	double		*vp;
 	double		*icache, *mcache;
 	size_t		*kids[2], *migrants[2], *imutants;
@@ -354,7 +354,6 @@ simulation(void *arg)
 	vp = NULL;
 	incumbentidx = 0;
 	t = 0;
-	lincumbent = FLT_MAX;
 
 	icache = g_malloc0_n(sim->pops[0] + 1, sizeof(double));
 	mcache = g_malloc0_n(sim->pops[0] + 1, sizeof(double));
@@ -422,10 +421,12 @@ again:
 			assert(0 == migrants[1][j]);
 			lambda = mcache[imutants[j]];
 			for (k = 0; k < imutants[j]; k++) 
-				kids[0][j] += poisson(rng, lambda);
+				kids[0][j] += 
+					gsl_ran_poisson(rng, lambda);
 			lambda = icache[imutants[j]];
 			for ( ; k < sim->pops[j]; k++)
-				kids[1][j] += poisson(rng, lambda);
+				kids[1][j] += 
+					gsl_ran_poisson(rng, lambda);
 		}
 
 		/*

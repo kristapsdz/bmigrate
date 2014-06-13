@@ -42,6 +42,25 @@ save(FILE *f, struct bmigrate *b)
 	sims = g_object_get_data(G_OBJECT(b->current), "sims");
 	assert(NULL != sims);
 
+	simnum = 1;
+	for (list = sims; NULL != list; list = list->next, simnum++) {
+		sim = list->data;
+		assert(NULL != sim);
+		fprintf(f, "# Simulation %zu: %s\n", 
+			simnum, sim->name);
+		fprintf(f, "#   N=%zu, n=%zu, m=%g, T=%zu\n", 
+			sim->islands, sim->pops[0], 
+			sim->m, sim->stop);
+		fprintf(f, "#   %g(1 + %g * pi)\n",
+			sim->alpha, sim->delta);
+		fprintf(f, "#   pi(x,X,n) = %s, x=[%g, %g)\n",
+			sim->func, sim->d.continuum.xmin,
+			sim->d.continuum.xmax);
+		fprintf(f, "#   fit-poly degree: %zu (%s)\n",
+			sim->fitpoly, sim->weighted ? 
+			"weighted" : "unweighted");
+	}
+
 	simnum = 0;
 	for (list = sims; NULL != list; list = list->next, simnum++) {
 		sim = list->data;
@@ -153,7 +172,7 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "%g ", v);
 			v = sim->cold.fitminsmean +
 			    sim->cold.fitminsstddev;
-			fprintf(f, "%g\n", v);
+			fprintf(f, "%g", v);
 			break;
 		case (VIEW_EXTIMINS):
 			fprintf(f, "%zu ", simnum + 1);
@@ -166,7 +185,7 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "%g ", v);
 			v = sim->cold.extiminsmean +
 			    sim->cold.extiminsstddev;
-			fprintf(f, "%g\n", v);
+			fprintf(f, "%g", v);
 			break;
 		case (VIEW_EXTMMAXS):
 			fprintf(f, "%zu ", simnum + 1);
@@ -179,7 +198,7 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "%g ", v);
 			v = sim->cold.extmmaxsmean +
 			    sim->cold.extmmaxsstddev;
-			fprintf(f, "%g\n", v);
+			fprintf(f, "%g", v);
 			break;
 		case (VIEW_MEANMINS):
 			fprintf(f, "%zu ", simnum + 1);
@@ -192,7 +211,7 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "%g ", v);
 			v = sim->cold.meanminsmean +
 			    sim->cold.meanminsstddev;
-			fprintf(f, "%g\n", v);
+			fprintf(f, "%g", v);
 			break;
 		case (VIEW_POLYMINQ):
 			for (j = 0; j < MINQSZ; j++) {
@@ -270,6 +289,8 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		}
+
+		fputc('\n', f);
 	}
 }
 

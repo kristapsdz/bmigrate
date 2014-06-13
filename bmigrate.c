@@ -254,6 +254,7 @@ sim_free(gpointer arg)
 	g_mutex_clear(&p->hot.mux);
 	g_cond_clear(&p->hot.cond);
 	g_free(p->name);
+	g_free(p->func);
 	g_free(p->hot.stats);
 	g_free(p->hot.statslsb);
 	g_free(p->warm.stats);
@@ -431,7 +432,6 @@ on_sim_copyout(gpointer dat)
 			(sim->cold.meanminqpos + 1) % MINQSZ;
 		sim->cold.fitminqpos = 
 			(sim->cold.fitminqpos + 1) % MINQSZ;
-
 		gsl_histogram_increment
 			(sim->cold.fitmins,
 			 GETS(sim, sim->cold.fitmin));
@@ -444,7 +444,6 @@ on_sim_copyout(gpointer dat)
 		gsl_histogram_increment
 			(sim->cold.extimins,
 			 GETS(sim, sim->cold.extimin));
-
 		sim->cold.fitminsmode = GETS(sim, 
 			gsl_histogram_max_bin(sim->cold.fitmins));
 		sim->cold.fitminsmean = 
@@ -856,7 +855,7 @@ on_activate(GtkButton *button, gpointer dat)
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
 	GTimeVal	  gt;
-	const gchar	 *txt, *name;
+	const gchar	 *txt, *name, *func;
 	gdouble		  xmin, xmax, delta, alpha, m, sigma;
 	enum mutants	  mutants;
 	size_t		  i, totalpop, islandpop, islands, 
@@ -957,7 +956,7 @@ on_activate(GtkButton *button, gpointer dat)
 		return;
 	}
 
-	txt = gtk_entry_get_text(b->wins.func);
+	txt = func = gtk_entry_get_text(b->wins.func);
 	exp = hnode_parse((const gchar **)&txt);
 	if (NULL == exp) {
 		gtk_label_set_text
@@ -986,6 +985,7 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->dims = slices;
 	sim->mutants = mutants;
 	sim->mutantsigma = sigma;
+	sim->func = g_strdup(func);
 	sim->name = g_strdup(name);
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);

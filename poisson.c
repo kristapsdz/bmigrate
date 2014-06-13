@@ -41,6 +41,7 @@ size_t
 poisson(const gsl_rng *rng, double l)
 {
 	uint64_t		 hash;
+	char			*byte;
 	size_t			 key;
 	size_t		 	 mmax, i, j, k;
 	double			 v, a, b;
@@ -56,7 +57,8 @@ poisson(const gsl_rng *rng, double l)
 			"%d buckets", CACHE_SIZE, CACHE_BUCKETS);
 	}
 
-	hash = *(uint64_t *)&l;
+	byte = (char *)&l;
+	hash = *(uint64_t *)byte;
 	key = hash % CACHE_SIZE;
 
 	if (l != ccache[key].l) {
