@@ -13,8 +13,8 @@
 		</author>
 		<releaseinfo>Version @VERSION@</releaseinfo>
 	</articleinfo>
-	<sect1>
-		<title>Introduction</title>
+	<sect1 id="intro">
+		<title id="intro.title">Introduction</title>
 		<para>
 			<command>bmigrate</command> is a high-performance scientific application simulating the island model for
 			evolutionary algorithms.
@@ -62,8 +62,8 @@
 		<para>
 			The following sub-sections define specific behaviour.
 		</para>
-		<sect2>
-			<title>Generations</title>
+		<sect2 id="generations">
+			<title id="generations.title">Generations</title>
 			<para>
 				When a generation begins, each island consists of a non-zero number of individuals of either a mutant or
 				incumbent type, each with an assigned type-specific strategy.
@@ -353,13 +353,11 @@
 		<sect2>
 			<title>Data-Flow</title>
 			<para>
-				<firstterm>Data-flow</firstterm> defines how data moves from simulations to graphed output.
+				Data-flow defines how data moves from simulations to graphed output.
 				Having data analysed or graphed directly from simulation data would significantly slow down data collection.
 				To minimise simulation and interface stalling, data is copied and translated in several stages.
-			</para>
-			<para>
-				Data is periodically read by the main graphical thread to fill in the graphical displays.
-				It is written by the simulation threads.
+				In general, data is <firstterm>produced</firstterm> by the simulation threads and
+				<firstterm>consumed</firstterm>, periodically and in several stages, by the main graphical thread.
 			</para>
 			<variablelist>
 				<varlistentry>
@@ -368,19 +366,19 @@
 						<para>
 							Statistics (e.g., on-line mutant fractions mean per incumbent) are written directly to
 							hot storage by simulation threads.
-							<quote>Hot</quote> refers to the high frequency of data access between the simulation
+							<firstterm>Hot</firstterm> refers to the high frequency of data access between the simulation
 							threads.
 						</para>
 					</listitem>
 				</varlistentry>
 				<varlistentry>
-					<term>Hot Storage LAB</term>
+					<term>Hot Storage Look-aside Buffer</term>
 					<listitem>
 						<para>
 							When the main graphical thread wishes to read fresh data for graphical display, it sets
 							a copy flag to copy-out.
 							The first simulation thread to see that this flag has been set to copy-out updates the
-							flag to copy-pending and copies the hot storage into a look-aside bufffer (LAB).
+							flag to copy-pending and copies the hot storage into a look-aside bufffer.
 							Hot storage may then continue to be modified by the simulation threads.
 						</para>
 					</listitem>
@@ -391,7 +389,7 @@
 						<para>
 							After copying data from hot storage into a look-aside buffer, the thread that updated
 							the copy flag copies the look-aside buffer into warm storage.
-							<quote>Warm</quote> refers to the low frequency of data access between the main
+							<firstterm>Warm</firstterm> refers to the low frequency of data access between the main
 							graphical thread and the copying simulation thread.
 							During the copy, the thread also performs more expensive statistical operations (such as
 							minimum mutant fraction, or fitting of data) as it copies the data.
@@ -405,7 +403,7 @@
 						<para>
 							When the main graphical thread detects that the copy flag has been cleared, it copies
 							from warm storage into cold storage.
-							<quote>Cold</quote> means that the data is not changed by anybody but the controlling
+							<firstterm>Cold</firstterm> means that the data is not changed by anybody but the controlling
 							(graphical main) thread.
 							The main graphical thread also performs some statistical analysis during the copy.
 						</para>
@@ -413,12 +411,11 @@
 				</varlistentry>
 			</variablelist>
 			<para>
-				This sequence ensures a minimum degree of contention between threads.  The initial copy to the look-aside buffer
-				is a simple linear copy, and allows hot storage to continue being modified after copy.
-				It then computes more time-consuming statistics without blocking the other threads, nor causing the graphical
-				interface to stall.
+				This sequence ensures a minimum degree of contention between threads.  
 				The main graphical thread needs only to wait for the copy flag to be unset before copying the data into its own
 				thread of operation.
+				The simulation threads need only wait for the look-aside copy, at which point only one thread is used for
+				remaining data copy and statistical analysis.
 			</para>
 		</sect2>
 		<sect2>
@@ -443,7 +440,7 @@
 					starts running with the same incumbent, with both finishing simultaneously.
 				</listitem>
 				<listitem>
-					When data is copied from hot storage into the LAB, it is copied within a critical section.
+					When data is copied from hot storage into the look-aside buffer, it is copied within a critical section.
 					This prevents partial modification to the data in-copy.
 				</listitem>
 				<listitem>
@@ -463,6 +460,7 @@
 				Each simulation thread is allocated its own randomn number generator.
 				Each generator is assigned seed from <function>arc4random</function>, which is implemented differently across
 				operating systems.
+				This ensures that all threads produce independent random variables.
 			</para>
 		</sect2>
 		<sect2>
@@ -502,6 +500,9 @@
 		</screenshot>
 		<para>
 			Begin by assigning <mathphrase>N</mathphrase>, <mathphrase>n</mathphrase>, and <mathphrase>m</mathphrase>.
+			This constitutes the environment structure of the game; or in other words, the physical layout of the islands.
+			This configuration will improve in the future to allow for non-uniform <mathphrase>m</mathphrase> and so on.
+			For now, it only allows the simplest, uniform structure.
 		</para>
 		<variablelist>
 			<title>Environment Structure</title>
@@ -527,6 +528,9 @@
 		</variablelist>
 		<para>
 			Next, configure the utility function <mathphrase>&pi;</mathphrase>, which dictates the reproduction of individuals.
+			Note that the utility function is not provided directly to the Poisson generator, but is linearly transformed as
+			described in <link linkend="generations" endterm="generations.title" />.
+			At this time, only the general case of a continuous function is accepted.
 		</para>
 		<variablelist>
 			<title>Game Configuration</title>
@@ -562,6 +566,8 @@
 		</variablelist>
 		<para>
 			Lastly, configure the process machinery itself.
+			This involves both the machinery itself and how it relates to hardware (parallelism) and also how payoffs are
+			normalised.
 		</para>
 		<variablelist>
 			<title>Process Configuration</title>
@@ -656,115 +662,130 @@
 			On Mac OS X machines, window controls appear in the menu bar.
 			On other UNIX machines, you can pop up a menu bar by right-clicking within a simulation window.
 		</para>
-		<sect2 id="samplemean">
-			<title id="samplemean.title">Sample Mean</title>
-			<para>
-				The sample mean graphs incumbents on the x-axis and the mean mutant fraction after <mathphrase>T</mathphrase>
-				generations (or when one of the types goes extinct&mdash;whichever comes first) over all runs to date on the y-axis.
-				If an incumbent does not have any runs yet, it will display as zero.
-				The graph y-maximum will automatically adjust to the highest simulation peak.
-			</para>
-			<screenshot>
-				<graphic fileref="screen-win1.png" />
-			</screenshot>
-			<para>
-				Each simulation is shown in the legend below the graph.
-				The legend shows the simulation colour and name, as well as the number of runs involved in constructing the
-				mean.
-			</para>
-		</sect2>
-		<sect2 id="samplemeansigma">
-			<title id="samplemeansigma.title">Sample Mean and Sigma</title>
-			<para>
-				This graph augments the <link linkend="samplemean" endterm="samplemean.title" /> graph with the standard
-				deviation above and below each incumbent's mean.
-			</para>
-			<screenshot>
-				<graphic fileref="screen-win2.png" />
-			</screenshot>
-			<para>
-				The standard deviation is computed from the unbiased sample variance algorithm of <citation>knuth98</citation>.
-				It shouldn't be confused with the population standard deviation, which is computed over all
-				<mathphrase>t</mathphrase> samples (simulation runs).
-				This is an unbiased estimate computed over <mathphrase>t-1</mathphrase> samples.  See
-				<citation>knuth98</citation> and <citation>welford62</citation> for a discussion.
-			</para>
-		</sect2>
-		<sect2 id="samplemeanfitted">
-			<title id="samplemeanfitted.title">Sample Mean and Fitted Polynomial</title>
-			<para>
-				If a non-zero degree for polynomial fitting was selected at <link linkend="configuration"
-					endterm="configuration.title" />, this will show the <link linkend="samplemean"
-					endterm="samplemean.title" /> along with that polynomial.
-				Otherwise it will only show the <link linkend="samplemean" endterm="samplemean.title" />.
-				If the weighted option was selected during <link linkend="configuration" endterm="configuration.title" />, the
-				incumbents' standard deviation will be used as a weight.
-			</para>
-			<screenshot>
-				<graphic fileref="screen-win3.png" />
-			</screenshot>
-			<para>
-				Unlike the <link linkend="samplemean" endterm="samplemean.title" /> or <link linkend="samplemeansigma"
-					endterm="samplemeansigma.title" />, the data for this graph is computed roughly four times per second
-				instead of with every run.
-				This prevents excessive slow-down.
-				The implementations are <function>gsl_multifit_wlinear</function> and <function>gsl_multifit_linear</function>
-				for the weighted and non-weighted fitting algorithm, respectively, of the 
-				<ulink url="https://www.gnu.org/software/gsl/">GNU Scientific Library</ulink>.
-				Both are described in the Statistics chapter of <citation>barnett96</citation>.
-			</para>
-		</sect2>
 		<sect2>
-			<title>Sample Mean, Fitted, Sigma</title>
+			<title>Windows</title>
 			<para>
-				Combine <link linkend="samplemeansigma" endterm="samplemeansigma.title" /> with <link linkend="samplemeanfitted"
-					endterm="samplemeanfitted.title" />.
-				If a fit polynomial was not provided during <link linkend="configuration" endterm="configuration.title" />, this
-				is equivalent to just the <link linkend="samplemeansigma" endterm="samplemeansigma.title" />.
+				Each window may have an arbitrary number of simulations and is connected to a particular view of those
+				simulations.
+				You can choose a new view from the <guimenu>View</guimenu> menu.
+				The current view is reflected in the window's title bar.
 			</para>
-			<screenshot>
-				<graphic fileref="screen-win4.png" />
-			</screenshot>
-		</sect2>
-		<sect2>
-			<title>Fitted Polynomial (PDF)</title>
-			<para>
-				Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" /> into an
-				empirical probability distribution.
-				The mean, mode, and standard deviation (population, not sample) are also displayed.
-			</para>
-			<screenshot>
-				<graphic fileref="screen-win5.png" />
-			</screenshot>
-			<para>
-				The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are ignored.
-				Minima are accumulated four times per second.
-			</para>
-		</sect2>
-		<sect2>
-			<title>Fitted Polynomial (CDF)</title>
-			<para>
-				Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" /> into an
-				empirical cumulative distribution.
-				The mean, mode, and standard deviation (population, not sample) are also displayed.
-			</para>
-			<screenshot>
-				<graphic fileref="screen-win6.png" />
-			</screenshot>
-			<para>
-				The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are ignored.
-				Minima are accumulated four times per second.
-			</para>
-		</sect2>
-		<sect2>
-			<title>Fitted Polynomial Minimum History</title>
-			<para>
-				Accumulate the last 256 minimum values of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />.
-				The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
-			</para>
-			<screenshot>
-				<graphic fileref="screen-win7.png" />
-			</screenshot>
+			<sect3 id="samplemean">
+				<title id="samplemean.title">Sample Mean</title>
+				<para>
+					The sample mean graphs incumbents on the x-axis and the mean mutant fraction after
+					<mathphrase>T</mathphrase> generations (or when one of the types goes extinct&mdash;whichever comes
+					first) over all runs to date on the y-axis.
+					If an incumbent does not have any runs yet, it will display as zero.
+					The graph y-maximum will automatically adjust to the highest simulation peak.
+				</para>
+				<screenshot>
+					<graphic fileref="screen-win1.png" />
+				</screenshot>
+				<para>
+					Each simulation is shown in the legend below the graph.
+					The legend shows the simulation colour and name, as well as the number of runs involved in constructing
+					the mean.
+				</para>
+			</sect3>
+			<sect3 id="samplemeansigma">
+				<title id="samplemeansigma.title">Sample Mean and Sigma</title>
+				<para>
+					This graph augments the <link linkend="samplemean" endterm="samplemean.title" /> graph with the standard
+					deviation above and below each incumbent's mean.
+				</para>
+				<screenshot>
+					<graphic fileref="screen-win2.png" />
+				</screenshot>
+				<para>
+					The standard deviation is computed from the unbiased sample variance algorithm of
+					<citation>knuth98</citation>.
+					It shouldn't be confused with the population standard deviation, which is computed over all
+					<mathphrase>t</mathphrase> samples (simulation runs).
+					This is an unbiased estimate computed over <mathphrase>t-1</mathphrase> samples.
+					See <citation>knuth98</citation> and <citation>welford62</citation> for a discussion.
+				</para>
+			</sect3>
+			<sect3 id="samplemeanfitted">
+				<title id="samplemeanfitted.title">Sample Mean and Fitted Polynomial</title>
+				<para>
+					If a non-zero degree for polynomial fitting was selected at <link linkend="configuration"
+						endterm="configuration.title" />, this will show the <link linkend="samplemean"
+						endterm="samplemean.title" /> along with that polynomial.
+					Otherwise it will only show the <link linkend="samplemean" endterm="samplemean.title" />.
+					If the weighted option was selected during <link linkend="configuration" endterm="configuration.title"
+						/>, the incumbents' standard deviation will be used as a weight.
+				</para>
+				<screenshot>
+					<graphic fileref="screen-win3.png" />
+				</screenshot>
+				<para>
+					Unlike the <link linkend="samplemean" endterm="samplemean.title" /> or <link linkend="samplemeansigma"
+						endterm="samplemeansigma.title" />, the data for this graph is computed roughly four times per
+					second instead of with every run.
+					This prevents excessive slow-down.
+					The implementations are <function>gsl_multifit_wlinear</function> and
+					<function>gsl_multifit_linear</function> for the weighted and non-weighted fitting algorithm,
+					respectively, of the <ulink url="https://www.gnu.org/software/gsl/">GNU Scientific Library</ulink>.
+					Both are described in the Statistics chapter of <citation>barnett96</citation>.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Sample Mean, Fitted, Sigma</title>
+				<para>
+					Combine <link linkend="samplemeansigma" endterm="samplemeansigma.title" /> with <link
+						linkend="samplemeanfitted" endterm="samplemeanfitted.title" />.
+					If a fit polynomial was not provided during <link linkend="configuration" endterm="configuration.title"
+						/>, this is equivalent to just the <link linkend="samplemeansigma"
+						endterm="samplemeansigma.title" />.
+				</para>
+				<screenshot>
+					<graphic fileref="screen-win4.png" />
+				</screenshot>
+			</sect3>
+			<sect3>
+				<title>Fitted Polynomial (PDF)</title>
+				<para>
+					Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />
+					into an empirical probability distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+				</para>
+				<screenshot>
+					<graphic fileref="screen-win5.png" />
+				</screenshot>
+				<para>
+					The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are
+					ignored.
+					Minima are accumulated four times per second.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Fitted Polynomial (CDF)</title>
+				<para>
+					Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />
+					into an empirical cumulative distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+				</para>
+				<screenshot>
+					<graphic fileref="screen-win6.png" />
+				</screenshot>
+				<para>
+					The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are
+					ignored.
+					Minima are accumulated four times per second.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Fitted Polynomial Minimum History</title>
+				<para>
+					Accumulate the last 256 minimum values of <link linkend="samplemeanfitted"
+						endterm="samplemeanfitted.title" />.
+					The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
+				</para>
+				<screenshot>
+					<graphic fileref="screen-win7.png" />
+				</screenshot>
+			</sect3>
 		</sect2>
 	</sect1>
 	<bibliography>

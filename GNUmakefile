@@ -1,4 +1,4 @@
-.SUFFIXES: .xml .html .dbk 
+.SUFFIXES: .xml .html .dbk
 
 VERSION = 0.0.10
 PREFIX = /usr/local
@@ -70,15 +70,13 @@ bmigrate: $(GTK_OBJS)
 .c.o:
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -c -o $@ $<
 
-.dbk.html:
-	xsltproc --stringparam html.stylesheet bmigrate.css -o $@~ $(DOCBOOK) $<
-	( echo '<!DOCTYPE html>' ; cat $@~ ) | sed "s!@VERSION@!$(VERSION)!g" >$@
-	rm -f $@~
+.dbk.xml:
+	xsltproc --stringparam html.stylesheet bmigrate.css -o $@ $(DOCBOOK) $<
 
-index.html: index.xml
-	sed "s!@VERSION@!$(VERSION)!g" index.xml >$@
+.xml.html: 
+	sed "s!@VERSION@!$(VERSION)!g" $< >$@
 
 clean:
-	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.html~ index.html
+	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.xml index.html
 	rm -rf bmigrate.app *.dSYM
 	rm -f bmigrate.app.zip Info.plist

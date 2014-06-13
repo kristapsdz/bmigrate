@@ -1053,6 +1053,8 @@ on_activate(GtkButton *button, gpointer dat)
 		sim->islands, sim->totalpop, islandpop, sim->stop);
 	g_debug("New continuum migration %g, %g(1 + %g pi)", 
 		sim->m, sim->alpha, sim->delta);
+	g_debug("New continuum function %s, x = [%g, %g)", sim->func,
+		sim->d.continuum.xmin, sim->d.continuum.xmax);
 	g_debug("New continuum threads: %zu", sim->nprocs);
 	g_debug("New continuum polynomial: %zu (%s)", 
 		sim->fitpoly, sim->weighted ? 

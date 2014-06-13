@@ -313,6 +313,7 @@ simulation(void *arg)
 	struct simthr	*thr = arg;
 	struct sim	*sim = thr->sim;
 	double		 mutant, incumbent, v, lambda;
+	unsigned long	 seed;
 	double		*vp;
 	double		*icache, *mcache;
 	size_t		*kids[2], *migrants[2], *imutants;
@@ -323,10 +324,13 @@ simulation(void *arg)
 	gsl_rng		*rng;
 
 	rng = gsl_rng_alloc(gsl_rng_default);
-	gsl_rng_set(rng, arc4random());
+	seed = arc4random();
+	gsl_rng_set(rng, seed);
 
-	g_debug("Thread %p (simulation %p) using RNG %s", 
-		g_thread_self(), sim, gsl_rng_name(rng));
+	g_debug("Thread %p (simulation %p) using RNG %s, "
+		"seed %lu, initial %lu", 
+		g_thread_self(), sim, gsl_rng_name(rng),
+		seed, gsl_rng_get(rng));
 
 	/* 
 	 * Conditionally allocate polynomial fitting.
