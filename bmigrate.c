@@ -673,7 +673,6 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 
 	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
 	gtk_check_menu_item_set_active(b->wins.views[cur->view], TRUE);
-
 	gtk_widget_set_sensitive
 		(GTK_WIDGET(b->wins.viewclone), TRUE);
 	gtk_widget_set_sensitive
@@ -760,6 +759,10 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 		G_CALLBACK(on_dragdrop), b);
 	g_signal_connect(draw, "drag-data-get",
                 G_CALLBACK(on_drag_get), b);
+
+	gtk_window_set_title(GTK_WINDOW(w),
+		gtk_menu_item_get_label
+		(GTK_MENU_ITEM(b->wins.views[cur->view])));
 }
 
 void
@@ -798,6 +801,9 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 			(b->wins.views[cur->view]))
 			break;
 	gtk_widget_queue_draw(b->current);
+	gtk_window_set_title(GTK_WINDOW(b->current),
+		gtk_menu_item_get_label
+		(GTK_MENU_ITEM(b->wins.views[cur->view])));
 }
 
 /*
