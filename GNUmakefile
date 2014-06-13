@@ -11,7 +11,8 @@ IMAGES = screen-config.png \
 	 screen-win3.png \
 	 screen-win4.png \
 	 screen-win5.png \
-	 screen-win6.png
+	 screen-win6.png \
+	 screen-win7.png
 SHARE = $(IMAGES) bmigrate.css bmigrate.glade bmigrate.html
 ifeq ($(shell uname),Darwin)
 GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk-mac-integration)
