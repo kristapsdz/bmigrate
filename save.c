@@ -61,13 +61,14 @@ save(FILE *f, struct bmigrate *b)
 			"weighted" : "unweighted");
 	}
 
-	simnum = 0;
+	simnum = 1;
 	for (list = sims; NULL != list; list = list->next, simnum++) {
 		sim = list->data;
 		assert(NULL != sim);
 		switch (cur->view) {
 		case (VIEW_DEV):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_mean(&sim->cold.stats[j]);
@@ -84,6 +85,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_POLY):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_mean(&sim->cold.stats[j]);
@@ -96,6 +98,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_POLYDEV):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_mean(&sim->cold.stats[j]);
@@ -112,6 +115,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_POLYMINPDF):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = gsl_histogram_get
@@ -122,6 +126,7 @@ save(FILE *f, struct bmigrate *b)
 		case (VIEW_POLYMINCDF):
 			sum = gsl_histogram_sum(sim->cold.fitmins);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v += gsl_histogram_get
@@ -131,6 +136,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_MEANMINPDF):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = gsl_histogram_get
@@ -141,6 +147,7 @@ save(FILE *f, struct bmigrate *b)
 		case (VIEW_MEANMINCDF):
 			sum = gsl_histogram_sum(sim->cold.meanmins);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v += gsl_histogram_get
@@ -150,6 +157,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_MEANMINQ):
 			for (j = 0; j < MINQSZ; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = j - MINQSZ;
 				fprintf(f, "%g ", v);
 				k = (sim->cold.meanminqpos + j) % MINQSZ;
@@ -162,7 +170,7 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_POLYMINS):
-			fprintf(f, "%zu ", simnum + 1);
+			fprintf(f, "%zu ", simnum);
 			v = sim->cold.fitminsmean;
 			fprintf(f, "%g ", v);
 			v = sim->cold.fitminsmean - 
@@ -175,7 +183,7 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "%g", v);
 			break;
 		case (VIEW_EXTIMINS):
-			fprintf(f, "%zu ", simnum + 1);
+			fprintf(f, "%zu ", simnum);
 			v = sim->cold.extiminsmean;
 			fprintf(f, "%g ", v);
 			v = sim->cold.extiminsmean - 
@@ -188,7 +196,7 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "%g", v);
 			break;
 		case (VIEW_EXTMMAXS):
-			fprintf(f, "%zu ", simnum + 1);
+			fprintf(f, "%zu ", simnum);
 			v = sim->cold.extmmaxsmean;
 			fprintf(f, "%g ", v);
 			v = sim->cold.extmmaxsmean - 
@@ -201,7 +209,7 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "%g", v);
 			break;
 		case (VIEW_MEANMINS):
-			fprintf(f, "%zu ", simnum + 1);
+			fprintf(f, "%zu ", simnum);
 			v = sim->cold.meanminsmean;
 			fprintf(f, "%g ", v);
 			v = sim->cold.meanminsmean - 
@@ -215,6 +223,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_POLYMINQ):
 			for (j = 0; j < MINQSZ; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = j - MINQSZ;
 				fprintf(f, "%g ", v);
 				k = (sim->cold.fitminqpos + j) % MINQSZ;
@@ -228,6 +237,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_EXTI):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_extincti(&sim->cold.stats[j]);
@@ -236,6 +246,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_EXTM):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_extinctm(&sim->cold.stats[j]);
@@ -245,6 +256,7 @@ save(FILE *f, struct bmigrate *b)
 		case (VIEW_EXTIMINCDF):
 			sum = gsl_histogram_max(sim->cold.extimins);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v += gsl_histogram_get
@@ -254,6 +266,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_EXTIMINPDF):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = gsl_histogram_get
@@ -264,6 +277,7 @@ save(FILE *f, struct bmigrate *b)
 		case (VIEW_EXTMMAXCDF):
 			sum = gsl_histogram_sum(sim->cold.extmmaxs);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v += gsl_histogram_get
@@ -273,6 +287,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_EXTMMAXPDF):
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = gsl_histogram_get
@@ -282,6 +297,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		default:
 			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_mean(&sim->cold.stats[j]);
