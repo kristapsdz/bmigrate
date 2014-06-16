@@ -28,6 +28,16 @@
 
 #include "extern.h"
 
+/*
+ * These macros shorten the drawing routines by automatically computing
+ * X and Y coordinates as well as colour.
+ */
+#define	GETX(_j) (width * (_j) / (double)(sim->dims - 1))
+#define	GETY(_v) (height - ((_v) / maxy * height))
+#define	GETC(_a) b->wins.colours[sim->colour].red, \
+		 b->wins.colours[sim->colour].green, \
+		 b->wins.colours[sim->colour].blue, (_a)
+
 static void
 drawgrid(cairo_t *cr, double width, double height)
 {
@@ -193,6 +203,8 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	double	 v;
 
 	switch (cur->view) {
+	case (VIEW_CONFIG):
+		return;
 	case (VIEW_DEV):
 		for (i = 0; i < s->dims; i++) {
 			v = stats_mean(&s->cold.stats[i]) +
@@ -317,53 +329,19 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		*xmax = s->d.continuum.xmax;
 }
 
-/*
- * Main draw event.
- * There's lots we can do to make this more efficient, e.g., computing
- * the stddev/fitpoly arrays in the worker threads instead of here.
- */
-void
-draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
+static double
+drawlegend(struct bmigrate *b, struct curwin *cur, 
+	cairo_t *cr, GList *sims, double height)
 {
-	struct curwin	*cur;
-	double		 width, height, maxy, v, xmin, xmax;
-	GtkWidget	*top;
-	struct sim	*sim;
-	size_t		 j, k, simnum, simmax;
-	GList		*sims, *list;
-	cairo_text_extents_t e;
+	GList		*list;
 	gchar		 buf[1024];
-	static const double dash[] = {6.0};
+	struct sim	*sim;
+	size_t		 simmax;
+	cairo_text_extents_t e;
+	double		 v;
 
-	/* 
-	 * Get our window configuration.
-	 * Then get our list of simulations.
-	 * Both of these are stored as pointers to the top-level window.
-	 */
-	top = gtk_widget_get_toplevel(w);
-	cur = g_object_get_data(G_OBJECT(top), "cfg");
-	assert(NULL != cur);
-	sims = g_object_get_data(G_OBJECT(top), "sims");
-	assert(NULL != sims);
-
-	/* 
-	 * Initialise the window view to be all white. 
-	 */
-	width = gtk_widget_get_allocated_width(w);
-	height = gtk_widget_get_allocated_height(w);
-	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
-	cairo_rectangle(cr, 0.0, 0.0, width, height);
-	cairo_fill(cr);
-
-	/*
-	 * These macros shorten the drawing routines by automatically
-	 * computing X and Y coordinates as well as colour.
-	 */
-#define	GETX(_j) (width * (_j) / (double)(sim->dims - 1))
-#define	GETY(_v) (height - ((_v) / maxy * height))
-#define	GETC(_a) b->wins.colours[sim->colour].red, \
-		 b->wins.colours[sim->colour].green, \
-		 b->wins.colours[sim->colour].blue, (_a)
+	if (VIEW_CONFIG == cur->view)
+		return(height);
 
 	/*
 	 * Create by drawing a legend.
@@ -449,7 +427,53 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	}
 
 	/* Make space for our legend. */
-	height -= simmax * e.height * 1.75 + e.height * 0.5;
+	return(height - simmax * e.height * 1.75 + e.height * 0.5);
+}
+
+/*
+ * Main draw event.
+ * There's lots we can do to make this more efficient, e.g., computing
+ * the stddev/fitpoly arrays in the worker threads instead of here.
+ */
+void
+draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
+{
+	struct curwin	*cur;
+	double		 width, height, maxy, v, xmin, xmax;
+	GtkWidget	*top;
+	struct sim	*sim;
+	size_t		 j, k, simnum, simmax;
+	GList		*sims, *list;
+	cairo_text_extents_t e;
+	gchar		 buf[1024];
+	static const double dash[] = {6.0};
+
+	/* 
+	 * Get our window configuration.
+	 * Then get our list of simulations.
+	 * Both of these are stored as pointers to the top-level window.
+	 */
+	top = gtk_widget_get_toplevel(w);
+	cur = g_object_get_data(G_OBJECT(top), "cfg");
+	assert(NULL != cur);
+	sims = g_object_get_data(G_OBJECT(top), "sims");
+	assert(NULL != sims);
+
+	/* 
+	 * Initialise the window view to be all white. 
+	 */
+	width = gtk_widget_get_allocated_width(w);
+	height = gtk_widget_get_allocated_height(w);
+	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
+	cairo_rectangle(cr, 0.0, 0.0, width, height);
+	cairo_fill(cr);
+
+	/*
+	 * Create by drawing a legend.
+	 * To do so, draw the colour representing the current simulation
+	 * followed by the name of the simulation.
+	 */
+	height = drawlegend(b, cur, cr, sims, height);
 
 	/*
 	 * Determine the boundaries of the graph.
@@ -459,23 +483,34 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	 */
 	xmin = FLT_MAX;
 	xmax = maxy = -FLT_MAX;
-	for (list = sims; NULL != list; list = list->next)
+	simmax = 0;
+	for (list = sims; NULL != list; list = list->next, simmax++)
 		max_sim(cur, list->data, &xmin, &xmax, &maxy);
 
-	/* CDF's don't get their windows scaled. */
+	/* 
+	 * See if we should scale the graph to be above the maximum
+	 * point, just for aesthetics.
+	 * CDFs and the configuration window don't change.
+	 */
 	switch (cur->view) {
 	case (VIEW_POLYMINCDF):
 	case (VIEW_MEANMINCDF):
+	case (VIEW_CONFIG):
 		break;
 	default:
 		maxy += maxy * 0.1;
 	}
 
 	/*
+	 * Configure our labels.
 	 * History views show the last n updates instead of the domain
-	 * of the x-axis.
+	 * of the x-axis, and the format is for non-decimals.
+	 * Configuration has no label at all.
 	 */
 	switch (cur->view) {
+	case (VIEW_CONFIG):
+		cairo_text_extents(cr, "lj", &e);
+		break;
 	case (VIEW_POLYMINQ):
 	case (VIEW_MEANMINQ):
 		drawlabels(cur, cr, "%g", &width, 
@@ -492,6 +527,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	 * There are many ways of doing this.
 	 */
 	simnum = 0;
+	v = e.height;
 	cairo_save(cr);
 	for (list = sims; NULL != list; list = list->next, simnum++) {
 		sim = list->data;
@@ -499,6 +535,58 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		assert(simnum < simmax);
 		cairo_set_line_width(cr, 2.0);
 		switch (cur->view) {
+		case (VIEW_CONFIG):
+			v += e.height;
+			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+			(void)g_snprintf(buf, sizeof(buf),
+				"Name: %s", sim->name);
+			cairo_move_to(cr, 0.0, v);
+			cairo_show_text(cr, buf);
+			v += e.height * 1.5;
+			(void)g_snprintf(buf, sizeof(buf),
+				"Function: %s, x = [%g, %g]", 
+				sim->func, sim->d.continuum.xmin,
+				sim->d.continuum.xmax);
+			cairo_move_to(cr, 0.0, v);
+			cairo_show_text(cr, buf);
+			v += e.height * 1.5;
+			(void)g_snprintf(buf, sizeof(buf),
+				"Population: %zu (%zu islands, "
+				"%zu islanders), m=%g, T=%zu", 
+				sim->totalpop, sim->islands, 
+				sim->pops[0], sim->m, sim->stop);
+			cairo_move_to(cr, 0.0, v);
+			cairo_show_text(cr, buf);
+			v += e.height * 1.5;
+			(void)g_snprintf(buf, sizeof(buf),
+				"Transformation: %g(1 + %g * pi)",
+				sim->alpha, sim->delta);
+			cairo_move_to(cr, 0.0, v);
+			cairo_show_text(cr, buf);
+			v += e.height * 1.5;
+			(void)g_snprintf(buf, sizeof(buf),
+				"Fitting: order %zu (%s)",
+				sim->fitpoly, 0 == sim->fitpoly ?
+				"disabled" : (sim->weighted ? 
+					"weighted" : "unweighted"));
+			cairo_move_to(cr, 0.0, v);
+			cairo_show_text(cr, buf);
+			v += e.height * 1.5;
+			if (MUTANTS_DISCRETE == sim->mutants)
+				(void)g_snprintf(buf, sizeof(buf),
+					"Mutants: discrete (%zu)",
+					sim->dims);
+			else
+				(void)g_snprintf(buf, sizeof(buf),
+					"Mutants: Gaussian "
+					"(sigma=%g, [%g, %g]",
+					sim->mutantsigma,
+					sim->d.continuum.ymin,
+					sim->d.continuum.ymax);
+			cairo_move_to(cr, 0.0, v);
+			cairo_show_text(cr, buf);
+			v += e.height * 1.5;
+			break;
 		case (VIEW_DEV):
 			for (j = 1; j < sim->dims; j++) {
 				v = stats_mean(&sim->cold.stats[j - 1]);
@@ -845,9 +933,9 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			break;
 		}
 	}
-	cairo_restore(cr);
 
-	/* Draw a little grid for reference points. */
-	drawgrid(cr, width, height);
+	cairo_restore(cr);
+	if (VIEW_CONFIG != cur->view)
+		drawgrid(cr, width, height);
 }
 

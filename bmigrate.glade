@@ -335,6 +335,23 @@
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
                     </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem32">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem36">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="sensitive">False</property>
+                        <property name="label" translatable="yes">Configuration</property>
+                        <property name="use_underline">True</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
                   </object>
                 </child>
               </object>

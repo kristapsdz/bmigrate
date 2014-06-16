@@ -41,6 +41,18 @@ static	const char *const payoffs[PAYOFF__MAX] = {
 	"finite two-player two-strategy",
 };
 
+static	const char *const colours[SIZE_COLOURS] = {
+	"#9400d3",
+	"#009e73",
+	"#56b4e9",
+	"#e69f00",
+	"#f0e442",
+	"#0072b2",
+	"#e51e10",
+	"black",
+	"gray50"
+};
+
 /*
  * Initialise the fixed widgets.
  * Some widgets (e.g., "processing" dialog) are created dynamically and
@@ -52,6 +64,7 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	GObject		*w;
 	gchar		 buf[1024];
 	GTimeVal	 gt;
+	gboolean	 val;
 	size_t		 i;
 
 	b->wins.config = GTK_WINDOW
@@ -116,6 +129,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem33"));
 	b->wins.views[VIEW_POLYMINQ] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem14"));
+	b->wins.views[VIEW_CONFIG] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem36"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
@@ -205,18 +220,11 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gtk_label_set_text(b->wins.curthreads, "(0% active)");
 	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
 
-	gdk_rgba_parse(&b->wins.colours[0], "red");
-	gdk_rgba_parse(&b->wins.colours[1], "green");
-	gdk_rgba_parse(&b->wins.colours[2], "purple");
-	gdk_rgba_parse(&b->wins.colours[3], "yellow green");
-	gdk_rgba_parse(&b->wins.colours[4], "violet");
-	gdk_rgba_parse(&b->wins.colours[5], "yellow");
-	gdk_rgba_parse(&b->wins.colours[6], "blue violet");
-	gdk_rgba_parse(&b->wins.colours[7], "goldenrod");
-	gdk_rgba_parse(&b->wins.colours[8], "blue");
-	gdk_rgba_parse(&b->wins.colours[9], "orange");
-	gdk_rgba_parse(&b->wins.colours[10], "turquoise");
-	gdk_rgba_parse(&b->wins.colours[11], "orange red");
+	for (i = 0; i < SIZE_COLOURS; i++) {
+		val = gdk_rgba_parse
+			(&b->wins.colours[i], colours[i]);
+		g_assert(val);
+	}
 
 	/*
 	 * Add all menus whose sensitivity will be set when we enter a

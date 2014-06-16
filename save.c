@@ -59,7 +59,18 @@ save(FILE *f, struct bmigrate *b)
 		fprintf(f, "#   fit-poly degree: %zu (%s)\n",
 			sim->fitpoly, sim->weighted ? 
 			"weighted" : "unweighted");
+		if (MUTANTS_DISCRETE == sim->mutants) 
+			fprintf(f, "#   mutants: discrete\n");
+		else
+			fprintf(f, "#   mutants: Gaussian "
+				"(sigma=%g, [%g, %g])\n",
+				sim->mutantsigma,
+				sim->d.continuum.ymin,
+				sim->d.continuum.ymax);
 	}
+
+	if (VIEW_CONFIG == cur->view)
+		return;
 
 	simnum = 1;
 	for (list = sims; NULL != list; list = list->next, simnum++) {

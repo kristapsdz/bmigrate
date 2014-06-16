@@ -272,6 +272,7 @@ enum	view {
 	VIEW_MEANMINPDF,
 	VIEW_MEANMINQ,
 	VIEW_MEANMINS,
+	VIEW_CONFIG,
 	VIEW__MAX
 };
 
@@ -322,7 +323,7 @@ struct	hwin {
 	GtkLabel	 *curthreads;
 	GtkToggleButton	 *analsingle;
 	GtkToggleButton	 *analmultiple;
-#define	SIZE_COLOURS	  12 
+#define	SIZE_COLOURS	  9 
 	GdkRGBA		  colours[SIZE_COLOURS];
 	GList		 *menus;
 };
