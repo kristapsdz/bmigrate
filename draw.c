@@ -77,7 +77,7 @@ drawgrid(cairo_t *cr, double width, double height)
 
 static void
 drawlabels(const struct curwin *cur, cairo_t *cr, 
-	double *widthp, double *heightp,
+	const char *fmt, double *widthp, double *heightp,
 	double miny, double maxy, double minx, double maxx)
 {
 	cairo_text_extents_t e;
@@ -104,32 +104,32 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 		/* Bottom right. */
 		cairo_move_to(cr, width - e.width, 
 			height - e.height * 3.0);
-		(void)snprintf(buf, sizeof(buf), "%.2g", miny);
+		(void)snprintf(buf, sizeof(buf), fmt, miny);
 		cairo_show_text(cr, buf);
 
 		/* Middle-bottom right. */
 		cairo_move_to(cr, width - e.width, 
 			height * 0.75 - 1.5 * e.height);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", miny + (maxy - miny) * 0.25);
+			fmt, miny + (maxy - miny) * 0.25);
 		cairo_show_text(cr, buf);
 
 		/* Middle right. */
 		cairo_move_to(cr, width - e.width, 
 			height * 0.5 - 0.5 * e.height);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", miny + (maxy - miny) * 0.5);
+			fmt, miny + (maxy - miny) * 0.5);
 		cairo_show_text(cr, buf);
 
 		/* Middle-top right. */
 		cairo_move_to(cr, width - e.width, height * 0.25);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", miny + (maxy - miny) * 0.75);
+			fmt, miny + (maxy - miny) * 0.75);
 		cairo_show_text(cr, buf);
 
 		/* Top right. */
 		cairo_move_to(cr, width - e.width, e.height * 1.5);
-		(void)snprintf(buf, sizeof(buf), "%.2g", maxy);
+		(void)snprintf(buf, sizeof(buf), fmt, maxy);
 		cairo_show_text(cr, buf);
 
 		*widthp -= e.width * 1.3;
@@ -146,34 +146,34 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 		/* Right bottom. */
 		cairo_move_to(cr, width - e.width * 1.5, 
 			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), "%.2g", maxx);
+		(void)snprintf(buf, sizeof(buf), fmt, maxx);
 		cairo_show_text(cr, buf);
 
 		/* Middle-left bottom. */
 		cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
 			height - e.height * 0.5);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", minx + (maxx - minx) * 0.25);
+			fmt, minx + (maxx - minx) * 0.25);
 		cairo_show_text(cr, buf);
 
 		/* Middle bottom. */
 		cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
 			height - e.height * 0.5);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", minx + (maxx - minx) * 0.5);
+			fmt, minx + (maxx - minx) * 0.5);
 		cairo_show_text(cr, buf);
 
 		/* Middle-right bottom. */
 		cairo_move_to(cr, width * 0.75 - e.width, 
 			height - e.height * 0.5);
 		(void)snprintf(buf, sizeof(buf), 
-			"%.2g", minx + (maxx - minx) * 0.75);
+			fmt, minx + (maxx - minx) * 0.75);
 		cairo_show_text(cr, buf);
 
 		/* Left bottom. */
 		cairo_move_to(cr, e.width * 0.25, 
 			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), "%.2g", minx);
+		(void)snprintf(buf, sizeof(buf), fmt, minx);
 		cairo_show_text(cr, buf);
 
 		*heightp -= e.height * 3.0;
@@ -478,11 +478,11 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	switch (cur->view) {
 	case (VIEW_POLYMINQ):
 	case (VIEW_MEANMINQ):
-		drawlabels(cur, cr, &width, 
+		drawlabels(cur, cr, "%g", &width, 
 			&height, 0.0, maxy, -256.0, 0.0);
 		break;
 	default:
-		drawlabels(cur, cr, &width, 
+		drawlabels(cur, cr, "%.2g", &width, 
 			&height, 0.0, maxy, xmin, xmax);
 		break;
 	}

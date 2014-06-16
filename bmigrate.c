@@ -52,6 +52,7 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	GObject		*w;
 	gchar		 buf[1024];
 	GTimeVal	 gt;
+	size_t		 i;
 
 	b->wins.config = GTK_WINDOW
 		(gtk_builder_get_object(builder, "window1"));
@@ -216,6 +217,26 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gdk_rgba_parse(&b->wins.colours[9], "orange");
 	gdk_rgba_parse(&b->wins.colours[10], "turquoise");
 	gdk_rgba_parse(&b->wins.colours[11], "orange red");
+
+	/*
+	 * Add all menus whose sensitivity will be set when we enter a
+	 * simulation window and unset otherwise.
+	 * This only applies to Mac OS X; on a regular UNIX machine, the
+	 * menu is only visible from a simulation window.
+	 */
+	for (i = 0; i < VIEW__MAX; i++)
+		b->wins.menus = g_list_append
+			(b->wins.menus, b->wins.views[i]);
+	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.viewclone);
+	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.viewpause);
+	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.viewunpause);
+	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.menusave);
+	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.menuclose);
 }
 
 /*
@@ -741,49 +762,32 @@ on_drag_get(GtkWidget *widget, GdkDragContext *ctx,
 		(const guchar *)&ptr, sizeof(intptr_t));
 }
 
+static void
+set_sensitive(gpointer dat, gpointer arg)
+{
+
+	gtk_widget_set_sensitive(GTK_WIDGET(dat), *(gboolean *)arg);
+}
+
 gboolean
 onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 {
 	struct bmigrate	*b = dat;
 	struct curwin	*cur;
-	size_t		 i;
+	gboolean	 v;
 
 	if (w == GTK_WIDGET(b->wins.config)) {
 		b->current = NULL;
-		for (i = 0; i < VIEW__MAX; i++)
-			gtk_widget_set_sensitive
-				(GTK_WIDGET(b->wins.views[i]), FALSE);
-		gtk_widget_set_sensitive
-			(GTK_WIDGET(b->wins.viewclone), FALSE);
-		gtk_widget_set_sensitive
-			(GTK_WIDGET(b->wins.viewpause), FALSE);
-		gtk_widget_set_sensitive
-			(GTK_WIDGET(b->wins.viewunpause), FALSE);
-		gtk_widget_set_sensitive
-			(GTK_WIDGET(b->wins.menusave), FALSE);
-		gtk_widget_set_sensitive
-			(GTK_WIDGET(b->wins.menuclose), FALSE);
-		return(TRUE);
+		v = FALSE;
+	} else {
+		b->current = w;
+		v = TRUE;
+		cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+		gtk_check_menu_item_set_active
+			(b->wins.views[cur->view], v);
 	}
 
-	b->current = w;
-
-	for (i = 0; i < VIEW__MAX; i++)
-		gtk_widget_set_sensitive
-			(GTK_WIDGET(b->wins.views[i]), TRUE);
-
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	gtk_check_menu_item_set_active(b->wins.views[cur->view], TRUE);
-	gtk_widget_set_sensitive
-		(GTK_WIDGET(b->wins.viewclone), TRUE);
-	gtk_widget_set_sensitive
-		(GTK_WIDGET(b->wins.viewpause), TRUE);
-	gtk_widget_set_sensitive
-		(GTK_WIDGET(b->wins.viewunpause), TRUE);
-	gtk_widget_set_sensitive
-		(GTK_WIDGET(b->wins.menusave), TRUE);
-	gtk_widget_set_sensitive
-		(GTK_WIDGET(b->wins.menuclose), TRUE);
+	g_list_foreach(b->wins.menus, set_sensitive, &v);
 	return(TRUE);
 }
 

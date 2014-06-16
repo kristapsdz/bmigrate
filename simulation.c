@@ -258,8 +258,8 @@ on_sim_next(struct simwork *work, struct sim *sim,
 			*mutantp = *incumbentp + 
 				gsl_ran_gaussian
 				(rng, sim->mutantsigma);
-		} while (*mutantp < sim->d.continuum.xmin ||
-			 *mutantp >= sim->d.continuum.xmax);
+		} while (*mutantp < sim->d.continuum.ymin ||
+			 *mutantp >= sim->d.continuum.ymax);
 	} else
 		*mutantp = sim->d.continuum.xmin + 
 			(sim->d.continuum.xmax - 

@@ -324,6 +324,7 @@ struct	hwin {
 	GtkToggleButton	 *analmultiple;
 #define	SIZE_COLOURS	  12 
 	GdkRGBA		  colours[SIZE_COLOURS];
+	GList		 *menus;
 };
 
 /*

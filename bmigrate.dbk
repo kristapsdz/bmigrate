@@ -259,7 +259,8 @@
 					<para>
 						The mutant strategy is assigned from a Gaussian distribution with a preconfigured standard
 						deviation and the mean set to the incumbent strategy.
-						The strategy is redrawn until it falls within the strategy domain <mathphrase>X</mathphrase>,
+						The strategy is redrawn until it falls within a strategy domain that intersects
+						<mathphrase>X</mathphrase>,
 						inclusive of the lower bound, non-inclusive of the upper bound.
 						The incumbent strategy is re-assigned when the number of mutants for that incumbent have reached
 						the number of slots.
@@ -622,8 +623,9 @@
 						If discrete, mutants are assigned in sequence from the incumbent grid.
 						If Gaussian, mutants are assigned from a Gaussian distribution around the incumbent strategy
 						with the given standard deviation.
-						The distribution is truncated to the strategy domain inclusive of the lower bound, non-inclusive
-						of the upper bound.
+						The distribution is truncated to the given strategy domain, inclusive of its lower bound,
+						non-inclusive of the upper bound.
+						This strategy domain must be a superset of the incumbent domain <mathphrase>X</mathphrase>
 						The Box-Muller algorithm is used for producing Gaussian-distributed random numbers.
 					</para>
 				</listitem>
