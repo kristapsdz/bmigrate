@@ -56,11 +56,27 @@
                     <child>
                       <object class="GtkMenuItem" id="menuitem34">
                         <property name="visible">True</property>
+                        <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
                         <property name="label" translatable="yes">_Save</property>
-                        <property name="sensitive">False</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onsave" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem4">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="menuitem24">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">_Close</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="onclose" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -336,8 +352,8 @@
                     <child>
                       <object class="GtkMenuItem" id="menuitem20">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
                         <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Pause Simulation</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onpause" swapped="no"/>
@@ -346,8 +362,8 @@
                     <child>
                       <object class="GtkMenuItem" id="menuitem21">
                         <property name="visible">True</property>
-                        <property name="can_focus">False</property>
                         <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
                         <property name="label" translatable="yes">Unpause Simulations</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onunpause" swapped="no"/>
@@ -1135,7 +1151,7 @@
                             <property name="can_focus">True</property>
                             <property name="invisible_char">●</property>
                             <property name="width_chars">9</property>
-                            <property name="text" translatable="yes">100</property>
+                            <property name="text" translatable="yes">1000</property>
                             <property name="invisible_char_set">True</property>
                           </object>
                           <packing>
@@ -1189,7 +1205,7 @@
                     <property name="can_focus">True</property>
                     <property name="invisible_char">●</property>
                     <property name="width_chars">6</property>
-                    <property name="text" translatable="yes">20</property>
+                    <property name="text" translatable="yes">10</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1215,7 +1231,7 @@
                     <property name="can_focus">True</property>
                     <property name="invisible_char">●</property>
                     <property name="width_chars">6</property>
-                    <property name="text" translatable="yes">0.1</property>
+                    <property name="text" translatable="yes">0.5</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1327,7 +1343,7 @@
                         <property name="can_focus">False</property>
                         <child>
                           <object class="GtkRadioButton" id="radiobutton2">
-                            <property name="label" translatable="yes">Gaussian, standard deviation</property>
+                            <property name="label" translatable="yes">Gaussian, sigma</property>
                             <property name="visible">True</property>
                             <property name="can_focus">True</property>
                             <property name="receives_default">False</property>
@@ -1354,6 +1370,70 @@
                             <property name="expand">False</property>
                             <property name="fill">True</property>
                             <property name="position">1</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="label28">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">in [</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">2</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="entry18">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="invisible_char">●</property>
+                            <property name="width_chars">6</property>
+                            <property name="text" translatable="yes">0</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">3</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="label29">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">,</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">4</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkEntry" id="entry19">
+                            <property name="visible">True</property>
+                            <property name="can_focus">True</property>
+                            <property name="invisible_char">●</property>
+                            <property name="width_chars">6</property>
+                            <property name="text" translatable="yes">1</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">5</property>
+                          </packing>
+                        </child>
+                        <child>
+                          <object class="GtkLabel" id="label30">
+                            <property name="visible">True</property>
+                            <property name="can_focus">False</property>
+                            <property name="label" translatable="yes">]</property>
+                          </object>
+                          <packing>
+                            <property name="expand">False</property>
+                            <property name="fill">True</property>
+                            <property name="position">6</property>
                           </packing>
                         </child>
                       </object>

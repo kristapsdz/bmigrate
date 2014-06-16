@@ -68,6 +68,8 @@ struct	sim_continuum {
 	struct hnode	**exp; /* n-player function */
 	double		  xmin; /* minimum strategy */
 	double		  xmax; /* maximum strategy */
+	double		  ymin; /* minimum Gaussian mutant strategy */
+	double		  ymax; /* maximum Gaussian mutant strategy */
 };
 
 /*
@@ -283,6 +285,7 @@ struct	hwin {
 #endif
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
+	GtkMenuItem	 *menuclose;
 	GtkMenuItem	 *menusave;
 	GtkMenuItem	 *menufile;
 	GtkMenuItem	 *menuview;
@@ -301,6 +304,8 @@ struct	hwin {
 	GtkEntry	 *name;
 	GtkEntry	 *xmin;
 	GtkEntry	 *xmax;
+	GtkEntry	 *ymin;
+	GtkEntry	 *ymax;
 	GtkNotebook	 *inputs;
 	GtkNotebook	 *payoffs;
 	GtkLabel	 *error;

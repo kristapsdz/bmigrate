@@ -18,19 +18,23 @@ ifeq ($(shell uname),Darwin)
 GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk-mac-integration)
 GTK_LIBS := $(shell pkg-config --libs gsl gtk-mac-integration)
 GTK_PREFIX = ${HOME}/gtk/inst
-DOCBOOK_PREFIX = ${HOME}/gtk/inst
 else
 GTK_LIBS := $(shell pkg-config --libs gsl gtk+-3.0) -export-dynamic
 GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk+-3.0)
-DOCBOOK_PREFIX = $(PREFIX)
 endif
 ifeq ($(shell uname),Linux)
 BSDLIB = -lbsd
-DOCBOOK_PREFIX = /usr
 else
 BSDLIB = 
 endif
-DOCBOOK = $(DOCBOOK_PREFIX)/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl
+
+ifeq ($(shell uname),Linux)
+DOCBOOK = /usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl
+else ifeq ($(shell uname),Darwin)
+DOCBOOK = ${HOME}/gtk/inst/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl
+else
+DOCBOOK = /usr/local/share/xsl/docbook/xhtml/docbook.xsl
+endif
 
 all: bmigrate bmigrate.html
 

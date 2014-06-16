@@ -119,6 +119,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem5"));
+	b->wins.menuclose = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem24"));
 	b->wins.menusave = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem34"));
 	b->wins.input = GTK_ENTRY
@@ -135,6 +137,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry8"));
 	b->wins.xmax = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry10"));
+	b->wins.ymin = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry18"));
+	b->wins.ymax = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry19"));
 	b->wins.inputs = GTK_NOTEBOOK
 		(gtk_builder_get_object(builder, "notebook1"));
 	b->wins.payoffs = GTK_NOTEBOOK
@@ -539,26 +545,120 @@ on_sim_timer(gpointer dat)
 }
 
 static int
-entry2size(GtkEntry *entry, size_t *sz)
+entry2func(GtkEntry *entry, struct hnode ***exp, GtkLabel *error)
 {
-	guint64	 v;
-	gchar	*ep;
+	const gchar	*txt;
+	GdkRGBA	 	 bad = { 1.0, 0.0, 0.0, 0.5 };
 
-	v = g_ascii_strtoull(gtk_entry_get_text(entry), &ep, 10);
-	if (ERANGE == errno || '\0' != *ep || v > SIZE_MAX)
-		return(0);
+	txt = gtk_entry_get_text(entry);
+	*exp = hnode_parse((const gchar **)&txt);
+	if (NULL != *exp) {
+		gtk_widget_override_background_color
+			(GTK_WIDGET(entry), 
+			 GTK_STATE_FLAG_NORMAL, NULL);
+		return(1);
+	}
 
-	*sz = (size_t)v;
-	return(1);
+	gtk_label_set_text(error, "Error: not a function.");
+	gtk_widget_show_all(GTK_WIDGET(error));
+	gtk_widget_override_background_color
+		(GTK_WIDGET(entry), GTK_STATE_FLAG_NORMAL, &bad);
+	return(0);
 }
 
 static int
-entry2double(GtkEntry *entry, gdouble *sz)
+entry2size(GtkEntry *entry, size_t *sz, GtkLabel *error)
+{
+	guint64	 v;
+	gchar	*ep;
+	GdkRGBA	 bad = { 1.0, 0.0, 0.0, 0.5 };
+
+	v = g_ascii_strtoull(gtk_entry_get_text(entry), &ep, 10);
+	if (ERANGE != errno && '\0' == *ep && v < SIZE_MAX) {
+		*sz = (size_t)v;
+		gtk_widget_override_background_color
+			(GTK_WIDGET(entry), 
+			 GTK_STATE_FLAG_NORMAL, NULL);
+		return(1);
+	}
+
+	gtk_label_set_text(error, "Error: not a natural number.");
+	gtk_widget_show_all(GTK_WIDGET(error));
+	gtk_widget_override_background_color
+		(GTK_WIDGET(entry), GTK_STATE_FLAG_NORMAL, &bad);
+	return(0);
+}
+
+static int
+entryworder(GtkEntry *mine, GtkEntry *maxe, 
+	double min, double max, GtkLabel *error)
+{
+	GdkRGBA	 bad = { 1.0, 0.0, 0.0, 0.5 };
+
+	if (min < max) {
+		gtk_widget_override_background_color
+			(GTK_WIDGET(mine), 
+			 GTK_STATE_FLAG_NORMAL, NULL);
+		gtk_widget_override_background_color
+			(GTK_WIDGET(maxe), 
+			 GTK_STATE_FLAG_NORMAL, NULL);
+		return(1);
+	}
+
+	gtk_label_set_text(error, "Error: bad weak ordering.");
+	gtk_widget_show_all(GTK_WIDGET(error));
+	gtk_widget_override_background_color
+		(GTK_WIDGET(mine), GTK_STATE_FLAG_NORMAL, &bad);
+	gtk_widget_override_background_color
+		(GTK_WIDGET(maxe), GTK_STATE_FLAG_NORMAL, &bad);
+	return(0);
+}
+
+static int
+entryorder(GtkEntry *mine, GtkEntry *maxe, 
+	double min, double max, GtkLabel *error)
+{
+	GdkRGBA	 bad = { 1.0, 0.0, 0.0, 0.5 };
+
+	if (min <= max) {
+		gtk_widget_override_background_color
+			(GTK_WIDGET(mine), 
+			 GTK_STATE_FLAG_NORMAL, NULL);
+		gtk_widget_override_background_color
+			(GTK_WIDGET(maxe), 
+			 GTK_STATE_FLAG_NORMAL, NULL);
+		return(1);
+	}
+
+	gtk_label_set_text(error, "Error: bad ordering.");
+	gtk_widget_show_all(GTK_WIDGET(error));
+	gtk_widget_override_background_color
+		(GTK_WIDGET(mine), GTK_STATE_FLAG_NORMAL, &bad);
+	gtk_widget_override_background_color
+		(GTK_WIDGET(maxe), GTK_STATE_FLAG_NORMAL, &bad);
+	return(0);
+}
+
+static int
+entry2double(GtkEntry *entry, gdouble *sz, GtkLabel *error)
 {
 	gchar	*ep;
+	GdkRGBA	 bad = { 1.0, 0.0, 0.0, 0.5 };
 
 	*sz = g_ascii_strtod(gtk_entry_get_text(entry), &ep);
-	return(ERANGE != errno && '\0' == *ep);
+
+	if (ERANGE != errno && '\0' == *ep) {
+		gtk_widget_override_background_color
+			(GTK_WIDGET(entry), 
+			 GTK_STATE_FLAG_NORMAL, NULL);
+		return(1);
+	}
+
+	gtk_label_set_text(error, "Error: not a decimal number.");
+	gtk_widget_show_all(GTK_WIDGET(error));
+	gtk_widget_override_background_color
+		(GTK_WIDGET(entry), GTK_STATE_FLAG_NORMAL, &bad);
+	return(0);
 }
 
 /*
@@ -661,6 +761,8 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 			(GTK_WIDGET(b->wins.viewunpause), FALSE);
 		gtk_widget_set_sensitive
 			(GTK_WIDGET(b->wins.menusave), FALSE);
+		gtk_widget_set_sensitive
+			(GTK_WIDGET(b->wins.menuclose), FALSE);
 		return(TRUE);
 	}
 
@@ -680,6 +782,8 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 		(GTK_WIDGET(b->wins.viewunpause), TRUE);
 	gtk_widget_set_sensitive
 		(GTK_WIDGET(b->wins.menusave), TRUE);
+	gtk_widget_set_sensitive
+		(GTK_WIDGET(b->wins.menuclose), TRUE);
 	return(TRUE);
 }
 
@@ -855,8 +959,9 @@ on_activate(GtkButton *button, gpointer dat)
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
 	GTimeVal	  gt;
-	const gchar	 *txt, *name, *func;
-	gdouble		  xmin, xmax, delta, alpha, m, sigma;
+	const gchar	 *name, *func;
+	gdouble		  xmin, xmax, delta, alpha, m, sigma,
+			  ymin, ymax;
 	enum mutants	  mutants;
 	size_t		  i, totalpop, islandpop, islands, 
 			  stop, slices;
@@ -866,27 +971,21 @@ on_activate(GtkButton *button, gpointer dat)
 	 * Validation.
 	 */
 	input = gtk_notebook_get_current_page(b->wins.inputs);
+	payoff = gtk_notebook_get_current_page(b->wins.payoffs);
+
 	if (INPUT_UNIFORM != input) {
 		gtk_label_set_text
 			(b->wins.error,
 			 "Error: only uniform input supported.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
-	} else if ( ! entry2size(b->wins.totalpop, &totalpop)) {
+	} else if (PAYOFF_CONTINUUM2 != payoff) {
 		gtk_label_set_text
 			(b->wins.error,
-			 "Error: total population not a number.");
+			 "Error: only continuum payoff supported.");
 		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
 		return;
-	} else if ( ! entry2size(b->wins.stop, &stop)) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: stopping time not a number.");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} 
-
-	if (gtk_toggle_button_get_active(b->wins.analsingle)) {
+	} else if (gtk_toggle_button_get_active(b->wins.analsingle)) {
 		gtk_label_set_text
 			(b->wins.error,
 			 "Error: single run not supported.");
@@ -894,79 +993,50 @@ on_activate(GtkButton *button, gpointer dat)
 		return;
 	}
 	
+	if ( ! entry2size(b->wins.totalpop, &totalpop, b->wins.error)) 
+		return;
+	if ( ! entry2size(b->wins.stop, &stop, b->wins.error))
+		return;
+	
 	islandpop = (size_t)gtk_adjustment_get_value(b->wins.pop);
 	islands = (size_t)gtk_adjustment_get_value(b->wins.islands);
 
-	payoff = gtk_notebook_get_current_page(b->wins.payoffs);
-	if (PAYOFF_CONTINUUM2 != payoff) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: only continuum payoff supported.");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
+	if ( ! entry2double(b->wins.xmin, &xmin, b->wins.error))
 		return;
-	}
+	if ( ! entry2double(b->wins.xmax, &xmax, b->wins.error))
+		return;
+	if ( ! entry2double(b->wins.ymin, &ymin, b->wins.error))
+		return;
+	if ( ! entry2double(b->wins.ymax, &ymax, b->wins.error))
+		return;
+	if ( ! entryworder(b->wins.xmin, 
+		b->wins.xmax, xmin, xmax, b->wins.error))
+		return;
+	if ( ! entryworder(b->wins.ymin, 
+		b->wins.ymax, ymin, ymax, b->wins.error))
+		return;
+	if ( ! entryorder(b->wins.ymin, 
+		b->wins.xmin, ymin, xmin, b->wins.error))
+		return;
+	if ( ! entryorder(b->wins.xmax, 
+		b->wins.ymax, xmax, ymax, b->wins.error))
+		return;
+	if ( ! entry2double(b->wins.mutantsigma, &sigma, b->wins.error))
+		return;
+	if ( ! entry2double(b->wins.alpha, &alpha, b->wins.error))
+		return;
+	if ( ! entry2double(b->wins.delta, &delta, b->wins.error)) 
+		return;
+	if ( ! entry2double(b->wins.migrate, &m, b->wins.error))
+		return;
+	if ( ! entry2size(b->wins.incumbents, &slices, b->wins.error)) 
+		return;
+	if ( ! entry2func(b->wins.func, &exp, b->wins.error))
+		return;
 
-	if ( ! entry2double(b->wins.xmin, &xmin)) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: minimum strategy not a number.");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if ( ! entry2double(b->wins.xmax, &xmax)) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: maximum strategy not a number.");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if (xmin >= xmax) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: bad minimum/maximum strategy order.");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if ( ! entry2double(b->wins.mutantsigma, &sigma)) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: Gaussian sigma not a number");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if ( ! entry2double(b->wins.alpha, &alpha)) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: multiplier parameter not a number");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if ( ! entry2double(b->wins.delta, &delta)) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: multiplier parameter not a number");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if ( ! entry2double(b->wins.migrate, &m)) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: migration not a number");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if ( ! entry2size(b->wins.incumbents, &slices)) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: incumbents not a number");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	}
-
-	txt = func = gtk_entry_get_text(b->wins.func);
-	exp = hnode_parse((const gchar **)&txt);
-	if (NULL == exp) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: bad continuum function");
-		gtk_widget_show(GTK_WIDGET(b->wins.error));
-		return;
-	}
-
+	func = gtk_entry_get_text(b->wins.func);
 	name = gtk_entry_get_text(b->wins.name);
+
 	if ('\0' == *name)
 		name = "unnamed";
 
@@ -1008,18 +1078,13 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->cold.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
 	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
+	g_assert(NULL != sim->cold.fitmins);
 	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
+	g_assert(NULL != sim->cold.meanmins);
 	sim->cold.extmmaxs = gsl_histogram_alloc(sim->dims);
+	g_assert(NULL != sim->cold.extmmaxs);
 	sim->cold.extimins = gsl_histogram_alloc(sim->dims);
-	/* XXX... */
-	if (NULL == sim->cold.fitmins)
-		exit(EXIT_FAILURE);
-	if (NULL == sim->cold.meanmins)
-		exit(EXIT_FAILURE);
-	if (NULL == sim->cold.extmmaxs)
-		exit(EXIT_FAILURE);
-	if (NULL == sim->cold.extimins)
-		exit(EXIT_FAILURE);
+	g_assert(NULL != sim->cold.extimins);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.fitmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
@@ -1045,6 +1110,8 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->d.continuum.exp = exp;
 	sim->d.continuum.xmin = xmin;
 	sim->d.continuum.xmax = xmax;
+	sim->d.continuum.ymin = ymin;
+	sim->d.continuum.ymax = ymax;
 	b->sims = g_list_append(b->sims, sim);
 	sim_ref(sim, NULL);
 	sim->threads = g_malloc0_n(sim->nprocs, sizeof(struct simthr));
@@ -1061,7 +1128,8 @@ on_activate(GtkButton *button, gpointer dat)
 		"weighted" : "unweighted");
 	if (MUTANTS_GAUSSIAN == sim->mutants)
 		g_debug("New continuum Gaussian mutants: "
-			"%g", sim->mutantsigma);
+			"%g in [%g, %g]", sim->mutantsigma,
+			sim->d.continuum.ymin, sim->d.continuum.ymax);
 	else
 		g_debug("New continuum discrete mutants");
 
@@ -1175,8 +1243,7 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	FILE		*f;
 	char 		*filename;
 
-	assert(NULL != b->current);
-
+	g_assert(NULL != b->current);
 	dialog = gtk_file_chooser_dialog_new
 		("Open File", GTK_WINDOW(b->current),
 		 GTK_FILE_CHOOSER_ACTION_SAVE,
@@ -1214,6 +1281,19 @@ onterminate(GtkosxApplication *action, gpointer dat)
 	return(FALSE);
 }
 #endif
+
+/*
+ * Run when we quit from a simulation window.
+ */
+void
+onclose(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	g_assert(NULL != b->current);
+	g_debug("Simulation window closing");
+	gtk_widget_destroy(b->current);
+}
 
 /*
  * Run when we quit from a simulation window.
