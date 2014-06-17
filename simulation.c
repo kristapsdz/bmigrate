@@ -72,13 +72,21 @@ snapshot(struct simwork *work, const struct sim *sim,
 
 	v = stats_mean(&warm->stats[0]) +
 		stats_mean(&warm->stats[1]);
-	warm->smooth[0] = v / 2.0;
+	min = warm->smooth[0] = v / 2.0;
 	for (i = 1; i < sim->dims - 1; i++) {
 		v += stats_mean(&warm->stats[i + 1]);
 		warm->smooth[i] = v / 3.0;
 		v -= stats_mean(&warm->stats[i - 1]);
+		if (warm->smooth[i] < min) {
+			min = warm->smooth[i];
+			warm->smoothmin = i;
+		}
 	}
 	warm->smooth[i] = v / 2.0;
+	if (warm->smooth[i] < min) {
+		min = warm->smooth[i];
+		warm->smoothmin = i;
+	}
 
 	/* Compute the empirical minimum. */
 	for (min = FLT_MAX, i = 0; i < sim->dims; i++)
@@ -323,6 +331,7 @@ simulation(void *arg)
 	struct simthr	*thr = arg;
 	struct sim	*sim = thr->sim;
 	double		 mutant, incumbent, v, lambda;
+	unsigned int	 offs;
 	unsigned long	 seed;
 	double		*vp;
 	double		*icache, *mcache;
@@ -434,13 +443,17 @@ again:
 			assert(0 == migrants[0][j]);
 			assert(0 == migrants[1][j]);
 			lambda = mcache[imutants[j]];
-			for (k = 0; k < imutants[j]; k++) 
-				kids[0][j] += 
-					gsl_ran_poisson(rng, lambda);
+			for (k = 0; k < imutants[j]; k++) {
+				offs = gsl_ran_poisson(rng, lambda);
+				assert(offs >= 0);
+				kids[0][j] += offs;
+			}
 			lambda = icache[imutants[j]];
-			for ( ; k < sim->pops[j]; k++)
-				kids[1][j] += 
-					gsl_ran_poisson(rng, lambda);
+			for ( ; k < sim->pops[j]; k++) {
+				offs = gsl_ran_poisson(rng, lambda);
+				assert(offs >= 0);
+				kids[1][j] += offs;
+			}
 		}
 
 		/*
@@ -491,7 +504,7 @@ again:
 				imutants[j]++;
 				mutants++;
 				incumbents--;
-			}
+			} 
 
 			migrants[0][j] = migrants[1][j] = 0;
 		}

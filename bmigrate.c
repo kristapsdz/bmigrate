@@ -457,6 +457,7 @@ on_sim_copyout(gpointer dat)
 			sim->warm.smooth,
 			sizeof(double) * sim->dims);
 		sim->cold.meanmin = sim->warm.meanmin;
+		sim->cold.smoothmin = sim->warm.smoothmin;
 		sim->cold.fitmin = sim->warm.fitmin;
 		sim->cold.extmmax = sim->warm.extmmax;
 		sim->cold.extimin = sim->warm.extimin;

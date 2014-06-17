@@ -101,6 +101,7 @@ struct	simhot {
  */
 struct	simwarm {
 	size_t		 meanmin; /* minimum sample mean */
+	size_t		 smoothmin; /* minimum smoothed sample mean */
 	size_t		 fitmin; /* index of min fitpoly point */
 	size_t		 extmmax; /* index of max mutant extinction */
 	size_t		 extimin; /* index of min incumb extinction */
@@ -146,6 +147,7 @@ struct	simcold {
 	size_t		 extimin; /* current incumbent extinct min */
 	size_t		 fitmin; /* current fitpoly minimum */
 	size_t		 meanmin; /* current sample mean min */
+	size_t		 smoothmin; /* minimum smoothed sample mean */
 	double		 fitminsmode; /* mode of fitmins */ 
 	double		 fitminsmean; /* mean of fitmins */
 	double		 fitminsstddev; /* stddev of fitmins */
