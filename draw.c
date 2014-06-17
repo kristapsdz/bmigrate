@@ -293,6 +293,16 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
+	case (VIEW_SMOOTH):
+		for (i = 0; i < s->dims; i++) {
+			v = s->cold.smooth[i] > 
+				stats_mean(&s->cold.stats[i]) ?
+				s->cold.smooth[i] : 
+				stats_mean(&s->cold.stats[i]);
+			if (v > *maxy)
+				*maxy = v;
+		}
+		break;
 	case (VIEW_POLY):
 		for (i = 0; i < s->dims; i++) {
 			v = s->cold.fits[i] > 
@@ -925,6 +935,26 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 					(sim->cold.extmmaxs, j);
 				cairo_line_to(cr, GETX(j), GETY(v));
 			}
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_SMOOTH):
+			for (j = 1; j < sim->dims; j++) {
+				v = stats_mean(&sim->cold.stats[j - 1]);
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = stats_mean(&sim->cold.stats[j]);
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_line_width(cr, 1.5);
+			cairo_set_source_rgba(cr, GETC(0.5));
+			cairo_stroke(cr);
+			for (j = 1; j < sim->dims; j++) {
+				v = sim->cold.smooth[j - 1];
+				cairo_move_to(cr, GETX(j-1), GETY(v));
+				v = sim->cold.smooth[j];
+				cairo_line_to(cr, GETX(j), GETY(v));
+			}
+			cairo_set_line_width(cr, 2.0);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;

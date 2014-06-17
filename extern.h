@@ -104,6 +104,7 @@ struct	simwarm {
 	size_t		 fitmin; /* index of min fitpoly point */
 	size_t		 extmmax; /* index of max mutant extinction */
 	size_t		 extimin; /* index of min incumb extinction */
+	double		*smooth; /* smoothed w/rolling average */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
@@ -134,6 +135,7 @@ struct	simwork {
  */
 struct	simcold {
 	struct stats	*stats; /* statistics per incumbent */
+	double	   	*smooth; /* smoothed w/rolling average */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
@@ -262,6 +264,7 @@ enum	view {
 	VIEW_EXTIMINS,
 	VIEW_EXTI,
 	VIEW_DEV, 
+	VIEW_SMOOTH,
 	VIEW_POLY,
 	VIEW_POLYDEV,
 	VIEW_POLYMINCDF,

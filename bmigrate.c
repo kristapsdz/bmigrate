@@ -91,6 +91,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "radiobutton2"));
 	b->wins.views[VIEW_NONE] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem8"));
+	b->wins.views[VIEW_SMOOTH] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem37"));
 	b->wins.views[VIEW_EXTM] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem25"));
 	b->wins.views[VIEW_EXTMMAXPDF] = GTK_CHECK_MENU_ITEM
@@ -294,6 +296,7 @@ sim_free(gpointer arg)
 	g_free(p->hot.statslsb);
 	g_free(p->warm.stats);
 	g_free(p->warm.coeffs);
+	g_free(p->warm.smooth);
 	g_free(p->warm.fits);
 	g_free(p->cold.stats);
 	gsl_histogram_free(p->cold.fitmins);
@@ -301,6 +304,7 @@ sim_free(gpointer arg)
 	gsl_histogram_free(p->cold.extmmaxs);
 	gsl_histogram_free(p->cold.extimins);
 	g_free(p->cold.coeffs);
+	g_free(p->cold.smooth);
 	g_free(p->cold.fits);
 	g_free(p->pops);
 	g_free(p->threads);
@@ -449,6 +453,9 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.coeffs, 
 			sim->warm.coeffs,
 			sizeof(double) * (sim->fitpoly + 1));
+		memcpy(sim->cold.smooth, 
+			sim->warm.smooth,
+			sizeof(double) * sim->dims);
 		sim->cold.meanmin = sim->warm.meanmin;
 		sim->cold.fitmin = sim->warm.fitmin;
 		sim->cold.extmmax = sim->warm.extmmax;
@@ -1085,10 +1092,14 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->warm.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
+	sim->warm.smooth = g_malloc0_n
+		(sim->dims, sizeof(double));
 	sim->cold.fits = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
+	sim->cold.smooth = g_malloc0_n
+		(sim->dims, sizeof(double));
 	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.fitmins);
 	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);

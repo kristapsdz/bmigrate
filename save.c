@@ -306,6 +306,15 @@ save(FILE *f, struct bmigrate *b)
 				fprintf(f, "%g\n", v);
 			}
 			break;
+		case (VIEW_SMOOTH):
+			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
+				v = GETS(sim, j);
+				fprintf(f, "%g ", v);
+				v = sim->cold.smooth[j];
+				fprintf(f, "%g\n", v);
+			}
+			break;
 		default:
 			for (j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);
