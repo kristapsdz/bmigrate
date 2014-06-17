@@ -537,11 +537,18 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		switch (cur->view) {
 		case (VIEW_CONFIG):
 			v += e.height;
+			cairo_move_to(cr, 0.0, v - e.height * 0.5 - 1.0);
+			/* Draw a line with the simulation's colour. */
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_rel_line_to(cr, 20.0, 0.0);
+			cairo_stroke_preserve(cr);
+			/* Write the simulation name next to it. */
+			cairo_rel_move_to(cr, 5.0, e.height * 0.5 - 1.0);
 			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 			(void)g_snprintf(buf, sizeof(buf),
 				"Name: %s", sim->name);
-			cairo_move_to(cr, 0.0, v);
 			cairo_show_text(cr, buf);
+
 			v += e.height * 1.5;
 			(void)g_snprintf(buf, sizeof(buf),
 				"Function: %s, x = [%g, %g]", 
