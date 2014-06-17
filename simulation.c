@@ -445,13 +445,11 @@ again:
 			lambda = mcache[imutants[j]];
 			for (k = 0; k < imutants[j]; k++) {
 				offs = gsl_ran_poisson(rng, lambda);
-				assert(offs >= 0);
 				kids[0][j] += offs;
 			}
 			lambda = icache[imutants[j]];
 			for ( ; k < sim->pops[j]; k++) {
 				offs = gsl_ran_poisson(rng, lambda);
-				assert(offs >= 0);
 				kids[1][j] += offs;
 			}
 		}

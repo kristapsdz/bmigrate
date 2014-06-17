@@ -306,6 +306,27 @@ save(FILE *f, struct bmigrate *b)
 				fprintf(f, "%g\n", v);
 			}
 			break;
+		case (VIEW_SMOOTHMINCDF):
+			sum = gsl_histogram_sum(sim->cold.smoothmins);
+			for (v = 0.0, j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
+				v = GETS(sim, j);
+				fprintf(f, "%g ", v);
+				v += gsl_histogram_get
+					(sim->cold.smoothmins, j) / sum;
+				fprintf(f, "%g\n", v);
+			}
+			break;
+		case (VIEW_SMOOTHMINPDF):
+			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
+				v = GETS(sim, j);
+				fprintf(f, "%g ", v);
+				v = gsl_histogram_get
+					(sim->cold.smoothmins, j);
+				fprintf(f, "%g\n", v);
+			}
+			break;
 		case (VIEW_SMOOTH):
 			for (j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);

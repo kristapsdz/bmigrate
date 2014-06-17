@@ -251,6 +251,14 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		if (gsl_histogram_sum(s->cold.fitmins) > *maxy)
 			*maxy = gsl_histogram_sum(s->cold.fitmins);
 		break;
+	case (VIEW_SMOOTHMINPDF):
+		if (gsl_histogram_max_val(s->cold.smoothmins) > *maxy)
+			*maxy = gsl_histogram_max_val(s->cold.smoothmins);
+		break;
+	case (VIEW_SMOOTHMINCDF):
+		if (gsl_histogram_sum(s->cold.smoothmins) > *maxy)
+			*maxy = gsl_histogram_sum(s->cold.smoothmins);
+		break;
 	case (VIEW_MEANMINPDF):
 		if (gsl_histogram_max_val(s->cold.meanmins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.meanmins);
@@ -440,6 +448,103 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 	return(height - simmax * e.height * 1.75 + e.height * 0.5);
 }
 
+static void
+draw_set(const struct sim *sim, const struct bmigrate *b, cairo_t *cr, 
+	double width, double height, double maxy, 
+	size_t simnum, size_t simmax, double mean, double stddev)
+{
+
+	double	 v;
+
+	v = width * (simnum + 1) / (double)(simmax + 1);
+	cairo_move_to(cr, v, GETY(mean - stddev));
+	cairo_line_to(cr, v, GETY(mean + stddev));
+	cairo_set_source_rgba(cr, GETC(1.0));
+	cairo_stroke(cr);
+	cairo_new_path(cr);
+	cairo_arc(cr, v, GETY(mean), 4.0, 0.0, 2.0 * M_PI);
+	cairo_set_source_rgba(cr, GETC(1.0));
+	cairo_stroke_preserve(cr);
+	cairo_set_source_rgba(cr, GETC(0.5));
+	cairo_fill(cr);
+}
+
+static void
+draw_cdf(const struct sim *sim, const struct bmigrate *b, 
+	cairo_t *cr, double width, double height, double maxy, 
+	const gsl_histogram *p)
+{
+	double	v;
+	size_t	i;
+
+	cairo_move_to(cr, GETX(0), GETY(0.0));
+	for (v = 0.0, i = 0; i < sim->dims; i++) {
+		v += gsl_histogram_get(p, i);
+		cairo_line_to(cr, GETX(i), GETY(v));
+	}
+	cairo_set_source_rgba(cr, GETC(1.0));
+	cairo_stroke(cr);
+}
+
+static void
+draw_pdf(const struct sim *sim, const struct bmigrate *b, 
+	cairo_t *cr, double width, double height, double maxy, 
+	const gsl_histogram *p)
+{
+	double	v;
+	size_t	i;
+	for (i = 1; i < sim->dims; i++) {
+		v = gsl_histogram_get(p, i - 1);
+		cairo_move_to(cr, GETX(i-1), GETY(v));
+		v = gsl_histogram_get(p, i);
+		cairo_line_to(cr, GETX(i), GETY(v));
+	}
+	cairo_set_source_rgba(cr, GETC(1.0));
+	cairo_stroke(cr);
+}
+
+static void
+draw_stddev(const struct sim *sim, const struct bmigrate *b,
+	cairo_t *cr, double width, double height, double maxy)
+{
+	size_t	 i;
+	double	 v;
+
+	for (i = 1; i < sim->dims; i++) {
+		v = stats_mean(&sim->cold.stats[i - 1]) -
+			stats_stddev(&sim->cold.stats[i - 1]);
+		if (v < 0.0)
+			v = 0.0;
+		cairo_move_to(cr, GETX(i-1), GETY(v));
+		v = stats_mean(&sim->cold.stats[i]) -
+			stats_stddev(&sim->cold.stats[i]);
+		if (v < 0.0)
+			v = 0.0;
+		cairo_line_to(cr, GETX(i), GETY(v));
+		v = stats_mean(&sim->cold.stats[i - 1]) +
+			stats_stddev(&sim->cold.stats[i - 1]);
+		cairo_move_to(cr, GETX(i-1), GETY(v));
+		v = stats_mean(&sim->cold.stats[i]) +
+			stats_stddev(&sim->cold.stats[i]);
+		cairo_line_to(cr, GETX(i), GETY(v));
+	}
+}
+
+static void
+draw_mean(const struct sim *sim, const struct bmigrate *b,
+	cairo_t *cr, double width, double height, double maxy)
+{
+	size_t	 i;
+	double	 v;
+
+	for (i = 1; i < sim->dims; i++) {
+		v = stats_mean(&sim->cold.stats[i - 1]);
+		cairo_move_to(cr, GETX(i-1), GETY(v));
+		v = stats_mean(&sim->cold.stats[i]);
+		cairo_line_to(cr, GETX(i), GETY(v));
+	}
+}
+
 /*
  * Main draw event.
  * There's lots we can do to make this more efficient, e.g., computing
@@ -605,47 +710,16 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			v += e.height * 1.5;
 			break;
 		case (VIEW_DEV):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
+			draw_mean(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
+			draw_stddev(sim, b, cr, width, height, maxy);
 			cairo_set_line_width(cr, 1.5);
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				v -= stats_stddev(&sim->cold.stats[j - 1]);
-				if (v < 0.0)
-					v = 0.0;
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				v -= stats_stddev(&sim->cold.stats[j]);
-				if (v < 0.0)
-					v = 0.0;
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				v += stats_stddev(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				v += stats_stddev(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			break;
 		case (VIEW_POLY):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
+			draw_mean(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			cairo_set_line_width(cr, 1.5);
@@ -659,12 +733,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_stroke(cr);
 			break;
 		case (VIEW_POLYDEV):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
+			draw_mean(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			cairo_set_line_width(cr, 1.5);
@@ -676,75 +745,25 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			}
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.5);
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				v -= stats_stddev(&sim->cold.stats[j - 1]);
-				if (v < 0.0)
-					v = 0.0;
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				v -= stats_stddev(&sim->cold.stats[j]);
-				if (v < 0.0)
-					v = 0.0;
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				v += stats_stddev(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				v += stats_stddev(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
+			draw_stddev(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			break;
 		case (VIEW_POLYMINPDF):
-			for (j = 1; j < sim->dims; j++) {
-				v = gsl_histogram_get
-					(sim->cold.fitmins, j - 1);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = gsl_histogram_get
-					(sim->cold.fitmins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			draw_pdf(sim, b, cr, width, 
+				height, maxy, sim->cold.fitmins);
 			break;
 		case (VIEW_POLYMINCDF):
-			cairo_move_to(cr, GETX(0), GETY(0.0));
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += gsl_histogram_get
-					(sim->cold.fitmins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			draw_cdf(sim, b, cr, width, 
+				height, maxy, sim->cold.fitmins);
 			break;
 		case (VIEW_MEANMINPDF):
-			for (j = 1; j < sim->dims; j++) {
-				v = gsl_histogram_get
-					(sim->cold.meanmins, j - 1);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = gsl_histogram_get
-					(sim->cold.meanmins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			draw_pdf(sim, b, cr, width, 
+				height, maxy, sim->cold.meanmins);
 			break;
 		case (VIEW_MEANMINCDF):
-			cairo_move_to(cr, GETX(0), GETY(0.0));
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += gsl_histogram_get
-					(sim->cold.meanmins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			draw_cdf(sim, b, cr, width, 
+				height, maxy, sim->cold.meanmins);
 			break;
 		case (VIEW_MEANMINQ):
 			for (j = 1; j < MINQSZ; j++) {
@@ -775,76 +794,28 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_stroke(cr);
 			break;
 		case (VIEW_POLYMINS):
-			v = width * (simnum + 1) / (double)(simmax + 1);
-			cairo_move_to(cr, v, GETY
-				(sim->cold.fitminsmean -
-				 sim->cold.fitminsstddev));
-			cairo_line_to(cr, v, GETY
-				(sim->cold.fitminsmean +
-				 sim->cold.fitminsstddev));
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_new_path(cr);
-			cairo_arc(cr, v, GETY(sim->cold.fitminsmean),
-				4.0, 0.0, 2.0 * M_PI);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke_preserve(cr);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_fill(cr);
+			draw_set(sim, b, cr, width, height, 
+				maxy, simnum, simmax, 
+				sim->cold.fitminsmean, 
+				sim->cold.fitminsstddev);
 			break;
 		case (VIEW_EXTIMINS):
-			v = width * (simnum + 1) / (double)(simmax + 1);
-			cairo_move_to(cr, v, GETY
-				(sim->cold.extiminsmean -
-				 sim->cold.extiminsstddev));
-			cairo_line_to(cr, v, GETY
-				(sim->cold.extiminsmean +
-				 sim->cold.extiminsstddev));
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_new_path(cr);
-			cairo_arc(cr, v, GETY(sim->cold.extiminsmean),
-				4.0, 0.0, 2.0 * M_PI);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke_preserve(cr);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_fill(cr);
+			draw_set(sim, b, cr, width, height, 
+				maxy, simnum, simmax, 
+				sim->cold.extiminsmean, 
+				sim->cold.extiminsstddev);
 			break;
 		case (VIEW_EXTMMAXS):
-			v = width * (simnum + 1) / (double)(simmax + 1);
-			cairo_move_to(cr, v, GETY
-				(sim->cold.extmmaxsmean -
-				 sim->cold.extmmaxsstddev));
-			cairo_line_to(cr, v, GETY
-				(sim->cold.extmmaxsmean +
-				 sim->cold.extmmaxsstddev));
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_new_path(cr);
-			cairo_arc(cr, v, GETY(sim->cold.extmmaxsmean),
-				4.0, 0.0, 2.0 * M_PI);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke_preserve(cr);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_fill(cr);
+			draw_set(sim, b, cr, width, height, 
+				maxy, simnum, simmax, 
+				sim->cold.extmmaxsmean, 
+				sim->cold.extmmaxsstddev);
 			break;
 		case (VIEW_MEANMINS):
-			v = width * (simnum + 1) / (double)(simmax + 1);
-			cairo_move_to(cr, v, GETY
-				(sim->cold.meanminsmean -
-				 sim->cold.meanminsstddev));
-			cairo_line_to(cr, v, GETY
-				(sim->cold.meanminsmean +
-				 sim->cold.meanminsstddev));
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_new_path(cr);
-			cairo_arc(cr, v, GETY(sim->cold.meanminsmean),
-				4.0, 0.0, 2.0 * M_PI);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke_preserve(cr);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_fill(cr);
+			draw_set(sim, b, cr, width, height, 
+				maxy, simnum, simmax, 
+				sim->cold.meanminsmean, 
+				sim->cold.meanminsstddev);
 			break;
 		case (VIEW_POLYMINQ):
 			for (j = 1; j < MINQSZ; j++) {
@@ -895,56 +866,30 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_stroke(cr);
 			break;
 		case (VIEW_EXTIMINCDF):
-			cairo_move_to(cr, GETX(0), GETY(0.0));
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += gsl_histogram_get
-					(sim->cold.extimins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			draw_cdf(sim, b, cr, width, 
+				height, maxy, sim->cold.extimins);
 			break;
 		case (VIEW_EXTIMINPDF):
-			for (j = 1; j < sim->dims; j++) {
-				v = gsl_histogram_get
-					(sim->cold.extimins, j - 1);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = gsl_histogram_get
-					(sim->cold.extimins, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			draw_pdf(sim, b, cr, width, 
+				height, maxy, sim->cold.extimins);
 			break;
 		case (VIEW_EXTMMAXCDF):
-			cairo_move_to(cr, GETX(0), GETY(0.0));
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				v += gsl_histogram_get
-					(sim->cold.extmmaxs, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			draw_cdf(sim, b, cr, width, 
+				height, maxy, sim->cold.extmmaxs);
 			break;
 		case (VIEW_EXTMMAXPDF):
-			for (j = 1; j < sim->dims; j++) {
-				v = gsl_histogram_get
-					(sim->cold.extmmaxs, j - 1);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = gsl_histogram_get
-					(sim->cold.extmmaxs, j);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			draw_pdf(sim, b, cr, width, 
+				height, maxy, sim->cold.extmmaxs);
+			break;
+		case (VIEW_SMOOTHMINCDF):
+			draw_cdf(sim, b, cr, width, 
+				height, maxy, sim->cold.smoothmins);
+		case (VIEW_SMOOTHMINPDF):
+			draw_pdf(sim, b, cr, width, 
+				height, maxy, sim->cold.smoothmins);
 			break;
 		case (VIEW_SMOOTH):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
+			draw_mean(sim, b, cr, width, height, maxy);
 			cairo_set_line_width(cr, 1.5);
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
@@ -959,12 +904,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_stroke(cr);
 			break;
 		default:
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_mean(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_mean(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
+			draw_mean(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;

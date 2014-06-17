@@ -105,6 +105,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem27"));
 	b->wins.views[VIEW_EXTIMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem30"));
+	b->wins.views[VIEW_SMOOTHMINPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem38"));
+	b->wins.views[VIEW_SMOOTHMINCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem39"));
 	b->wins.views[VIEW_EXTIMINS] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem35"));
 	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
@@ -299,6 +303,7 @@ sim_free(gpointer arg)
 	g_free(p->warm.smooth);
 	g_free(p->warm.fits);
 	g_free(p->cold.stats);
+	gsl_histogram_free(p->cold.smoothmins);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
 	gsl_histogram_free(p->cold.extmmaxs);
@@ -478,6 +483,9 @@ on_sim_copyout(gpointer dat)
 		gsl_histogram_increment
 			(sim->cold.fitmins,
 			 GETS(sim, sim->cold.fitmin));
+		gsl_histogram_increment
+			(sim->cold.smoothmins,
+			 GETS(sim, sim->cold.smoothmin));
 		gsl_histogram_increment
 			(sim->cold.meanmins,
 			 GETS(sim, sim->cold.meanmin));
@@ -1103,6 +1111,8 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.fitmins);
+	sim->cold.smoothmins = gsl_histogram_alloc(sim->dims);
+	g_assert(NULL != sim->cold.smoothmins);
 	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.meanmins);
 	sim->cold.extmmaxs = gsl_histogram_alloc(sim->dims);
@@ -1111,6 +1121,8 @@ on_activate(GtkButton *button, gpointer dat)
 	g_assert(NULL != sim->cold.extimins);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.fitmins, xmin, xmax);
+	gsl_histogram_set_ranges_uniform
+		(sim->cold.smoothmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.meanmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform

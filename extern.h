@@ -140,6 +140,7 @@ struct	simcold {
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
+	gsl_histogram	*smoothmins; /* smoothed mean minimum dist */
 	gsl_histogram	*meanmins; /* mean minimum dist */
 	gsl_histogram	*extmmaxs; /* mutant extinction dist */
 	gsl_histogram	*extimins; /* incumbent extinction dist */
@@ -275,6 +276,8 @@ enum	view {
 	VIEW_POLYMINS,
 	VIEW_MEANMINCDF,
 	VIEW_MEANMINPDF,
+	VIEW_SMOOTHMINCDF,
+	VIEW_SMOOTHMINPDF,
 	VIEW_MEANMINQ,
 	VIEW_MEANMINS,
 	VIEW_CONFIG,

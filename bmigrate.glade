@@ -274,6 +274,26 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkRadioMenuItem" id="menuitem38">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Smoothed Sample Mean Minimum (PDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem39">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Smoothed Sample Mean Minimum (CDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkSeparatorMenuItem" id="menuitem23">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
