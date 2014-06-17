@@ -368,7 +368,7 @@ bmigrate_free(struct bmigrate *p)
 static void
 on_sim_pause(struct sim *sim, int dopause)
 {
-	int		 pause;
+	int		 pause = -1;
 
 	g_mutex_lock(&sim->hot.mux);
 	if (0 == dopause && sim->hot.pause) {

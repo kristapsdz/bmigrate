@@ -138,8 +138,7 @@ save(FILE *f, struct bmigrate *b)
 			sum = gsl_histogram_sum(sim->cold.fitmins);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
+				fprintf(f, "%g ", GETS(sim, j));
 				v += gsl_histogram_get
 					(sim->cold.fitmins, j) / sum;
 				fprintf(f, "%g\n", v);
@@ -159,8 +158,7 @@ save(FILE *f, struct bmigrate *b)
 			sum = gsl_histogram_sum(sim->cold.meanmins);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
+				fprintf(f, "%g ", GETS(sim, j));
 				v += gsl_histogram_get
 					(sim->cold.meanmins, j) / sum;
 				fprintf(stderr, "%g\n", v);
@@ -268,8 +266,7 @@ save(FILE *f, struct bmigrate *b)
 			sum = gsl_histogram_max(sim->cold.extimins);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
+				fprintf(f, "%g ", GETS(sim, j));
 				v += gsl_histogram_get
 					(sim->cold.extimins, j) / sum;
 				fprintf(f, "%g\n", v);
@@ -289,8 +286,7 @@ save(FILE *f, struct bmigrate *b)
 			sum = gsl_histogram_sum(sim->cold.extmmaxs);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
+				fprintf(f, "%g ", GETS(sim, j));
 				v += gsl_histogram_get
 					(sim->cold.extmmaxs, j) / sum;
 				fprintf(f, "%g\n", v);
@@ -310,8 +306,7 @@ save(FILE *f, struct bmigrate *b)
 			sum = gsl_histogram_sum(sim->cold.smoothmins);
 			for (v = 0.0, j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
+				fprintf(f, "%g ", GETS(sim, j));
 				v += gsl_histogram_get
 					(sim->cold.smoothmins, j) / sum;
 				fprintf(f, "%g\n", v);

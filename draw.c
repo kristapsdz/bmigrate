@@ -18,6 +18,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <cairo.h>
 #include <gtk/gtk.h>
@@ -469,6 +470,9 @@ draw_set(const struct sim *sim, const struct bmigrate *b, cairo_t *cr,
 	cairo_fill(cr);
 }
 
+/*
+ * Draw a histogram CDF.
+ */
 static void
 draw_cdf(const struct sim *sim, const struct bmigrate *b, 
 	cairo_t *cr, double width, double height, double maxy, 
@@ -486,6 +490,9 @@ draw_cdf(const struct sim *sim, const struct bmigrate *b,
 	cairo_stroke(cr);
 }
 
+/*
+ * Draw a histogram PDF.
+ */
 static void
 draw_pdf(const struct sim *sim, const struct bmigrate *b, 
 	cairo_t *cr, double width, double height, double maxy, 
@@ -503,6 +510,9 @@ draw_pdf(const struct sim *sim, const struct bmigrate *b,
 	cairo_stroke(cr);
 }
 
+/*
+ * Draw the standard deviation line.
+ */
 static void
 draw_stddev(const struct sim *sim, const struct bmigrate *b,
 	cairo_t *cr, double width, double height, double maxy)
@@ -530,6 +540,9 @@ draw_stddev(const struct sim *sim, const struct bmigrate *b,
 	}
 }
 
+/*
+ * Draw the mean line.
+ */
 static void
 draw_mean(const struct sim *sim, const struct bmigrate *b,
 	cairo_t *cr, double width, double height, double maxy)
@@ -541,6 +554,24 @@ draw_mean(const struct sim *sim, const struct bmigrate *b,
 		v = stats_mean(&sim->cold.stats[i - 1]);
 		cairo_move_to(cr, GETX(i-1), GETY(v));
 		v = stats_mean(&sim->cold.stats[i]);
+		cairo_line_to(cr, GETX(i), GETY(v));
+	}
+}
+
+/*
+ * Draw the fitted polynomial line.
+ */
+static void
+draw_poly(const struct sim *sim, const struct bmigrate *b,
+	cairo_t *cr, double width, double height, double maxy)
+{
+	size_t	 i;
+	double	 v;
+
+	for (i = 1; i < sim->dims; i++) {
+		v = sim->cold.fits[i - 1];
+		cairo_move_to(cr, GETX(i-1), GETY(v));
+		v = sim->cold.fits[i];
 		cairo_line_to(cr, GETX(i), GETY(v));
 	}
 }
@@ -622,6 +653,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	 * of the x-axis, and the format is for non-decimals.
 	 * Configuration has no label at all.
 	 */
+	memset(&e, 0, sizeof(cairo_text_extents_t));
 	switch (cur->view) {
 	case (VIEW_CONFIG):
 		cairo_text_extents(cr, "lj", &e);
@@ -722,13 +754,8 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			draw_mean(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
+			draw_poly(sim, b, cr, width, height, maxy);
 			cairo_set_line_width(cr, 1.5);
-			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.fits[j - 1];
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.fits[j];
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			break;
@@ -736,13 +763,8 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			draw_mean(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
+			draw_poly(sim, b, cr, width, height, maxy);
 			cairo_set_line_width(cr, 1.5);
-			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.fits[j - 1];
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.fits[j];
-				cairo_line_to(cr, GETX(j), GETY(v));
-			}
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			draw_stddev(sim, b, cr, width, height, maxy);
