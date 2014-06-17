@@ -152,6 +152,7 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	case (VIEW_MEANMINS):
 	case (VIEW_EXTMMAXS):
 	case (VIEW_EXTIMINS):
+	case (VIEW_SMOOTHMINS):
 		break;
 	default:
 		/* Right bottom. */
@@ -292,6 +293,11 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		break;
 	case (VIEW_EXTIMINS):
 		v = s->cold.extiminst.mean + s->cold.extiminst.stddev;
+		if (v > *maxy)
+			*maxy = v;
+		break;
+	case (VIEW_SMOOTHMINS):
+		v = s->cold.smoothminst.mean + s->cold.smoothminst.stddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
@@ -826,6 +832,10 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_EXTMMAXS):
 			draw_set(sim, b, cr, width, height, maxy, 
 				simnum, simmax, &sim->cold.extmmaxst);
+			break;
+		case (VIEW_SMOOTHMINS):
+			draw_set(sim, b, cr, width, height, maxy, 
+				simnum, simmax, &sim->cold.smoothminst);
 			break;
 		case (VIEW_MEANMINS):
 			draw_set(sim, b, cr, width, height, maxy, 

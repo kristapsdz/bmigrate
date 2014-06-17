@@ -109,6 +109,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem38"));
 	b->wins.views[VIEW_SMOOTHMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem39"));
+	b->wins.views[VIEW_SMOOTHMINS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem40"));
 	b->wins.views[VIEW_EXTIMINS] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem35"));
 	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
@@ -778,6 +780,13 @@ set_sensitive(gpointer dat, gpointer arg)
 	gtk_widget_set_sensitive(GTK_WIDGET(dat), *(gboolean *)arg);
 }
 
+/*
+ * One of our windows has received focus.
+ * If we're on a simulation window, check the currently-active view in
+ * the menu bar.
+ * If we're in the main window, then desensitise all menu options (this
+ * is only useful for Mac OS X).
+ */
 gboolean
 onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 {
@@ -800,6 +809,12 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 	return(TRUE);
 }
 
+/*
+ * If we're running on a regular UNIX machine, we've unlinked the menu
+ * bar and keep it handy in the background.
+ * When people want the menu bar, they right-click on the simulation
+ * window and it pops up with this code.
+ */
 #ifndef MAC_INTEGRATION
 static gboolean
 onpress(GtkWidget *widget, GdkEvent *event, gpointer dat)
@@ -808,7 +823,6 @@ onpress(GtkWidget *widget, GdkEvent *event, gpointer dat)
 
 	if (((GdkEventButton *)event)->button != 3)
 		return(FALSE);
-
 	gtk_menu_popup(GTK_MENU(b->wins.allmenus), NULL, 
 		NULL, NULL, NULL, 0, gtk_get_current_event_time());
 
@@ -824,6 +838,10 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	return(TRUE);
 }
 
+/*
+ * Initialise a simulation (or simulations) window.
+ * This is either called when we've just made a new simulation 
+ */
 static void
 window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 {
@@ -881,6 +899,11 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 		(GTK_MENU_ITEM(b->wins.views[cur->view])));
 }
 
+/*
+ * Clone the current window.
+ * We create a new window, intialised in the same way as for a new
+ * single simulation, but give it an existing list of simulations.
+ */
 void
 onclone(GtkMenuItem *menuitem, gpointer dat)
 {
@@ -888,12 +911,9 @@ onclone(GtkMenuItem *menuitem, gpointer dat)
 	struct curwin	*oldcur, *newcur;
 	GList		*oldsims, *newsims;
 
-	if (NULL == b->current)
-		return;
-
+	g_assert(NULL != b->current);
 	oldcur = g_object_get_data(G_OBJECT(b->current), "cfg");
 	oldsims = g_object_get_data(G_OBJECT(b->current), "sims");
-
 	g_list_foreach(oldsims, sim_ref, NULL);
 	newsims = g_list_copy(oldsims);
 	newcur = g_malloc0(sizeof(struct curwin));
@@ -901,17 +921,18 @@ onclone(GtkMenuItem *menuitem, gpointer dat)
 	window_init(b, newcur, newsims);
 }
 
+/*
+ * Toggle a different view of the current window.
+ */
 void
 onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 {
 	struct bmigrate	*b = dat;
 	struct curwin	*cur;
 
-	if (NULL == b->current)
-		return;
-
+	g_assert(NULL != b->current);
 	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	assert(NULL != cur);
+	g_assert(NULL != cur);
 	for (cur->view = 0; cur->view < VIEW__MAX; cur->view++) 
 		if (gtk_check_menu_item_get_active
 			(b->wins.views[cur->view]))
@@ -931,9 +952,7 @@ onpause(GtkMenuItem *menuitem, gpointer dat)
 	struct bmigrate	*b = dat;
 	GList		*list;
 
-	if (NULL == b->current)
-		return;
-
+	g_assert(NULL != b->current);
 	list = g_object_get_data(G_OBJECT(b->current), "sims");
 	assert(NULL != list);
 
@@ -950,9 +969,7 @@ onunpause(GtkMenuItem *menuitem, gpointer dat)
 	struct bmigrate	*b = dat;
 	GList		*list;
 
-	if (NULL == b->current)
-		return;
-
+	g_assert(NULL != b->current);
 	list = g_object_get_data(G_OBJECT(b->current), "sims");
 	assert(NULL != list);
 
@@ -1060,7 +1077,7 @@ on_activate(GtkButton *button, gpointer dat)
 
 	/* 
 	 * All parameters check out!
-	 * Start the simulation now.
+	 * Allocate the simulation now.
 	 */
 	gtk_widget_hide(GTK_WIDGET(b->wins.error));
 
@@ -1154,6 +1171,7 @@ on_activate(GtkButton *button, gpointer dat)
 	else
 		g_debug("New continuum discrete mutants");
 
+	/* Create the simulation threads. */
 	for (i = 0; i < sim->nprocs; i++) {
 		sim->threads[i].rank = i;
 		sim->threads[i].sim = sim;
@@ -1161,10 +1179,13 @@ on_activate(GtkButton *button, gpointer dat)
 			(NULL, simulation, &sim->threads[i]);
 	}
 
+	/* Create the simulation window. */
 	window_init(b, g_malloc0(sizeof(struct curwin)), 
 		g_list_append(NULL, sim));
 
-	/* Initialise the name of our simulation. */
+	/* 
+	 * Initialise the name of our simulation. 
+	 */
 	g_get_current_time(&gt);
 	gtk_entry_set_text(b->wins.name, g_time_val_to_iso8601(&gt));
 }

@@ -191,6 +191,19 @@ save(FILE *f, struct bmigrate *b)
 			    sim->cold.fitminst.stddev;
 			fprintf(f, "%g", v);
 			break;
+		case (VIEW_SMOOTHMINS):
+			fprintf(f, "%zu ", simnum);
+			v = sim->cold.smoothminst.mean;
+			fprintf(f, "%g ", v);
+			v = sim->cold.smoothminst.mean - 
+			    sim->cold.smoothminst.stddev;
+			if (v < 0.0)
+				v = 0.0;
+			fprintf(f, "%g ", v);
+			v = sim->cold.smoothminst.mean +
+			    sim->cold.smoothminst.stddev;
+			fprintf(f, "%g", v);
+			break;
 		case (VIEW_EXTIMINS):
 			fprintf(f, "%zu ", simnum);
 			v = sim->cold.extiminst.mean;
