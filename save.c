@@ -172,62 +172,62 @@ save(FILE *f, struct bmigrate *b)
 				k = (sim->cold.meanminqpos + j) % MINQSZ;
 				v = GETS(sim, sim->cold.meanminq[k]);
 				fprintf(f, "%g ", v);
-				v = sim->cold.meanminsmode;
+				v = sim->cold.meanminst.mode;
 				fprintf(f, "%g ", v);
-				v = sim->cold.meanminsmean;
+				v = sim->cold.meanminst.mean;
 				fprintf(f, "%g\n", v);
 			}
 			break;
 		case (VIEW_POLYMINS):
 			fprintf(f, "%zu ", simnum);
-			v = sim->cold.fitminsmean;
+			v = sim->cold.fitminst.mean;
 			fprintf(f, "%g ", v);
-			v = sim->cold.fitminsmean - 
-			    sim->cold.fitminsstddev;
+			v = sim->cold.fitminst.mean - 
+			    sim->cold.fitminst.stddev;
 			if (v < 0.0)
 				v = 0.0;
 			fprintf(f, "%g ", v);
-			v = sim->cold.fitminsmean +
-			    sim->cold.fitminsstddev;
+			v = sim->cold.fitminst.mean +
+			    sim->cold.fitminst.stddev;
 			fprintf(f, "%g", v);
 			break;
 		case (VIEW_EXTIMINS):
 			fprintf(f, "%zu ", simnum);
-			v = sim->cold.extiminsmean;
+			v = sim->cold.extiminst.mean;
 			fprintf(f, "%g ", v);
-			v = sim->cold.extiminsmean - 
-			    sim->cold.extiminsstddev;
+			v = sim->cold.extiminst.mean - 
+			    sim->cold.extiminst.stddev;
 			if (v < 0.0)
 				v = 0.0;
 			fprintf(f, "%g ", v);
-			v = sim->cold.extiminsmean +
-			    sim->cold.extiminsstddev;
+			v = sim->cold.extiminst.mean +
+			    sim->cold.extiminst.stddev;
 			fprintf(f, "%g", v);
 			break;
 		case (VIEW_EXTMMAXS):
 			fprintf(f, "%zu ", simnum);
-			v = sim->cold.extmmaxsmean;
+			v = sim->cold.extmmaxst.mean;
 			fprintf(f, "%g ", v);
-			v = sim->cold.extmmaxsmean - 
-			    sim->cold.extmmaxsstddev;
+			v = sim->cold.extmmaxst.mean - 
+			    sim->cold.extmmaxst.stddev;
 			if (v < 0.0)
 				v = 0.0;
 			fprintf(f, "%g ", v);
-			v = sim->cold.extmmaxsmean +
-			    sim->cold.extmmaxsstddev;
+			v = sim->cold.extmmaxst.mean +
+			    sim->cold.extmmaxst.stddev;
 			fprintf(f, "%g", v);
 			break;
 		case (VIEW_MEANMINS):
 			fprintf(f, "%zu ", simnum);
-			v = sim->cold.meanminsmean;
+			v = sim->cold.meanminst.mean;
 			fprintf(f, "%g ", v);
-			v = sim->cold.meanminsmean - 
-			    sim->cold.meanminsstddev;
+			v = sim->cold.meanminst.mean - 
+			    sim->cold.meanminst.stddev;
 			if (v < 0.0)
 				v = 0.0;
 			fprintf(f, "%g ", v);
-			v = sim->cold.meanminsmean +
-			    sim->cold.meanminsstddev;
+			v = sim->cold.meanminst.mean +
+			    sim->cold.meanminst.stddev;
 			fprintf(f, "%g", v);
 			break;
 		case (VIEW_POLYMINQ):
@@ -238,9 +238,9 @@ save(FILE *f, struct bmigrate *b)
 				k = (sim->cold.fitminqpos + j) % MINQSZ;
 				v = GETS(sim, sim->cold.fitminq[k]);
 				fprintf(f, "%g ", v);
-				v = sim->cold.fitminsmode;
+				v = sim->cold.fitminst.mode;
 				fprintf(f, "%g ", v);
-				v = sim->cold.fitminsmean;
+				v = sim->cold.fitminst.mean;
 				fprintf(f, "%g\n", v);
 			}
 			break;

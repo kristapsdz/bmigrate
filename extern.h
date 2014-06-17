@@ -128,6 +128,12 @@ struct	simwork {
 	gsl_multifit_linear_workspace *work; /* workspace */
 };
 
+struct	hstats {
+	double		 mode;
+	double		 mean;
+	double		 stddev;
+};
+
 /*
  * Instead of operating on the simulation results themselves, we copy
  * output from "struct simwarm" into a "cold" buffer for viewing.
@@ -149,18 +155,11 @@ struct	simcold {
 	size_t		 fitmin; /* current fitpoly minimum */
 	size_t		 meanmin; /* current sample mean min */
 	size_t		 smoothmin; /* minimum smoothed sample mean */
-	double		 fitminsmode; /* mode of fitmins */ 
-	double		 fitminsmean; /* mean of fitmins */
-	double		 fitminsstddev; /* stddev of fitmins */
-	double		 meanminsmode; /* mode value of meanmins */
-	double		 meanminsmean; /* mean value of meanmins */
-	double		 meanminsstddev; /* stddev value of meanmins */
-	double		 extmmaxsmode; /* mode of extmmaxs */
-	double		 extmmaxsmean; /* mean of extmmaxs */
-	double		 extmmaxsstddev; /* stddev of extmmaxs */
-	double		 extiminsmode; /* mode of extimins */
-	double		 extiminsmean; /* mean of extimins */
-	double		 extiminsstddev; /* stddev of extimins */
+	struct hstats	 fitminst; /* fitmins statistics */
+	struct hstats	 meanminst; /* meanmins statistics */
+	struct hstats	 extmmaxst; /* extmmaxs statistics */
+	struct hstats	 extiminst; /* extimins statistics */
+	struct hstats	 smoothminst; /* smoothmins statistics */
 	uint64_t	 truns; /* total runs */
 	uint64_t	 tgens; /* total generations */
 #define	MINQSZ		 256

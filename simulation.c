@@ -83,10 +83,8 @@ snapshot(struct simwork *work, const struct sim *sim,
 		}
 	}
 	warm->smooth[i] = v / 2.0;
-	if (warm->smooth[i] < min) {
-		min = warm->smooth[i];
+	if (warm->smooth[i] < min)
 		warm->smoothmin = i;
-	}
 
 	/* Compute the empirical minimum. */
 	for (min = FLT_MAX, i = 0; i < sim->dims; i++)

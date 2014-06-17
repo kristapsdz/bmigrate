@@ -418,6 +418,17 @@ on_sims_deref(gpointer dat)
 	g_list_free_full(dat, on_sim_deref);
 }
 
+static void
+hist_update(const struct sim *sim, 
+	gsl_histogram *p, struct hstats *st, size_t strat)
+{
+
+	gsl_histogram_increment(p, GETS(sim, strat));
+	st->mode = GETS(sim, gsl_histogram_max_bin(p));
+	st->mean = gsl_histogram_mean(p);
+	st->stddev = gsl_histogram_sigma(p);
+}
+
 /*
  * This copies data from the threads into local storage.
  */
@@ -480,45 +491,19 @@ on_sim_copyout(gpointer dat)
 			(sim->cold.meanminqpos + 1) % MINQSZ;
 		sim->cold.fitminqpos = 
 			(sim->cold.fitminqpos + 1) % MINQSZ;
-		gsl_histogram_increment
-			(sim->cold.fitmins,
-			 GETS(sim, sim->cold.fitmin));
-		gsl_histogram_increment
-			(sim->cold.smoothmins,
-			 GETS(sim, sim->cold.smoothmin));
-		gsl_histogram_increment
-			(sim->cold.meanmins,
-			 GETS(sim, sim->cold.meanmin));
-		gsl_histogram_increment
-			(sim->cold.extmmaxs,
-			 GETS(sim, sim->cold.extmmax));
-		gsl_histogram_increment
-			(sim->cold.extimins,
-			 GETS(sim, sim->cold.extimin));
-		sim->cold.fitminsmode = GETS(sim, 
-			gsl_histogram_max_bin(sim->cold.fitmins));
-		sim->cold.fitminsmean = 
-			gsl_histogram_mean(sim->cold.fitmins);
-		sim->cold.fitminsstddev = 
-			gsl_histogram_sigma(sim->cold.fitmins);
-		sim->cold.meanminsmode = GETS(sim, 
-			gsl_histogram_max_bin(sim->cold.meanmins));
-		sim->cold.meanminsmean = 
-			gsl_histogram_mean(sim->cold.meanmins);
-		sim->cold.meanminsstddev = 
-			gsl_histogram_sigma(sim->cold.meanmins);
-		sim->cold.extmmaxsmode = GETS(sim, 
-			gsl_histogram_max_bin(sim->cold.extmmaxs));
-		sim->cold.extmmaxsmean = 
-			gsl_histogram_mean(sim->cold.extmmaxs);
-		sim->cold.extmmaxsstddev = 
-			gsl_histogram_sigma(sim->cold.extmmaxs);
-		sim->cold.extiminsmode = GETS(sim, 
-			gsl_histogram_max_bin(sim->cold.extimins));
-		sim->cold.extiminsmean = 
-			gsl_histogram_mean(sim->cold.extimins);
-		sim->cold.extiminsstddev = 
-			gsl_histogram_sigma(sim->cold.extimins);
+		/*
+		 * Now update our histogram and statistics.
+		 */
+		hist_update(sim, sim->cold.fitmins, 
+			&sim->cold.fitminst, sim->cold.fitmin);
+		hist_update(sim, sim->cold.smoothmins, 
+			&sim->cold.smoothminst, sim->cold.smoothmin);
+		hist_update(sim, sim->cold.meanmins, 
+			&sim->cold.meanminst, sim->cold.meanmin);
+		hist_update(sim, sim->cold.extmmaxs, 
+			&sim->cold.extmmaxst, sim->cold.extmmax);
+		hist_update(sim, sim->cold.extimins, 
+			&sim->cold.extiminst, sim->cold.extimin);
 	}
 
 	return(TRUE);
