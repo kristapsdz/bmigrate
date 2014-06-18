@@ -101,11 +101,12 @@ struct	simhot {
  */
 struct	simwarm {
 	size_t		 meanmin; /* minimum sample mean */
-	size_t		 smoothmin; /* minimum smoothed sample mean */
+	size_t		 smeanmin; /* minimum smoothed sample mean */
 	size_t		 fitmin; /* index of min fitpoly point */
 	size_t		 extmmax; /* index of max mutant extinction */
 	size_t		 extimin; /* index of min incumb extinction */
-	double		*smooth; /* smoothed w/rolling average */
+	double		*smean; /* smoothed mean */
+	double		*sextms; /* smoothed mutant extinctions */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
@@ -150,11 +151,12 @@ struct	cqueue {
  */
 struct	simcold {
 	struct stats	*stats; /* statistics per incumbent */
-	double	   	*smooth; /* smoothed w/rolling average */
+	double	   	*smean; /* smoothed mean */
+	double	   	*sextms; /* smoothed mutant extinctions */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
-	gsl_histogram	*smoothmins; /* smoothed mean minimum dist */
+	gsl_histogram	*smeanmins; /* smoothed mean minimum dist */
 	gsl_histogram	*meanmins; /* mean minimum dist */
 	gsl_histogram	*extmmaxs; /* mutant extinction dist */
 	gsl_histogram	*extimins; /* incumbent extinction dist */
@@ -162,17 +164,17 @@ struct	simcold {
 	size_t		 extimin; /* current incumbent extinct min */
 	size_t		 fitmin; /* current fitpoly minimum */
 	size_t		 meanmin; /* current sample mean min */
-	size_t		 smoothmin; /* minimum smoothed sample mean */
+	size_t		 smeanmin; /* minimum smoothed sample mean */
 	struct hstats	 fitminst; /* fitmins statistics */
 	struct hstats	 meanminst; /* meanmins statistics */
 	struct hstats	 extmmaxst; /* extmmaxs statistics */
 	struct hstats	 extiminst; /* extimins statistics */
-	struct hstats	 smoothminst; /* smoothmins statistics */
+	struct hstats	 smeanminst; /* smeanmins statistics */
 	uint64_t	 truns; /* total runs */
 	uint64_t	 tgens; /* total generations */
 	struct cqueue	 meanminq; /* circleq of raw minima */
 	struct cqueue	 fitminq; /* circleq of poly minima */
-	struct cqueue	 smoothminq; /* circleq of smoothed minima */
+	struct cqueue	 smeanminq; /* circleq of smoothed minima */
 };
 
 /*

@@ -81,19 +81,37 @@ snapshot(struct simwork *work, const struct sim *sim,
 
 	v = stats_mean(&warm->stats[0]) +
 		stats_mean(&warm->stats[1]);
-	min = warm->smooth[0] = v / 2.0;
+	min = warm->smean[0] = v / 2.0;
 	for (i = 1; i < sim->dims - 1; i++) {
 		v += stats_mean(&warm->stats[i + 1]);
-		warm->smooth[i] = v / 3.0;
+		warm->smean[i] = v / 3.0;
 		v -= stats_mean(&warm->stats[i - 1]);
-		if (warm->smooth[i] < min) {
-			min = warm->smooth[i];
-			warm->smoothmin = i;
+		if (warm->smean[i] < min) {
+			min = warm->smean[i];
+			warm->smeanmin = i;
 		}
 	}
-	warm->smooth[i] = v / 2.0;
-	if (warm->smooth[i] < min)
-		warm->smoothmin = i;
+	warm->smean[i] = v / 2.0;
+	if (warm->smean[i] < min)
+		warm->smeanmin = i;
+
+#if 0
+	v = stats_extinctm(&warm->stats[0]) +
+		stats_extinctm(&warm->stats[1]);
+	min = warm->smean[0] = v / 2.0;
+	for (i = 1; i < sim->dims - 1; i++) {
+		v += stats_extinctm(&warm->stats[i + 1]);
+		warm->sextms[i] = v / 3.0;
+		v -= stats_extinctm(&warm->stats[i - 1]);
+		if (warm->smean[i] < min) {
+			min = warm->smean[i];
+			warm->smeanmin = i;
+		}
+	}
+	warm->smean[i] = v / 2.0;
+	if (warm->smean[i] < min)
+		warm->smeanmin = i;
+#endif
 
 	/* Compute the empirical minimum. */
 	for (min = FLT_MAX, i = 0; i < sim->dims; i++)

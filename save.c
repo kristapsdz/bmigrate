@@ -184,7 +184,7 @@ save(FILE *f, struct bmigrate *b)
 			write_mins(f, simnum, &sim->cold.fitminst);
 			break;
 		case (VIEW_SMOOTHMINS):
-			write_mins(f, simnum, &sim->cold.smoothminst);
+			write_mins(f, simnum, &sim->cold.smeanminst);
 			break;
 		case (VIEW_EXTIMINS):
 			write_mins(f, simnum, &sim->cold.extiminst);
@@ -197,8 +197,8 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_SMOOTHMINQ):
 			write_cqueue(f, sim, simnum, 
-				&sim->cold.smoothminq, 
-				&sim->cold.smoothminst);
+				&sim->cold.smeanminq, 
+				&sim->cold.smeanminst);
 			break;
 		case (VIEW_POLYMINQ):
 			write_cqueue(f, sim, simnum, 
@@ -236,17 +236,17 @@ save(FILE *f, struct bmigrate *b)
 			write_pdf(f, simnum, sim, sim->cold.extmmaxs);
 			break;
 		case (VIEW_SMOOTHMINCDF):
-			write_cdf(f, simnum, sim, sim->cold.smoothmins);
+			write_cdf(f, simnum, sim, sim->cold.smeanmins);
 			break;
 		case (VIEW_SMOOTHMINPDF):
-			write_pdf(f, simnum, sim, sim->cold.smoothmins);
+			write_pdf(f, simnum, sim, sim->cold.smeanmins);
 			break;
 		case (VIEW_SMOOTH):
 			for (j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
-				v = sim->cold.smooth[j];
+				v = sim->cold.smean[j];
 				fprintf(f, "%g\n", v);
 			}
 			break;

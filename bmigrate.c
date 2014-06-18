@@ -302,16 +302,18 @@ sim_free(gpointer arg)
 	g_free(p->hot.statslsb);
 	g_free(p->warm.stats);
 	g_free(p->warm.coeffs);
-	g_free(p->warm.smooth);
+	g_free(p->warm.smean);
+	g_free(p->warm.sextms);
 	g_free(p->warm.fits);
 	g_free(p->cold.stats);
-	gsl_histogram_free(p->cold.smoothmins);
+	gsl_histogram_free(p->cold.smeanmins);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
 	gsl_histogram_free(p->cold.extmmaxs);
 	gsl_histogram_free(p->cold.extimins);
 	g_free(p->cold.coeffs);
-	g_free(p->cold.smooth);
+	g_free(p->cold.smean);
+	g_free(p->cold.sextms);
 	g_free(p->cold.fits);
 	g_free(p->pops);
 	g_free(p->threads);
@@ -512,11 +514,14 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.coeffs, 
 			sim->warm.coeffs,
 			sizeof(double) * (sim->fitpoly + 1));
-		memcpy(sim->cold.smooth, 
-			sim->warm.smooth,
+		memcpy(sim->cold.smean, 
+			sim->warm.smean,
+			sizeof(double) * sim->dims);
+		memcpy(sim->cold.sextms, 
+			sim->warm.sextms,
 			sizeof(double) * sim->dims);
 		sim->cold.meanmin = sim->warm.meanmin;
-		sim->cold.smoothmin = sim->warm.smoothmin;
+		sim->cold.smeanmin = sim->warm.smeanmin;
 		sim->cold.fitmin = sim->warm.fitmin;
 		sim->cold.extmmax = sim->warm.extmmax;
 		sim->cold.extimin = sim->warm.extimin;
@@ -528,14 +533,14 @@ on_sim_copyout(gpointer dat)
 		 */
 		cqueue_push(&sim->cold.meanminq, sim->cold.meanmin);
 		cqueue_push(&sim->cold.fitminq, sim->cold.fitmin);
-		cqueue_push(&sim->cold.smoothminq, sim->cold.smoothmin);
+		cqueue_push(&sim->cold.smeanminq, sim->cold.smeanmin);
 		/*
 		 * Now update our histogram and statistics.
 		 */
 		hist_update(sim, sim->cold.fitmins, 
 			&sim->cold.fitminst, sim->cold.fitmin);
-		hist_update(sim, sim->cold.smoothmins, 
-			&sim->cold.smoothminst, sim->cold.smoothmin);
+		hist_update(sim, sim->cold.smeanmins, 
+			&sim->cold.smeanminst, sim->cold.smeanmin);
 		hist_update(sim, sim->cold.meanmins, 
 			&sim->cold.meanminst, sim->cold.meanmin);
 		hist_update(sim, sim->cold.extmmaxs, 
@@ -1164,18 +1169,22 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->warm.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
-	sim->warm.smooth = g_malloc0_n
+	sim->warm.smean = g_malloc0_n
+		(sim->dims, sizeof(double));
+	sim->warm.sextms = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.fits = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
-	sim->cold.smooth = g_malloc0_n
+	sim->cold.smean = g_malloc0_n
+		(sim->dims, sizeof(double));
+	sim->cold.sextms = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.fitmins);
-	sim->cold.smoothmins = gsl_histogram_alloc(sim->dims);
-	g_assert(NULL != sim->cold.smoothmins);
+	sim->cold.smeanmins = gsl_histogram_alloc(sim->dims);
+	g_assert(NULL != sim->cold.smeanmins);
 	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.meanmins);
 	sim->cold.extmmaxs = gsl_histogram_alloc(sim->dims);
@@ -1185,7 +1194,7 @@ on_activate(GtkButton *button, gpointer dat)
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.fitmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
-		(sim->cold.smoothmins, xmin, xmax);
+		(sim->cold.smeanmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.meanmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform

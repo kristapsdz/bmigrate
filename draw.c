@@ -249,8 +249,8 @@ max_sim(const struct curwin *cur, const struct sim *s,
 			*maxy = gsl_histogram_max_val(s->cold.fitmins);
 		break;
 	case (VIEW_SMOOTHMINPDF):
-		if (gsl_histogram_max_val(s->cold.smoothmins) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.smoothmins);
+		if (gsl_histogram_max_val(s->cold.smeanmins) > *maxy)
+			*maxy = gsl_histogram_max_val(s->cold.smeanmins);
 		break;
 	case (VIEW_MEANMINPDF):
 		if (gsl_histogram_max_val(s->cold.meanmins) > *maxy)
@@ -282,12 +282,12 @@ max_sim(const struct curwin *cur, const struct sim *s,
 			*maxy = v;
 		break;
 	case (VIEW_SMOOTHMINS):
-		v = s->cold.smoothminst.mean + s->cold.smoothminst.stddev;
+		v = s->cold.smeanminst.mean + s->cold.smeanminst.stddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
 	case (VIEW_SMOOTHMINQ):
-		v = GETS(s, s->cold.smoothminq.vals[s->cold.smoothminq.maxpos]);
+		v = GETS(s, s->cold.smeanminq.vals[s->cold.smeanminq.maxpos]);
 		if (v > *maxy)
 			*maxy = v;
 		break;
@@ -298,9 +298,9 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		break;
 	case (VIEW_SMOOTH):
 		for (i = 0; i < s->dims; i++) {
-			v = s->cold.smooth[i] > 
+			v = s->cold.smean[i] > 
 				stats_mean(&s->cold.stats[i]) ?
-				s->cold.smooth[i] : 
+				s->cold.smean[i] : 
 				stats_mean(&s->cold.stats[i]);
 			if (v > *maxy)
 				*maxy = v;
@@ -452,13 +452,13 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		case (VIEW_SMOOTH):
 		case (VIEW_SMOOTHMINQ):
 			drawlegendmax(buf, sizeof(buf),
-				sim, sim->cold.smoothmin);
+				sim, sim->cold.smeanmin);
 			break;
 		case (VIEW_SMOOTHMINCDF):
 		case (VIEW_SMOOTHMINPDF):
 		case (VIEW_SMOOTHMINS):
 			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->cold.smoothminst);
+				sim, &sim->cold.smeanminst);
 			break;
 		default:
 			abort();
@@ -858,7 +858,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			break;
 		case (VIEW_SMOOTHMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->cold.smoothminst);
+				simnum, simmax, &sim->cold.smeanminst);
 			break;
 		case (VIEW_MEANMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
@@ -866,7 +866,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			break;
 		case (VIEW_SMOOTHMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
-				&sim->cold.smoothminq, &sim->cold.smoothminst);
+				&sim->cold.smeanminq, &sim->cold.smeanminst);
 			break;
 		case (VIEW_POLYMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
@@ -910,11 +910,11 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			break;
 		case (VIEW_SMOOTHMINCDF):
 			draw_cdf(sim, b, cr, width, 
-				height, maxy, sim->cold.smoothmins);
+				height, maxy, sim->cold.smeanmins);
 			break;
 		case (VIEW_SMOOTHMINPDF):
 			draw_pdf(sim, b, cr, width, 
-				height, maxy, sim->cold.smoothmins);
+				height, maxy, sim->cold.smeanmins);
 			break;
 		case (VIEW_SMOOTH):
 			draw_mean(sim, b, cr, width, height, maxy);
@@ -922,9 +922,9 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			for (i = 1; i < sim->dims; i++) {
-				v = sim->cold.smooth[i - 1];
+				v = sim->cold.smean[i - 1];
 				cairo_move_to(cr, GETX(i-1), GETY(v));
-				v = sim->cold.smooth[i];
+				v = sim->cold.smean[i];
 				cairo_line_to(cr, GETX(i), GETY(v));
 			}
 			cairo_set_line_width(cr, 2.0);
