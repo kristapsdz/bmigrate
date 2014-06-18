@@ -70,11 +70,20 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkMenuItem" id="menuitem15">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label">Clone Window</property>
+                        <signal name="activate" handler="onclone" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkMenuItem" id="menuitem24">
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Close</property>
+                        <property name="label" translatable="yes">_Close Window</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onclose" swapped="no"/>
                       </object>
@@ -102,21 +111,6 @@
                   <object class="GtkMenu" id="menu2">
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
-                    <child>
-                      <object class="GtkMenuItem" id="menuitem15">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label">Clone View</property>
-                        <signal name="activate" handler="onclone" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkSeparatorMenuItem" id="menuitem18">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                      </object>
-                    </child>
                     <child>
                       <object class="GtkRadioMenuItem" id="menuitem8">
                         <property name="visible">True</property>

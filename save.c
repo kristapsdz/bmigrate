@@ -28,13 +28,56 @@
 
 #include "extern.h"
 
+static void
+write_cqueue(FILE *f, const struct sim *sim, size_t simnum, 
+	const struct cqueue *q, const struct hstats *st)
+{
+	size_t	 i, j;
+	
+	for (i = 0; i < CQUEUESZ; i++) {
+		fprintf(f, "%zu ", simnum);
+		fprintf(f, "%zd ", (ssize_t)i - CQUEUESZ);
+		j = (q->pos + i) % CQUEUESZ;
+		fprintf(f, "%g ", GETS(sim, q->vals[j]));
+		fprintf(f, "%g ", st->mode);
+		fprintf(f, "%g\n", st->mean);
+	}
+}
+
+static void
+write_mins(FILE *f, size_t simnum, const struct hstats *st)
+{
+
+	fprintf(f, "%zu ", simnum);
+	fprintf(f, "%g ", st->mean);
+	fprintf(f, "%g ", st->mean - st->stddev < 0.0 ?
+		0.0 : st->mean - st->stddev);
+	fprintf(f, "%g", st->mean + st->stddev);
+}
+
+static void
+write_cdf(FILE *f, size_t simnum, 
+	const struct sim *sim, const gsl_histogram *p)
+{
+	size_t	 i;
+	double	 v, sum;
+
+	sum = gsl_histogram_max(p);
+	for (v = 0.0, i = 0; i < sim->dims; i++) {
+		fprintf(f, "%zu ", simnum);
+		fprintf(f, "%g ", GETS(sim, i));
+		v += gsl_histogram_get(p, i) / sum;
+		fprintf(f, "%g\n", v);
+	}
+}
+
 void
 save(FILE *f, struct bmigrate *b)
 {
 	struct curwin	*cur;
-	double		 v, sum;
+	double		 v;
 	struct sim	*sim;
-	size_t		 j, k, simnum;
+	size_t		 j, simnum;
 	GList		*sims, *list;
 
 	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
@@ -118,14 +161,7 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_POLYMINCDF):
-			sum = gsl_histogram_sum(sim->cold.fitmins);
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				fprintf(f, "%g ", GETS(sim, j));
-				v += gsl_histogram_get
-					(sim->cold.fitmins, j) / sum;
-				fprintf(f, "%g\n", v);
-			}
+			write_cdf(f, simnum, sim, sim->cold.fitmins);
 			break;
 		case (VIEW_MEANMINPDF):
 			for (j = 0; j < sim->dims; j++) {
@@ -138,121 +174,37 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_MEANMINCDF):
-			sum = gsl_histogram_sum(sim->cold.meanmins);
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				fprintf(f, "%g ", GETS(sim, j));
-				v += gsl_histogram_get
-					(sim->cold.meanmins, j) / sum;
-				fprintf(stderr, "%g\n", v);
-			}
+			write_cdf(f, simnum, sim, sim->cold.meanmins);
 			break;
 		case (VIEW_MEANMINQ):
-			for (j = 0; j < CQUEUESZ; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = j - CQUEUESZ;
-				fprintf(f, "%g ", v);
-				k = (sim->cold.meanminq.pos + j) % CQUEUESZ;
-				v = GETS(sim, sim->cold.meanminq.vals[k]);
-				fprintf(f, "%g ", v);
-				v = sim->cold.meanminst.mode;
-				fprintf(f, "%g ", v);
-				v = sim->cold.meanminst.mean;
-				fprintf(f, "%g\n", v);
-			}
+			write_cqueue(f, sim, simnum, 
+				&sim->cold.meanminq, 
+				&sim->cold.meanminst);
 			break;
 		case (VIEW_POLYMINS):
-			fprintf(f, "%zu ", simnum);
-			v = sim->cold.fitminst.mean;
-			fprintf(f, "%g ", v);
-			v = sim->cold.fitminst.mean - 
-			    sim->cold.fitminst.stddev;
-			if (v < 0.0)
-				v = 0.0;
-			fprintf(f, "%g ", v);
-			v = sim->cold.fitminst.mean +
-			    sim->cold.fitminst.stddev;
-			fprintf(f, "%g", v);
+			write_mins(f, simnum, &sim->cold.fitminst);
 			break;
 		case (VIEW_SMOOTHMINS):
-			fprintf(f, "%zu ", simnum);
-			v = sim->cold.smoothminst.mean;
-			fprintf(f, "%g ", v);
-			v = sim->cold.smoothminst.mean - 
-			    sim->cold.smoothminst.stddev;
-			if (v < 0.0)
-				v = 0.0;
-			fprintf(f, "%g ", v);
-			v = sim->cold.smoothminst.mean +
-			    sim->cold.smoothminst.stddev;
-			fprintf(f, "%g", v);
+			write_mins(f, simnum, &sim->cold.smoothminst);
 			break;
 		case (VIEW_EXTIMINS):
-			fprintf(f, "%zu ", simnum);
-			v = sim->cold.extiminst.mean;
-			fprintf(f, "%g ", v);
-			v = sim->cold.extiminst.mean - 
-			    sim->cold.extiminst.stddev;
-			if (v < 0.0)
-				v = 0.0;
-			fprintf(f, "%g ", v);
-			v = sim->cold.extiminst.mean +
-			    sim->cold.extiminst.stddev;
-			fprintf(f, "%g", v);
+			write_mins(f, simnum, &sim->cold.extiminst);
 			break;
 		case (VIEW_EXTMMAXS):
-			fprintf(f, "%zu ", simnum);
-			v = sim->cold.extmmaxst.mean;
-			fprintf(f, "%g ", v);
-			v = sim->cold.extmmaxst.mean - 
-			    sim->cold.extmmaxst.stddev;
-			if (v < 0.0)
-				v = 0.0;
-			fprintf(f, "%g ", v);
-			v = sim->cold.extmmaxst.mean +
-			    sim->cold.extmmaxst.stddev;
-			fprintf(f, "%g", v);
+			write_mins(f, simnum, &sim->cold.extmmaxst);
 			break;
 		case (VIEW_MEANMINS):
-			fprintf(f, "%zu ", simnum);
-			v = sim->cold.meanminst.mean;
-			fprintf(f, "%g ", v);
-			v = sim->cold.meanminst.mean - 
-			    sim->cold.meanminst.stddev;
-			if (v < 0.0)
-				v = 0.0;
-			fprintf(f, "%g ", v);
-			v = sim->cold.meanminst.mean +
-			    sim->cold.meanminst.stddev;
-			fprintf(f, "%g", v);
+			write_mins(f, simnum, &sim->cold.meanminst);
 			break;
 		case (VIEW_SMOOTHMINQ):
-			for (j = 0; j < CQUEUESZ; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = j - CQUEUESZ;
-				fprintf(f, "%g ", v);
-				k = (sim->cold.smoothminq.pos + j) % CQUEUESZ;
-				v = GETS(sim, sim->cold.smoothminq.vals[k]);
-				fprintf(f, "%g ", v);
-				v = sim->cold.smoothminst.mode;
-				fprintf(f, "%g ", v);
-				v = sim->cold.smoothminst.mean;
-				fprintf(f, "%g\n", v);
-			}
+			write_cqueue(f, sim, simnum, 
+				&sim->cold.smoothminq, 
+				&sim->cold.smoothminst);
 			break;
 		case (VIEW_POLYMINQ):
-			for (j = 0; j < CQUEUESZ; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = j - CQUEUESZ;
-				fprintf(f, "%g ", v);
-				k = (sim->cold.fitminq.pos + j) % CQUEUESZ;
-				v = GETS(sim, sim->cold.fitminq.vals[k]);
-				fprintf(f, "%g ", v);
-				v = sim->cold.fitminst.mode;
-				fprintf(f, "%g ", v);
-				v = sim->cold.fitminst.mean;
-				fprintf(f, "%g\n", v);
-			}
+			write_cqueue(f, sim, simnum, 
+				&sim->cold.fitminq, 
+				&sim->cold.fitminst);
 			break;
 		case (VIEW_EXTI):
 			for (j = 0; j < sim->dims; j++) {
@@ -273,14 +225,7 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_EXTIMINCDF):
-			sum = gsl_histogram_max(sim->cold.extimins);
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				fprintf(f, "%g ", GETS(sim, j));
-				v += gsl_histogram_get
-					(sim->cold.extimins, j) / sum;
-				fprintf(f, "%g\n", v);
-			}
+			write_cdf(f, simnum, sim, sim->cold.extimins);
 			break;
 		case (VIEW_EXTIMINPDF):
 			for (j = 0; j < sim->dims; j++) {
@@ -293,14 +238,7 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_EXTMMAXCDF):
-			sum = gsl_histogram_sum(sim->cold.extmmaxs);
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				fprintf(f, "%g ", GETS(sim, j));
-				v += gsl_histogram_get
-					(sim->cold.extmmaxs, j) / sum;
-				fprintf(f, "%g\n", v);
-			}
+			write_cdf(f, simnum, sim, sim->cold.extmmaxs);
 			break;
 		case (VIEW_EXTMMAXPDF):
 			for (j = 0; j < sim->dims; j++) {
@@ -313,14 +251,7 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_SMOOTHMINCDF):
-			sum = gsl_histogram_sum(sim->cold.smoothmins);
-			for (v = 0.0, j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				fprintf(f, "%g ", GETS(sim, j));
-				v += gsl_histogram_get
-					(sim->cold.smoothmins, j) / sum;
-				fprintf(f, "%g\n", v);
-			}
+			write_cdf(f, simnum, sim, sim->cold.smoothmins);
 			break;
 		case (VIEW_SMOOTHMINPDF):
 			for (j = 0; j < sim->dims; j++) {
