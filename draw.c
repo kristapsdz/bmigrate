@@ -207,6 +207,13 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	switch (cur->view) {
 	case (VIEW_CONFIG):
 		return;
+	case (VIEW_EXTIMINCDF):
+	case (VIEW_EXTMMAXCDF):
+	case (VIEW_POLYMINCDF):
+	case (VIEW_SMOOTHMINCDF):
+	case (VIEW_MEANMINCDF):
+		*maxy = 1.0;
+		break;
 	case (VIEW_DEV):
 		for (i = 0; i < s->dims; i++) {
 			v = stats_mean(&s->cold.stats[i]) +
@@ -233,41 +240,21 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		if (gsl_histogram_max_val(s->cold.extimins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.extimins);
 		break;
-	case (VIEW_EXTIMINCDF):
-		if (gsl_histogram_sum(s->cold.extimins) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.extimins);
-		break;
 	case (VIEW_EXTMMAXPDF):
 		if (gsl_histogram_max_val(s->cold.extmmaxs) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.extmmaxs);
-		break;
-	case (VIEW_EXTMMAXCDF):
-		if (gsl_histogram_sum(s->cold.extmmaxs) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.extmmaxs);
 		break;
 	case (VIEW_POLYMINPDF):
 		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.fitmins);
 		break;
-	case (VIEW_POLYMINCDF):
-		if (gsl_histogram_sum(s->cold.fitmins) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.fitmins);
-		break;
 	case (VIEW_SMOOTHMINPDF):
 		if (gsl_histogram_max_val(s->cold.smoothmins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.smoothmins);
 		break;
-	case (VIEW_SMOOTHMINCDF):
-		if (gsl_histogram_sum(s->cold.smoothmins) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.smoothmins);
-		break;
 	case (VIEW_MEANMINPDF):
 		if (gsl_histogram_max_val(s->cold.meanmins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.meanmins);
-		break;
-	case (VIEW_MEANMINCDF):
-		if (gsl_histogram_sum(s->cold.meanmins) > *maxy)
-			*maxy = gsl_histogram_sum(s->cold.meanmins);
 		break;
 	case (VIEW_MEANMINQ):
 		for (i = 0; i < MINQSZ; i++) {
@@ -452,7 +439,7 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 	}
 
 	/* Make space for our legend. */
-	return(height - simmax * e.height * 1.75 + e.height * 0.5);
+	return(height - simmax * e.height * 1.75 - e.height);
 }
 
 static void
@@ -484,12 +471,13 @@ draw_cdf(const struct sim *sim, const struct bmigrate *b,
 	cairo_t *cr, double width, double height, double maxy, 
 	const gsl_histogram *p)
 {
-	double	v;
+	double	v, sum;
 	size_t	i;
 
+	sum = gsl_histogram_sum(p);
 	cairo_move_to(cr, GETX(0), GETY(0.0));
 	for (v = 0.0, i = 0; i < sim->dims; i++) {
-		v += gsl_histogram_get(p, i);
+		v += gsl_histogram_get(p, i) / sum;
 		cairo_line_to(cr, GETX(i), GETY(v));
 	}
 	cairo_set_source_rgba(cr, GETC(1.0));
@@ -506,6 +494,7 @@ draw_pdf(const struct sim *sim, const struct bmigrate *b,
 {
 	double	v;
 	size_t	i;
+
 	for (i = 1; i < sim->dims; i++) {
 		v = gsl_histogram_get(p, i - 1);
 		cairo_move_to(cr, GETX(i-1), GETY(v));
@@ -645,8 +634,11 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	 * CDFs and the configuration window don't change.
 	 */
 	switch (cur->view) {
+	case (VIEW_EXTMMAXCDF):
+	case (VIEW_EXTIMINCDF):
 	case (VIEW_POLYMINCDF):
 	case (VIEW_MEANMINCDF):
+	case (VIEW_SMOOTHMINCDF):
 	case (VIEW_CONFIG):
 		break;
 	default:
@@ -908,6 +900,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_SMOOTHMINCDF):
 			draw_cdf(sim, b, cr, width, 
 				height, maxy, sim->cold.smoothmins);
+			break;
 		case (VIEW_SMOOTHMINPDF):
 			draw_pdf(sim, b, cr, width, 
 				height, maxy, sim->cold.smoothmins);

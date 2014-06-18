@@ -45,8 +45,9 @@
 								Assign individuals' offspring to islands (<firstterm>migration</firstterm>).
 							</listitem>
 							<listitem>
-								On each island, replace a single inhabitant with a migrant (<firstterm>selection</firstterm> and
-								<firstterm>replacement</firstterm>), then repeat.
+								On each island with immigrants, replace a single inhabitant with a migrant
+								(<firstterm>selection</firstterm> and <firstterm>replacement</firstterm>), then
+								repeat.
 							</listitem>
 						</orderedlist>
 					</listitem>
@@ -164,6 +165,7 @@
 							</mfenced>
 						</math>
 					</inlineequation>.
+					Since fertility is Poissonian, it is never negative.
 				</listitem>
 				<listitem>
 					Once each individual's offspring count has been computed, the offspring (which inherit the parent's type)
@@ -175,6 +177,7 @@
 				<listitem>
 					Lastly, on each island with a queue of individuals migrated from other islands (or the same island), a single
 					randomly-selected individual replaces a single randomly-selected individual on the island.
+					If an island has no waiting individuals, nothing happens to that island.
 				</listitem>
 			</orderedlist>
 			<para>
