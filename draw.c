@@ -662,6 +662,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	top = gtk_widget_get_toplevel(w);
 	cur = g_object_get_data(G_OBJECT(top), "cfg");
 	assert(NULL != cur);
+	cur->redraw = 0;
 	sims = g_object_get_data(G_OBJECT(top), "sims");
 	assert(NULL != sims);
 
@@ -725,7 +726,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	case (VIEW_POLYMINQ):
 	case (VIEW_MEANMINQ):
 		drawlabels(cur, cr, "%g", &width, 
-			&height, 0.0, maxy, -256.0, 0.0);
+			&height, 0.0, maxy, -1.0 * CQUEUESZ, 0.0);
 		break;
 	default:
 		drawlabels(cur, cr, "%.2g", &width, 

@@ -348,6 +348,7 @@ struct	hwin {
  */
 struct	curwin {
 	enum view	  view; /* what view are we seeing? */
+	int		  redraw; /* window is stale? */
 };
 
 /*

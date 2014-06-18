@@ -448,8 +448,9 @@ static gboolean
 on_sim_copyout(gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	GList		*list;
+	GList		*list, *wins, *sims;
 	struct sim	*sim;
+	struct curwin	*cur;
 	int		 nocopy;
 
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
@@ -476,6 +477,27 @@ on_sim_copyout(gpointer dat)
 		if (sim->cold.truns == sim->warm.truns) {
 			assert(sim->cold.tgens == sim->warm.tgens);
 			continue;
+		}
+
+		/*
+		 * Since we're updating this particular simulation, make
+		 * sure that all windows tied to this simulation are
+		 * also going to be redrawn when the redrawer is called.
+		 */
+		wins = gtk_window_list_toplevels();
+		for ( ; wins != NULL; wins = wins->next) {
+			cur = g_object_get_data
+				(G_OBJECT(wins->data), "cfg");
+			if (NULL == cur)
+				continue;
+			sims = g_object_get_data
+				(G_OBJECT(wins->data), "sims");
+			g_assert(NULL != sims);
+			for ( ; NULL != sims; sims = sims->next)
+				if (sim == sims->data) {
+					cur->redraw = 1;
+					break;
+				}
 		}
 
 		/*
@@ -534,6 +556,7 @@ static gboolean
 on_sim_timer(gpointer dat)
 {
 	struct bmigrate	*b = dat;
+	struct curwin	*cur;
 	struct sim	*sim;
 	gchar		 buf[1024];
 	GList		*list;
@@ -566,26 +589,45 @@ on_sim_timer(gpointer dat)
 			nprocs += sim->nprocs;
 	}
 
-	/* Remind us of how many threads we're running. */
+	/* 
+	 * Remind us of how many threads we're running. 
+	 * FIXME: this shows the number of allocated threads, not
+	 * necessarily the number of running threads.
+	 */
 	(void)g_snprintf(buf, sizeof(buf),
 		"(%g%% active)", 100 * (nprocs / (double)b->nprocs));
 	gtk_label_set_text(b->wins.curthreads, buf);
 	
-	/* Tell us how many generations have transpired. */
-	if (0.0 == (elapsed = g_timer_elapsed(b->status_elapsed, NULL)))
+	/* 
+	 * Tell us how many generations have transpired (if no time has
+	 * elapsed, then make sure we don't divide by zero).
+	 * Then update the status bar.
+	 * This will in turn redraw that window portion.
+	 */
+	elapsed = g_timer_elapsed(b->status_elapsed, NULL);
+	if (0.0 == elapsed)
 		elapsed = DBL_MIN;
-	(void)g_snprintf(buf, sizeof(buf), "Running "
-		"%zu threads, %.0f matches/second.", 
+	(void)g_snprintf(buf, sizeof(buf), 
+		"Running %zu threads, %.0f matches/second.", 
 		nprocs, (runs - b->lastmatches) / elapsed);
 	gtk_statusbar_pop(b->wins.status, 0);
 	gtk_statusbar_push(b->wins.status, 0, buf);
 	g_timer_start(b->status_elapsed);
 	b->lastmatches = runs;
 
-	/* Update our windows IFF we've changed some data. */
+	/* 
+	 * Conditionally update our windows.
+	 * We do this by iterating through all simulation windows and
+	 * seeing if they have the "update" flag set to true.
+	 */
 	list = gtk_window_list_toplevels();
-	for ( ; list != NULL; list = list->next)
+	for ( ; list != NULL; list = list->next) {
+		cur = g_object_get_data
+			(G_OBJECT(list->data), "cfg");
+		if (NULL == cur || 0 == cur->redraw)
+			continue;
 		gtk_widget_queue_draw(GTK_WIDGET(list->data));
+	}
 
 	return(TRUE);
 }
@@ -815,6 +857,7 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 		b->current = w;
 		v = TRUE;
 		cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+		g_assert(NULL != cur);
 		gtk_check_menu_item_set_active
 			(b->wins.views[cur->view], v);
 	}
@@ -862,6 +905,9 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	GtkWidget	*w, *draw;
 	GdkRGBA	  	 color = { 1.0, 1.0, 1.0, 1.0 };
 	GtkTargetEntry   target;
+
+	/* Set us to redraw. */
+	cur->redraw = 1;
 
 	w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
 	gtk_widget_override_background_color
