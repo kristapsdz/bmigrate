@@ -736,19 +736,6 @@
 				</para>
 			</sect3>
 			<sect3>
-				<title>Sample Mean, Fitted, Sigma</title>
-				<para>
-					Combine <link linkend="samplemeansigma" endterm="samplemeansigma.title" /> with <link
-						linkend="samplemeanfitted" endterm="samplemeanfitted.title" />.
-					If a fit polynomial was not provided during <link linkend="configuration" endterm="configuration.title"
-						/>, this is equivalent to just the <link linkend="samplemeansigma"
-						endterm="samplemeansigma.title" />.
-				</para>
-				<screenshot>
-					<graphic fileref="screen-win4.png" />
-				</screenshot>
-			</sect3>
-			<sect3>
 				<title>Fitted Polynomial (PDF)</title>
 				<para>
 					Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />

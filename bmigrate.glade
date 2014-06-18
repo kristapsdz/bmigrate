@@ -148,16 +148,6 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkRadioMenuItem" id="menuitem17">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean, Fitted, Sigma</property>
-                        <property name="group">menuitem8</property>
-                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
                       <object class="GtkRadioMenuItem" id="menuitem25">
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>

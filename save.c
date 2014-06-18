@@ -107,23 +107,6 @@ save(FILE *f, struct bmigrate *b)
 				fprintf(f, "%g\n", v);
 			}
 			break;
-		case (VIEW_POLYDEV):
-			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
-				v = stats_mean(&sim->cold.stats[j]);
-				fprintf(f, "%g ", v);
-				v = stats_mean(&sim->cold.stats[j]) -
-				    stats_stddev(&sim->cold.stats[j]);
-				if (v < 0.0)
-					v = 0.0;
-				fprintf(f, "%g ", v);
-				v = stats_mean(&sim->cold.stats[j]) +
-				    stats_stddev(&sim->cold.stats[j]);
-				fprintf(f, "%g\n", v);
-			}
-			break;
 		case (VIEW_POLYMINPDF):
 			for (j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);

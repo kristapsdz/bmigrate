@@ -315,18 +315,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
-	case (VIEW_POLYDEV):
-		for (i = 0; i < s->dims; i++) {
-			v = s->cold.fits[i] > 
-				stats_mean(&s->cold.stats[i]) + 
-				stats_stddev(&s->cold.stats[i]) ?
-				s->cold.fits[i] : 
-				stats_mean(&s->cold.stats[i]) +
-				stats_stddev(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
 	default:
 		for (i = 0; i < s->dims; i++) {
 			v = stats_mean(&s->cold.stats[i]);
@@ -339,6 +327,37 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		*xmin = s->d.continuum.xmin;
 	if (*xmax < s->d.continuum.xmax)
 		*xmax = s->d.continuum.xmax;
+}
+
+static void
+drawlegendst(gchar *buf, size_t sz, 
+	const struct sim *sim, const struct hstats *st)
+{
+
+	(void)g_snprintf(buf, sz,
+		"%s: mode %g, mean %g (+-%g), "
+		"runs %" PRIu64, sim->name,
+		st->mode, st->mean, st->stddev, sim->cold.truns);
+}
+
+static void
+drawlegendmax(gchar *buf, size_t sz,
+	const struct sim *sim, size_t strat)
+{
+
+	(void)g_snprintf(buf, sz,
+		"%s: max %g, runs %" PRIu64, 
+		sim->name, GETS(sim, strat), sim->cold.truns);
+}
+
+static void
+drawlegendmin(gchar *buf, size_t sz,
+	const struct sim *sim, size_t strat)
+{
+
+	(void)g_snprintf(buf, sz,
+		"%s: min %g, runs %" PRIu64, 
+		sim->name, GETS(sim, strat), sim->cold.truns);
 }
 
 static double
@@ -383,57 +402,64 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		 * Sometimes we write more.
 		 */
 		switch (cur->view) {
-		case (VIEW_POLYMINCDF):
-		case (VIEW_POLYMINPDF):
-		case (VIEW_POLYMINQ):
-		case (VIEW_POLYMINS):
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: mode %g, mean %g (+-%g), "
-				"runs %" PRIu64, sim->name,
-				sim->cold.fitminst.mode,
-				sim->cold.fitminst.mean, 
-				sim->cold.fitminst.stddev, 
-				sim->cold.truns);
+		case (VIEW_DEV):
+			drawlegendmin(buf, sizeof(buf),
+				sim, sim->cold.meanmin);
+			break;
+		case (VIEW_EXTI):
+			drawlegendmax(buf, sizeof(buf),
+				sim, sim->cold.extimin);
 			break;
 		case (VIEW_EXTIMINCDF):
 		case (VIEW_EXTIMINPDF):
 		case (VIEW_EXTIMINS):
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: mode %g, mean %g (+-%g), "
-				"runs %" PRIu64, sim->name,
-				sim->cold.extiminst.mode,
-				sim->cold.extiminst.mean, 
-				sim->cold.extiminst.stddev, 
-				sim->cold.truns);
+			drawlegendst(buf, sizeof(buf), 
+				sim, &sim->cold.extiminst);
+			break;
+		case (VIEW_EXTM):
+			drawlegendmax(buf, sizeof(buf),
+				sim, sim->cold.extmmax);
 			break;
 		case (VIEW_EXTMMAXCDF):
 		case (VIEW_EXTMMAXPDF):
 		case (VIEW_EXTMMAXS):
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: mode %g, mean %g (+-%g), "
-				"runs %" PRIu64, sim->name,
-				sim->cold.extmmaxst.mode,
-				sim->cold.extmmaxst.mean, 
-				sim->cold.extmmaxst.stddev, 
-				sim->cold.truns);
+			drawlegendst(buf, sizeof(buf), 
+				sim, &sim->cold.extmmaxst);
+			break;
+		case (VIEW_MEAN):
+		case (VIEW_MEANMINQ):
+			drawlegendmin(buf, sizeof(buf),
+				sim, sim->cold.meanmin);
 			break;
 		case (VIEW_MEANMINCDF):
 		case (VIEW_MEANMINPDF):
-		case (VIEW_MEANMINQ):
 		case (VIEW_MEANMINS):
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: mode %g, mean %g (+-%g), "
-				"runs %" PRIu64, sim->name,
-				sim->cold.meanminst.mode,
-				sim->cold.meanminst.mean, 
-				sim->cold.meanminst.stddev, 
-				sim->cold.truns);
+			drawlegendst(buf, sizeof(buf), 
+				sim, &sim->cold.meanminst);
+			break;
+		case (VIEW_POLY):
+		case (VIEW_POLYMINQ):
+			drawlegendmin(buf, sizeof(buf),
+				sim, sim->cold.fitmin);
+			break;
+		case (VIEW_POLYMINCDF):
+		case (VIEW_POLYMINPDF):
+		case (VIEW_POLYMINS):
+			drawlegendst(buf, sizeof(buf), 
+				sim, &sim->cold.fitminst);
+			break;
+		case (VIEW_SMOOTH):
+			drawlegendmax(buf, sizeof(buf),
+				sim, sim->cold.smoothmin);
+			break;
+		case (VIEW_SMOOTHMINCDF):
+		case (VIEW_SMOOTHMINPDF):
+		case (VIEW_SMOOTHMINS):
+			drawlegendst(buf, sizeof(buf), 
+				sim, &sim->cold.smoothminst);
 			break;
 		default:
-			(void)g_snprintf(buf, sizeof(buf), 
-				"%s: runs %" PRIu64, 
-				sim->name, sim->cold.truns);
-			break;
+			abort();
 		}
 		cairo_show_text(cr, buf);
 	}
@@ -756,18 +782,6 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_stroke(cr);
 			draw_poly(sim, b, cr, width, height, maxy);
 			cairo_set_line_width(cr, 1.5);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_POLYDEV):
-			draw_mean(sim, b, cr, width, height, maxy);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			draw_poly(sim, b, cr, width, height, maxy);
-			cairo_set_line_width(cr, 1.5);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			draw_stddev(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			break;

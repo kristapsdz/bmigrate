@@ -89,7 +89,7 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "radiobutton1"));
 	b->wins.mutants[MUTANTS_GAUSSIAN] = GTK_RADIO_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton2"));
-	b->wins.views[VIEW_NONE] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_MEAN] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem8"));
 	b->wins.views[VIEW_SMOOTH] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem37"));
@@ -117,8 +117,6 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem6"));
 	b->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem7"));
-	b->wins.views[VIEW_POLYDEV] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem17"));
 	b->wins.views[VIEW_POLYMINPDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem9"));
 	b->wins.views[VIEW_POLYMINCDF] = GTK_CHECK_MENU_ITEM
@@ -996,6 +994,7 @@ on_activate(GtkButton *button, gpointer dat)
 	size_t		  i, totalpop, islandpop, islands, 
 			  stop, slices;
 	struct sim	 *sim;
+	struct curwin	 *cur;
 
 	/* 
 	 * Validation.
@@ -1180,8 +1179,9 @@ on_activate(GtkButton *button, gpointer dat)
 	}
 
 	/* Create the simulation window. */
-	window_init(b, g_malloc0(sizeof(struct curwin)), 
-		g_list_append(NULL, sim));
+	cur = g_malloc0(sizeof(struct curwin));
+	cur->view = VIEW_MEAN;
+	window_init(b, cur, g_list_append(NULL, sim));
 
 	/* 
 	 * Initialise the name of our simulation. 
