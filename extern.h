@@ -171,7 +171,8 @@ struct	simcold {
 	uint64_t	 truns; /* total runs */
 	uint64_t	 tgens; /* total generations */
 	struct cqueue	 meanminq; /* circleq of raw minima */
-	struct cqueue	 fitminq; /* circleq of raw minima */
+	struct cqueue	 fitminq; /* circleq of poly minima */
+	struct cqueue	 smoothminq; /* circleq of smoothed minima */
 };
 
 /*
@@ -284,6 +285,7 @@ enum	view {
 	VIEW_SMOOTH,
 	VIEW_SMOOTHMINCDF,
 	VIEW_SMOOTHMINPDF,
+	VIEW_SMOOTHMINQ,
 	VIEW_SMOOTHMINS,
 	VIEW__MAX
 };

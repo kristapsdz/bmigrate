@@ -109,6 +109,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem38"));
 	b->wins.views[VIEW_SMOOTHMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem39"));
+	b->wins.views[VIEW_SMOOTHMINQ] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem41"));
 	b->wins.views[VIEW_SMOOTHMINS] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem40"));
 	b->wins.views[VIEW_EXTIMINS] = GTK_CHECK_MENU_ITEM
@@ -504,6 +506,7 @@ on_sim_copyout(gpointer dat)
 		 */
 		cqueue_push(&sim->cold.meanminq, sim->cold.meanmin);
 		cqueue_push(&sim->cold.fitminq, sim->cold.fitmin);
+		cqueue_push(&sim->cold.smoothminq, sim->cold.smoothmin);
 		/*
 		 * Now update our histogram and statistics.
 		 */

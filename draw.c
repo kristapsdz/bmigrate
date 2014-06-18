@@ -286,6 +286,11 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		if (v > *maxy)
 			*maxy = v;
 		break;
+	case (VIEW_SMOOTHMINQ):
+		v = GETS(s, s->cold.smoothminq.vals[s->cold.smoothminq.maxpos]);
+		if (v > *maxy)
+			*maxy = v;
+		break;
 	case (VIEW_POLYMINQ):
 		v = GETS(s, s->cold.fitminq.vals[s->cold.fitminq.maxpos]);
 		if (v > *maxy)
@@ -445,6 +450,7 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 				sim, &sim->cold.fitminst);
 			break;
 		case (VIEW_SMOOTH):
+		case (VIEW_SMOOTHMINQ):
 			drawlegendmax(buf, sizeof(buf),
 				sim, sim->cold.smoothmin);
 			break;
@@ -715,6 +721,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	case (VIEW_CONFIG):
 		cairo_text_extents(cr, "lj", &e);
 		break;
+	case (VIEW_SMOOTHMINQ):
 	case (VIEW_POLYMINQ):
 	case (VIEW_MEANMINQ):
 		drawlabels(cur, cr, "%g", &width, 
@@ -855,6 +862,10 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_MEANMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
 				simnum, simmax, &sim->cold.meanminst);
+			break;
+		case (VIEW_SMOOTHMINQ):
+			draw_cqueue(sim, b, cr, width, height, maxy,
+				&sim->cold.smoothminq, &sim->cold.smoothminst);
 			break;
 		case (VIEW_POLYMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,

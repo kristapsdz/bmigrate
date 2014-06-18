@@ -226,6 +226,20 @@ save(FILE *f, struct bmigrate *b)
 			    sim->cold.meanminst.stddev;
 			fprintf(f, "%g", v);
 			break;
+		case (VIEW_SMOOTHMINQ):
+			for (j = 0; j < CQUEUESZ; j++) {
+				fprintf(f, "%zu ", simnum);
+				v = j - CQUEUESZ;
+				fprintf(f, "%g ", v);
+				k = (sim->cold.smoothminq.pos + j) % CQUEUESZ;
+				v = GETS(sim, sim->cold.smoothminq.vals[k]);
+				fprintf(f, "%g ", v);
+				v = sim->cold.smoothminst.mode;
+				fprintf(f, "%g ", v);
+				v = sim->cold.smoothminst.mean;
+				fprintf(f, "%g\n", v);
+			}
+			break;
 		case (VIEW_POLYMINQ):
 			for (j = 0; j < CQUEUESZ; j++) {
 				fprintf(f, "%zu ", simnum);
