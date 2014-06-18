@@ -257,11 +257,9 @@ max_sim(const struct curwin *cur, const struct sim *s,
 			*maxy = gsl_histogram_max_val(s->cold.meanmins);
 		break;
 	case (VIEW_MEANMINQ):
-		for (i = 0; i < MINQSZ; i++) {
-			v = GETS(s, s->cold.meanminq[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
+		v = GETS(s, s->cold.meanminq.vals[s->cold.meanminq.maxpos]);
+		if (v > *maxy)
+			*maxy = v;
 		break;
 	case (VIEW_POLYMINS):
 		v = s->cold.fitminst.mean + s->cold.fitminst.stddev;
@@ -289,11 +287,9 @@ max_sim(const struct curwin *cur, const struct sim *s,
 			*maxy = v;
 		break;
 	case (VIEW_POLYMINQ):
-		for (i = 0; i < MINQSZ; i++) {
-			v = GETS(s, s->cold.fitminq[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
+		v = GETS(s, s->cold.fitminq.vals[s->cold.fitminq.maxpos]);
+		if (v > *maxy)
+			*maxy = v;
 		break;
 	case (VIEW_SMOOTH):
 		for (i = 0; i < s->dims; i++) {
@@ -597,6 +593,42 @@ draw_poly(const struct sim *sim, const struct bmigrate *b,
 	}
 }
 
+static void
+draw_cqueue(const struct sim *sim, const struct bmigrate *b,
+	cairo_t *cr, double width, double height, double maxy,
+	const struct cqueue *q, const struct hstats *st)
+{
+	size_t	 i, j;
+	double	 v;
+	static const double dash[] = {6.0};
+
+	for (i = 1; i < CQUEUESZ; i++) {
+		j = (q->pos + i - 1) % CQUEUESZ;
+		v = GETS(sim, q->vals[j]);
+		cairo_move_to(cr, width * (i - 1) / 
+			(double)CQUEUESZ, GETY(v));
+		j = (q->pos + i) % CQUEUESZ;
+		v = GETS(sim, q->vals[j]);
+		cairo_line_to(cr, width * i / 
+			(double)CQUEUESZ, GETY(v));
+	}
+	cairo_set_source_rgba(cr, GETC(1.0));
+	cairo_stroke(cr);
+	cairo_set_line_width(cr, 1.0);
+	v = st->mode;
+	cairo_move_to(cr, 0.0, GETY(v));
+	cairo_line_to(cr, width, GETY(v));
+	cairo_set_dash(cr, dash, 1, 0);
+	cairo_set_source_rgba(cr, GETC(0.75));
+	cairo_stroke(cr);
+	v = st->mean;
+	cairo_move_to(cr, 0.0, GETY(v));
+	cairo_line_to(cr, width, GETY(v));
+	cairo_set_dash(cr, dash, 0, 0);
+	cairo_set_source_rgba(cr, GETC(0.75));
+	cairo_stroke(cr);
+}
+
 /*
  * Main draw event.
  * There's lots we can do to make this more efficient, e.g., computing
@@ -609,11 +641,10 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	double		 width, height, maxy, v, xmin, xmax;
 	GtkWidget	*top;
 	struct sim	*sim;
-	size_t		 j, k, simnum, simmax;
+	size_t		 i, simnum, simmax;
 	GList		*sims, *list;
 	cairo_text_extents_t e;
 	gchar		 buf[1024];
-	static const double dash[] = {6.0};
 
 	cairo_set_font_size(cr, 12.0);
 
@@ -802,32 +833,8 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 				height, maxy, sim->cold.meanmins);
 			break;
 		case (VIEW_MEANMINQ):
-			for (j = 1; j < MINQSZ; j++) {
-				k = (sim->cold.meanminqpos + j - 1) % 
-					MINQSZ;
-				v = GETS(sim, sim->cold.meanminq[k]);
-				cairo_move_to(cr, width * (j - 1) / 
-					(double)MINQSZ, GETY(v));
-				k = (sim->cold.meanminqpos + j) % MINQSZ;
-				v = GETS(sim, sim->cold.meanminq[k]);
-				cairo_line_to(cr, width * j / 
-					(double)MINQSZ, GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.0);
-			v = sim->cold.meanminst.mode;
-			cairo_move_to(cr, 0.0, GETY(v));
-			cairo_line_to(cr, width, GETY(v));
-			cairo_set_dash(cr, dash, 1, 0);
-			cairo_set_source_rgba(cr, GETC(0.75));
-			cairo_stroke(cr);
-			v = sim->cold.meanminst.mean;
-			cairo_move_to(cr, 0.0, GETY(v));
-			cairo_line_to(cr, width, GETY(v));
-			cairo_set_dash(cr, dash, 0, 0);
-			cairo_set_source_rgba(cr, GETC(0.75));
-			cairo_stroke(cr);
+			draw_cqueue(sim, b, cr, width, height, maxy,
+				&sim->cold.meanminq, &sim->cold.meanminst);
 			break;
 		case (VIEW_POLYMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
@@ -850,49 +857,25 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 				simnum, simmax, &sim->cold.meanminst);
 			break;
 		case (VIEW_POLYMINQ):
-			for (j = 1; j < MINQSZ; j++) {
-				k = (sim->cold.fitminqpos + j - 1) % 
-					MINQSZ;
-				v = GETS(sim, sim->cold.fitminq[k]);
-				cairo_move_to(cr, width * (j - 1) / 
-					(double)MINQSZ, GETY(v));
-				k = (sim->cold.fitminqpos + j) % MINQSZ;
-				v = GETS(sim, sim->cold.fitminq[k]);
-				cairo_line_to(cr, width * j / 
-					(double)MINQSZ, GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			cairo_set_line_width(cr, 1.0);
-			v = sim->cold.fitminst.mode;
-			cairo_move_to(cr, 0.0, GETY(v));
-			cairo_line_to(cr, width, GETY(v));
-			cairo_set_dash(cr, dash, 1, 0);
-			cairo_set_source_rgba(cr, GETC(0.75));
-			cairo_stroke(cr);
-			v = sim->cold.fitminst.mean;
-			cairo_move_to(cr, 0.0, GETY(v));
-			cairo_line_to(cr, width, GETY(v));
-			cairo_set_dash(cr, dash, 0, 0);
-			cairo_set_source_rgba(cr, GETC(0.75));
-			cairo_stroke(cr);
+			draw_cqueue(sim, b, cr, width, height, maxy,
+				&sim->cold.fitminq, &sim->cold.fitminst);
 			break;
 		case (VIEW_EXTI):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_extincti(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_extincti(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
+			for (i = 1; i < sim->dims; i++) {
+				v = stats_extincti(&sim->cold.stats[i - 1]);
+				cairo_move_to(cr, GETX(i-1), GETY(v));
+				v = stats_extincti(&sim->cold.stats[i]);
+				cairo_line_to(cr, GETX(i), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;
 		case (VIEW_EXTM):
-			for (j = 1; j < sim->dims; j++) {
-				v = stats_extinctm(&sim->cold.stats[j - 1]);
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = stats_extinctm(&sim->cold.stats[j]);
-				cairo_line_to(cr, GETX(j), GETY(v));
+			for (i = 1; i < sim->dims; i++) {
+				v = stats_extinctm(&sim->cold.stats[i - 1]);
+				cairo_move_to(cr, GETX(i-1), GETY(v));
+				v = stats_extinctm(&sim->cold.stats[i]);
+				cairo_line_to(cr, GETX(i), GETY(v));
 			}
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
@@ -926,11 +909,11 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_set_line_width(cr, 1.5);
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
-			for (j = 1; j < sim->dims; j++) {
-				v = sim->cold.smooth[j - 1];
-				cairo_move_to(cr, GETX(j-1), GETY(v));
-				v = sim->cold.smooth[j];
-				cairo_line_to(cr, GETX(j), GETY(v));
+			for (i = 1; i < sim->dims; i++) {
+				v = sim->cold.smooth[i - 1];
+				cairo_move_to(cr, GETX(i-1), GETY(v));
+				v = sim->cold.smooth[i];
+				cairo_line_to(cr, GETX(i), GETY(v));
 			}
 			cairo_set_line_width(cr, 2.0);
 			cairo_set_source_rgba(cr, GETC(1.0));

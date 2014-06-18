@@ -148,12 +148,12 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_MEANMINQ):
-			for (j = 0; j < MINQSZ; j++) {
+			for (j = 0; j < CQUEUESZ; j++) {
 				fprintf(f, "%zu ", simnum);
-				v = j - MINQSZ;
+				v = j - CQUEUESZ;
 				fprintf(f, "%g ", v);
-				k = (sim->cold.meanminqpos + j) % MINQSZ;
-				v = GETS(sim, sim->cold.meanminq[k]);
+				k = (sim->cold.meanminq.pos + j) % CQUEUESZ;
+				v = GETS(sim, sim->cold.meanminq.vals[k]);
 				fprintf(f, "%g ", v);
 				v = sim->cold.meanminst.mode;
 				fprintf(f, "%g ", v);
@@ -227,12 +227,12 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "%g", v);
 			break;
 		case (VIEW_POLYMINQ):
-			for (j = 0; j < MINQSZ; j++) {
+			for (j = 0; j < CQUEUESZ; j++) {
 				fprintf(f, "%zu ", simnum);
-				v = j - MINQSZ;
+				v = j - CQUEUESZ;
 				fprintf(f, "%g ", v);
-				k = (sim->cold.fitminqpos + j) % MINQSZ;
-				v = GETS(sim, sim->cold.fitminq[k]);
+				k = (sim->cold.fitminq.pos + j) % CQUEUESZ;
+				v = GETS(sim, sim->cold.fitminq.vals[k]);
 				fprintf(f, "%g ", v);
 				v = sim->cold.fitminst.mode;
 				fprintf(f, "%g ", v);

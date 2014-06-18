@@ -429,6 +429,16 @@ hist_update(const struct sim *sim,
 	st->stddev = gsl_histogram_sigma(p);
 }
 
+static void
+cqueue_push(struct cqueue *q, size_t val)
+{
+
+	q->vals[q->pos] = val;
+	if (val > q->vals[q->maxpos])
+		q->maxpos = q->pos;
+	q->pos = (q->pos + 1) % CQUEUESZ;
+}
+
 /*
  * This copies data from the threads into local storage.
  */
@@ -457,6 +467,15 @@ on_sim_copyout(gpointer dat)
 		g_mutex_unlock(&sim->hot.mux);
 		if (nocopy)
 			continue;
+
+		/* 
+		 * Don't copy stale data.
+		 */
+		if (sim->cold.truns == sim->warm.truns) {
+			assert(sim->cold.tgens == sim->warm.tgens);
+			continue;
+		}
+
 		/*
 		 * Most strutures we simply copy over.
 		 */
@@ -483,14 +502,8 @@ on_sim_copyout(gpointer dat)
 		 * Now we compute data that's managed by this function
 		 * and thread alone (no need for locking).
 		 */
-		sim->cold.meanminq[sim->cold.meanminqpos] =
-			sim->cold.meanmin;
-		sim->cold.fitminq[sim->cold.fitminqpos] =
-			sim->cold.fitmin;
-		sim->cold.meanminqpos = 
-			(sim->cold.meanminqpos + 1) % MINQSZ;
-		sim->cold.fitminqpos = 
-			(sim->cold.fitminqpos + 1) % MINQSZ;
+		cqueue_push(&sim->cold.meanminq, sim->cold.meanmin);
+		cqueue_push(&sim->cold.fitminq, sim->cold.fitmin);
 		/*
 		 * Now update our histogram and statistics.
 		 */

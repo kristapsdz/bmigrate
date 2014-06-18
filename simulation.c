@@ -65,6 +65,15 @@ snapshot(struct simwork *work, const struct sim *sim,
 	double	 min, v, chisq, x;
 	size_t	 i, j, k;
 
+	/*
+	 * If we have the same number of runs, don't bother snapshotting
+	 * us--we're already up to date.
+	 */
+	if (warm->truns == truns) {
+		assert(warm->tgens == tgens);
+		return;
+	}
+
 	memcpy(warm->stats, sim->hot.statslsb, 
 		sim->dims * sizeof(struct stats));
 	warm->truns = truns;

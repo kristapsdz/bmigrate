@@ -134,6 +134,14 @@ struct	hstats {
 	double		 stddev;
 };
 
+#define	CQUEUESZ	 256
+
+struct	cqueue {
+	size_t		 pos; /* current queue position */
+	size_t		 vals[CQUEUESZ];
+	size_t		 maxpos; /* position of maximum */
+};
+
 /*
  * Instead of operating on the simulation results themselves, we copy
  * output from "struct simwarm" into a "cold" buffer for viewing.
@@ -162,11 +170,8 @@ struct	simcold {
 	struct hstats	 smoothminst; /* smoothmins statistics */
 	uint64_t	 truns; /* total runs */
 	uint64_t	 tgens; /* total generations */
-#define	MINQSZ		 256
-	size_t		 meanminq[MINQSZ]; /* circleq of raw minima */
-	size_t		 meanminqpos; /* current (ahead) in meanminq */
-	size_t		 fitminq[MINQSZ]; /* circleq of raw minima */
-	size_t		 fitminqpos; /* current (ahead) in meanminq */
+	struct cqueue	 meanminq; /* circleq of raw minima */
+	struct cqueue	 fitminq; /* circleq of raw minima */
 };
 
 /*
