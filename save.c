@@ -183,7 +183,7 @@ save(FILE *f, struct bmigrate *b)
 		case (VIEW_POLYMINS):
 			write_mins(f, simnum, &sim->cold.fitminst);
 			break;
-		case (VIEW_SMOOTHMINS):
+		case (VIEW_SMEANMINS):
 			write_mins(f, simnum, &sim->cold.smeanminst);
 			break;
 		case (VIEW_EXTIMINS):
@@ -195,7 +195,7 @@ save(FILE *f, struct bmigrate *b)
 		case (VIEW_MEANMINS):
 			write_mins(f, simnum, &sim->cold.meanminst);
 			break;
-		case (VIEW_SMOOTHMINQ):
+		case (VIEW_SMEANMINQ):
 			write_cqueue(f, sim, simnum, 
 				&sim->cold.smeanminq, 
 				&sim->cold.smeanminst);
@@ -235,18 +235,27 @@ save(FILE *f, struct bmigrate *b)
 		case (VIEW_EXTMMAXPDF):
 			write_pdf(f, simnum, sim, sim->cold.extmmaxs);
 			break;
-		case (VIEW_SMOOTHMINCDF):
+		case (VIEW_SMEANMINCDF):
 			write_cdf(f, simnum, sim, sim->cold.smeanmins);
 			break;
-		case (VIEW_SMOOTHMINPDF):
+		case (VIEW_SMEANMINPDF):
 			write_pdf(f, simnum, sim, sim->cold.smeanmins);
 			break;
-		case (VIEW_SMOOTH):
+		case (VIEW_SEXTM):
 			for (j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
-				v = sim->cold.smean[j];
+				v = sim->cold.sextms[j];
+				fprintf(f, "%g\n", v);
+			}
+			break;
+		case (VIEW_SMEAN):
+			for (j = 0; j < sim->dims; j++) {
+				fprintf(f, "%zu ", simnum);
+				v = GETS(sim, j);
+				fprintf(f, "%g ", v);
+				v = sim->cold.smeans[j];
 				fprintf(f, "%g\n", v);
 			}
 			break;

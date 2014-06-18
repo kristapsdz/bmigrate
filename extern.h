@@ -100,12 +100,13 @@ struct	simhot {
  * "fitmin" are set (if applicable) to the fitted polynomial.
  */
 struct	simwarm {
-	size_t		 meanmin; /* minimum sample mean */
-	size_t		 smeanmin; /* minimum smoothed sample mean */
+	size_t		 meanmin; /* min sample mean */
+	size_t		 smeanmin; /* min smoothed sample mean */
+	size_t	 	 sextmmax; /* max smoothed mutant extinct */
 	size_t		 fitmin; /* index of min fitpoly point */
 	size_t		 extmmax; /* index of max mutant extinction */
 	size_t		 extimin; /* index of min incumb extinction */
-	double		*smean; /* smoothed mean */
+	double		*smeans; /* smoothed mean */
 	double		*sextms; /* smoothed mutant extinctions */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
@@ -151,7 +152,7 @@ struct	cqueue {
  */
 struct	simcold {
 	struct stats	*stats; /* statistics per incumbent */
-	double	   	*smean; /* smoothed mean */
+	double	   	*smeans; /* smoothed mean */
 	double	   	*sextms; /* smoothed mutant extinctions */
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
@@ -164,7 +165,8 @@ struct	simcold {
 	size_t		 extimin; /* current incumbent extinct min */
 	size_t		 fitmin; /* current fitpoly minimum */
 	size_t		 meanmin; /* current sample mean min */
-	size_t		 smeanmin; /* minimum smoothed sample mean */
+	size_t		 smeanmin; /* min smoothed sample mean */
+	size_t	 	 sextmmax; /* max smoothed mutant extinct */
 	struct hstats	 fitminst; /* fitmins statistics */
 	struct hstats	 meanminst; /* meanmins statistics */
 	struct hstats	 extmmaxst; /* extmmaxs statistics */
@@ -284,11 +286,12 @@ enum	view {
 	VIEW_POLYMINPDF,
 	VIEW_POLYMINQ,
 	VIEW_POLYMINS,
-	VIEW_SMOOTH,
-	VIEW_SMOOTHMINCDF,
-	VIEW_SMOOTHMINPDF,
-	VIEW_SMOOTHMINQ,
-	VIEW_SMOOTHMINS,
+	VIEW_SEXTM,
+	VIEW_SMEAN,
+	VIEW_SMEANMINCDF,
+	VIEW_SMEANMINPDF,
+	VIEW_SMEANMINQ,
+	VIEW_SMEANMINS,
 	VIEW__MAX
 };
 

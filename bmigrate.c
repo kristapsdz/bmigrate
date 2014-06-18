@@ -91,8 +91,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "radiobutton2"));
 	b->wins.views[VIEW_MEAN] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem8"));
-	b->wins.views[VIEW_SMOOTH] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_SMEAN] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem37"));
+	b->wins.views[VIEW_SEXTM] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem43"));
 	b->wins.views[VIEW_EXTM] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem25"));
 	b->wins.views[VIEW_EXTMMAXPDF] = GTK_CHECK_MENU_ITEM
@@ -105,13 +107,13 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem27"));
 	b->wins.views[VIEW_EXTIMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem30"));
-	b->wins.views[VIEW_SMOOTHMINPDF] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_SMEANMINPDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem38"));
-	b->wins.views[VIEW_SMOOTHMINCDF] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_SMEANMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem39"));
-	b->wins.views[VIEW_SMOOTHMINQ] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_SMEANMINQ] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem41"));
-	b->wins.views[VIEW_SMOOTHMINS] = GTK_CHECK_MENU_ITEM
+	b->wins.views[VIEW_SMEANMINS] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem40"));
 	b->wins.views[VIEW_EXTIMINS] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem35"));
@@ -302,7 +304,7 @@ sim_free(gpointer arg)
 	g_free(p->hot.statslsb);
 	g_free(p->warm.stats);
 	g_free(p->warm.coeffs);
-	g_free(p->warm.smean);
+	g_free(p->warm.smeans);
 	g_free(p->warm.sextms);
 	g_free(p->warm.fits);
 	g_free(p->cold.stats);
@@ -312,7 +314,7 @@ sim_free(gpointer arg)
 	gsl_histogram_free(p->cold.extmmaxs);
 	gsl_histogram_free(p->cold.extimins);
 	g_free(p->cold.coeffs);
-	g_free(p->cold.smean);
+	g_free(p->cold.smeans);
 	g_free(p->cold.sextms);
 	g_free(p->cold.fits);
 	g_free(p->pops);
@@ -514,14 +516,15 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.coeffs, 
 			sim->warm.coeffs,
 			sizeof(double) * (sim->fitpoly + 1));
-		memcpy(sim->cold.smean, 
-			sim->warm.smean,
+		memcpy(sim->cold.smeans, 
+			sim->warm.smeans,
 			sizeof(double) * sim->dims);
 		memcpy(sim->cold.sextms, 
 			sim->warm.sextms,
 			sizeof(double) * sim->dims);
 		sim->cold.meanmin = sim->warm.meanmin;
 		sim->cold.smeanmin = sim->warm.smeanmin;
+		sim->cold.sextmmax = sim->warm.sextmmax;
 		sim->cold.fitmin = sim->warm.fitmin;
 		sim->cold.extmmax = sim->warm.extmmax;
 		sim->cold.extimin = sim->warm.extimin;
@@ -1169,7 +1172,7 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->warm.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
-	sim->warm.smean = g_malloc0_n
+	sim->warm.smeans = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->warm.sextms = g_malloc0_n
 		(sim->dims, sizeof(double));
@@ -1177,7 +1180,7 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->cold.coeffs = g_malloc0_n
 		(sim->fitpoly + 1, sizeof(double));
-	sim->cold.smean = g_malloc0_n
+	sim->cold.smeans = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.sextms = g_malloc0_n
 		(sim->dims, sizeof(double));
