@@ -71,6 +71,19 @@ write_cdf(FILE *f, size_t simnum,
 	}
 }
 
+static void
+write_pdf(FILE *f, size_t simnum, 
+	const struct sim *sim, const gsl_histogram *p)
+{
+	size_t	 i;
+
+	for (i = 0; i < sim->dims; i++) {
+		fprintf(f, "%zu ", simnum);
+		fprintf(f, "%g ", GETS(sim, i));
+		fprintf(f, "%g\n", gsl_histogram_get(p, i));
+	}
+}
+
 void
 save(FILE *f, struct bmigrate *b)
 {
@@ -151,27 +164,13 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_POLYMINPDF):
-			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
-				v = gsl_histogram_get
-					(sim->cold.fitmins, j);
-				fprintf(f, "%g\n", v);
-			}
+			write_pdf(f, simnum, sim, sim->cold.fitmins);
 			break;
 		case (VIEW_POLYMINCDF):
 			write_cdf(f, simnum, sim, sim->cold.fitmins);
 			break;
 		case (VIEW_MEANMINPDF):
-			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
-				v = gsl_histogram_get
-					(sim->cold.meanmins, j);
-				fprintf(f, "%g\n", v);
-			}
+			write_pdf(f, simnum, sim, sim->cold.meanmins);
 			break;
 		case (VIEW_MEANMINCDF):
 			write_cdf(f, simnum, sim, sim->cold.meanmins);
@@ -228,40 +227,19 @@ save(FILE *f, struct bmigrate *b)
 			write_cdf(f, simnum, sim, sim->cold.extimins);
 			break;
 		case (VIEW_EXTIMINPDF):
-			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
-				v = gsl_histogram_get
-					(sim->cold.extimins, j);
-				fprintf(f, "%g\n", v);
-			}
+			write_pdf(f, simnum, sim, sim->cold.extimins);
 			break;
 		case (VIEW_EXTMMAXCDF):
 			write_cdf(f, simnum, sim, sim->cold.extmmaxs);
 			break;
 		case (VIEW_EXTMMAXPDF):
-			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
-				v = gsl_histogram_get
-					(sim->cold.extmmaxs, j);
-				fprintf(f, "%g\n", v);
-			}
+			write_pdf(f, simnum, sim, sim->cold.extmmaxs);
 			break;
 		case (VIEW_SMOOTHMINCDF):
 			write_cdf(f, simnum, sim, sim->cold.smoothmins);
 			break;
 		case (VIEW_SMOOTHMINPDF):
-			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
-				v = GETS(sim, j);
-				fprintf(f, "%g ", v);
-				v = gsl_histogram_get
-					(sim->cold.smoothmins, j);
-				fprintf(f, "%g\n", v);
-			}
+			write_pdf(f, simnum, sim, sim->cold.smoothmins);
 			break;
 		case (VIEW_SMOOTH):
 			for (j = 0; j < sim->dims; j++) {
