@@ -589,6 +589,8 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	gchar		 buf[1024];
 	static const double dash[] = {6.0};
 
+	cairo_set_font_size(cr, 12.0);
+
 	/* 
 	 * Get our window configuration.
 	 * Then get our list of simulations.
