@@ -1,9 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!DOCTYPE article [
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.5//EN" "http://www.oasis-open.org/docbook/xml/4.5/docbookx.dtd" [
 	<!ENTITY % allent SYSTEM "http://www.w3.org/2003/entities/2007/w3centities-f.ent">
 	%allent;
 ]>
-<article xmlns="http://docbook.org/ns/docbook" version="5.0" xmlns:mml="http://www.w3.org/1998/Math/MathML" xml:lang="en">
+
+<article>
 	<articleinfo>
 		<title>Simulating the Island Model of Evolutionary Algorithms</title>
 		<author>
@@ -23,9 +24,22 @@
 		</para>
 		<orderedlist>
 			<listitem>
-				Initialise a simulation with a fixed number of islands <mathphrase>N</mathphrase>, individuals per island
-				<mathphrase>n</mathphrase>, migration probability <mathphrase>m</mathphrase>, utility function
-				<mathphrase>&pi;</mathphrase>, and strategy domain <mathphrase>X</mathphrase>.
+				Initialise a simulation with a fixed number of islands 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>N</mi></mrow></math>
+				</inlineequation>, individuals per island
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+				</inlineequation>, migration probability 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
+				</inlineequation>, utility function
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&pi;</mi></mrow></math>
+				</inlineequation>, and strategy domain 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
+				</inlineequation>.
 			</listitem>
 			<listitem>
 				Iterate over simulation runs:
@@ -93,7 +107,9 @@
 						</math>
 					</inlineequation>, 
 					where 
-					<mathphrase>&pi;</mathphrase>
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&pi;</mi></mrow></math>
+					</inlineequation>
 					is a function accepting the individual's strategy
 					<inlineequation>
 						<alt>x_i</alt>
@@ -170,7 +186,10 @@
 				<listitem>
 					Once each individual's offspring count has been computed, the offspring (which inherit the parent's type)
 					migrate to other islands.
-					With probability <mathphrase>m</mathphrase>,
+					With probability
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
+					</inlineequation>,
 					an offspring will migrate to a randomly-selected other island.
 					Otherwise, the offspring will migrate to the parent's (i.e., the current) island.
 				</listitem>
@@ -221,16 +240,46 @@
 		<sect2>
 			<title>Simulation</title>
 			<para>
-				Simulations are configured with a number of islands <mathphrase>N</mathphrase>, individuals per island
-				<mathphrase>n</mathphrase> (which may be non-uniform), migration probability <mathphrase>m</mathphrase>, utility function
-				<mathphrase>&pi;</mathphrase>, and strategy domain <mathphrase>X</mathphrase>, maximum generation
-				<mathphrase>T</mathphrase>, and variables <mathphrase>&alpha;</mathphrase> and <mathphrase>&delta;</mathphrase>
+				Simulations are configured with a number of islands 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>N</mi></mrow></math>
+				</inlineequation>,
+				individuals per island
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+				</inlineequation>
+				(which may be non-uniform), migration probability 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
+				</inlineequation>, 
+				utility function
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&pi;</mi></mrow></math>
+				</inlineequation>, 
+				and strategy domain 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
+				</inlineequation>, 
+				maximum generation
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
+				</inlineequation>, 
+				and variables 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&alpha;</mi></mrow></math>
+				</inlineequation>, 
+				and 
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&delta;</mi></mrow></math>
+				</inlineequation>
 				for transforming utility into the Poisson mean.
 				A simulation repeats runs until stopped or paused by the system user.
 			</para>
 			<para>
 				For each run, the incumbent strategy is assigned from a discrete grid over the real-valued strategy domain
-				<mathphrase>X</mathphrase>.
+				<inlineequation>
+					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
+				</inlineequation>, 
 				The grid's boundaries are inclusive of the domain's lower bound, non-inclusive of the domain's upper bound.
 				Thus, if 
 				<inlineequation>
@@ -263,7 +312,9 @@
 						The mutant strategy is assigned from a Gaussian distribution with a preconfigured standard
 						deviation and the mean set to the incumbent strategy.
 						The strategy is redrawn until it falls within a strategy domain that intersects
-						<mathphrase>X</mathphrase>,
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
+						</inlineequation>,
 						inclusive of the lower bound, non-inclusive of the upper bound.
 						The incumbent strategy is re-assigned when the number of mutants for that incumbent have reached
 						the number of slots.
@@ -316,7 +367,7 @@
 					functions
 				</listitem>
 				<listitem>
-					<ulink url="http://www.docbook.org/">DocBook5</ulink>: DocBook-XML, for this documentation
+					<ulink url="http://www.docbook.org/">DocBook v4.5</ulink>: DocBook-XML, for this documentation
 				</listitem>
 				<listitem>
 					<ulink url="http://libbsd.freedesktop.org/wiki/">libbsd</ulink>: BSD libraries (only relevant for
@@ -503,9 +554,23 @@
 			<graphic fileref="screen-config.png" />
 		</screenshot>
 		<para>
-			Begin by assigning <mathphrase>N</mathphrase>, <mathphrase>n</mathphrase>, and <mathphrase>m</mathphrase>.
+			Begin by assigning 
+			<inlineequation>
+				<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>N</mi></mrow></math>
+			</inlineequation>, 
+			<inlineequation>
+				<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+			</inlineequation>,
+			and 
+			<inlineequation>
+				<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
+			</inlineequation>.
 			This constitutes the environment structure of the game; or in other words, the physical layout of the islands.
-			This configuration will improve in the future to allow for non-uniform <mathphrase>m</mathphrase> and so on.
+			This configuration will improve in the future to allow for non-uniform 
+			<inlineequation>
+				<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
+			</inlineequation>
+			and so on.
 			For now, it only allows the simplest, uniform structure.
 		</para>
 		<variablelist>
@@ -514,9 +579,20 @@
 				<term>Uniform</term>
 				<listitem>
 					<para>
-						The simplest configuration of a fixed number of islands <mathphrase>N</mathphrase>; a fixed,
-						uniform number of individuals per island <mathphrase>n</mathphrase>; and a probability
-						<mathphrase>m</mathphrase> of inter-island migration uniform to all islands.
+						The simplest configuration of a fixed number of islands 
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>N</mi></mrow></math>
+						</inlineequation>;
+						a fixed,
+						uniform number of individuals per island 
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+						</inlineequation>;
+						and a probability
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
+						</inlineequation>
+						of inter-island migration uniform to all islands.
 						The default is 100 individuals across 50 islands.
 					</para>
 				</listitem>
@@ -527,14 +603,22 @@
 					<para>
 						A slightly more complex configuration allowing for non-uniform individuals per island.
 						There must be at least two individuals per island.
-						The probability <mathphrase>m</mathphrase> of inter-island migration must also be applied (it
+						The probability 
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
+						</inlineequation>
+						of inter-island migration must also be applied (it
 						remains uniform per island).
 					</para>
 				</listitem>
 			</varlistentry>
 		</variablelist>
 		<para>
-			Next, configure the utility function <mathphrase>&pi;</mathphrase>, which dictates the reproduction of individuals.
+			Next, configure the utility function 
+			<inlineequation>
+				<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&pi;</mi></mrow></math>
+			</inlineequation>,
+			which dictates the reproduction of individuals.
 			Note that the utility function is not provided directly to the Poisson generator, but is linearly transformed as
 			described in <link linkend="generations" endterm="generations.title" />.
 			At this time, only the general case of a continuous function is accepted.
@@ -549,12 +633,32 @@
 						You can either select a preset function or provide one yourself.
 					</para>
 					<para>
-						The utility function <mathphrase>&pi;</mathphrase> accepts the current individual's strategy
-						<mathphrase>x</mathphrase>, the sum of all other individuals' strategies
-						<mathphrase>X</mathphrase> on the individual's island, and the number of individuals
-						<mathphrase>n</mathphrase> on the individual's island.  The function accepts basic binary and
-						unary arithmetic operations, nested expressions, the <mathphrase>exp</mathphrase> function, the
-						<mathphrase>sqrt</mathphrase> function, and double-precision numbers.
+						The utility function 
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&pi;</mi></mrow></math>
+						</inlineequation>
+						accepts the current individual's strategy
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>x</mi></mrow></math>
+						</inlineequation>,
+						the sum of all other individuals' strategies
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
+						</inlineequation>
+						on the individual's island, and the number of individuals
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+						</inlineequation>
+						on the individual's island.  The function accepts basic binary and
+						unary arithmetic operations, nested expressions, the 
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>exp</mo></mrow></math>
+						</inlineequation>
+						function, the
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mo>sqrt</mo></mrow></math>
+						</inlineequation>
+						function, and double-precision numbers.
 					</para>
 					<para>
 						You can also change the strategy domain for any individual's strategy, which is inclusive of the
@@ -623,7 +727,10 @@
 						with the given standard deviation.
 						The distribution is truncated to the given strategy domain, inclusive of its lower bound,
 						non-inclusive of the upper bound.
-						This strategy domain must be a superset of the incumbent domain <mathphrase>X</mathphrase>
+						This strategy domain must be a superset of the incumbent domain 
+						<inlineequation>
+							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
+						</inlineequation>
 						The Box-Muller algorithm is used for producing Gaussian-distributed random numbers.
 					</para>
 				</listitem>
@@ -674,7 +781,10 @@
 				<title id="samplemean.title">Sample Mean</title>
 				<para>
 					The sample mean graphs incumbents on the x-axis and the mean mutant fraction after
-					<mathphrase>T</mathphrase> generations (or when one of the types goes extinct&mdash;whichever comes
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
+					</inlineequation>
+					generations (or when one of the types goes extinct&mdash;whichever comes
 					first) over all runs to date on the y-axis.
 					If an incumbent does not have any runs yet, it will display as zero.
 					The graph y-maximum will automatically adjust to the highest simulation peak.
@@ -701,8 +811,15 @@
 					The standard deviation is computed from the unbiased sample variance algorithm of
 					<citation>knuth98</citation>.
 					It shouldn't be confused with the population standard deviation, which is computed over all
-					<mathphrase>t</mathphrase> samples (simulation runs).
-					This is an unbiased estimate computed over <mathphrase>t-1</mathphrase> samples.
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>t</mi></mrow></math>
+					</inlineequation>
+					samples (simulation runs).
+					This is an unbiased estimate computed over 
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>t-1</mi></mrow></math>
+					</inlineequation>
+					samples.
 					See <citation>knuth98</citation> and <citation>welford62</citation> for a discussion.
 				</para>
 			</sect3>
