@@ -289,12 +289,16 @@ sim_free(gpointer arg)
 	g_free(p->func);
 	g_free(p->hot.stats);
 	g_free(p->hot.statslsb);
+	g_free(p->hot.islands);
+	g_free(p->hot.islandslsb);
 	g_free(p->warm.stats);
+	g_free(p->warm.islands);
 	g_free(p->warm.coeffs);
 	g_free(p->warm.smeans);
 	g_free(p->warm.sextms);
 	g_free(p->warm.fits);
 	g_free(p->cold.stats);
+	g_free(p->cold.islands);
 	gsl_histogram_free(p->cold.smeanmins);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
@@ -506,6 +510,9 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.stats, 
 			sim->warm.stats,
 			sizeof(struct stats) * sim->dims);
+		memcpy(sim->cold.islands, 
+			sim->warm.islands,
+			sizeof(struct stats) * sim->islands);
 		memcpy(sim->cold.fits, 
 			sim->warm.fits,
 			sizeof(double) * sim->dims);
@@ -1208,6 +1215,7 @@ on_activate(GtkButton *button, gpointer dat)
 
 	sim = g_malloc0(sizeof(struct sim));
 	sim->dims = slices;
+	sim->islands = islands;
 	sim->mutants = mutants;
 	sim->mutantsigma = sigma;
 	sim->func = g_strdup(func);
@@ -1220,8 +1228,14 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(struct stats));
 	sim->hot.statslsb = g_malloc0_n
 		(sim->dims, sizeof(struct stats));
+	sim->hot.islands = g_malloc0_n
+		(sim->islands, sizeof(struct stats));
+	sim->hot.islandslsb = g_malloc0_n
+		(sim->islands, sizeof(struct stats));
 	sim->warm.stats = g_malloc0_n
 		(sim->dims, sizeof(struct stats));
+	sim->warm.islands = g_malloc0_n
+		(sim->islands, sizeof(struct stats));
 	sim->cold.stats = g_malloc0_n
 		(sim->dims, sizeof(struct stats));
 	sim->warm.fits = g_malloc0_n
@@ -1232,6 +1246,8 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->warm.sextms = g_malloc0_n
 		(sim->dims, sizeof(double));
+	sim->cold.islands = g_malloc0_n
+		(sim->islands, sizeof(struct stats));
 	sim->cold.fits = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.coeffs = g_malloc0_n
@@ -1280,7 +1296,6 @@ on_activate(GtkButton *button, gpointer dat)
 
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
 	sim->totalpop = totalpop;
-	sim->islands = islands;
 	sim->stop = stop;
 	sim->alpha = alpha;
 	sim->colour = b->nextcolour;

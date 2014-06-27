@@ -49,14 +49,15 @@ struct 	hnode {
 	double		  real; /* HNODE_NUMBER, if applicable */
 };
 
+/*
+ * Statistics collection.
+ */
 struct	stats {
 	uint64_t	n;
 	uint64_t	extm;
 	uint64_t	exti;
 	double		M1;
 	double		M2;
-	double		M3;
-	double		M4;
 };
 
 /*
@@ -86,6 +87,8 @@ struct	simhot {
 	uint64_t	 tgens; /* total number of generations */
 	struct stats	*stats; /* statistics per incumbent */
 	struct stats	*statslsb; /* lookaside for stats */
+	struct stats	*islands; /* statistics per island */
+	struct stats	*islandslsb; /* lookaside for islands */
 	int		 copyout; /* do we need to snapshot? */
 	int		 pause; /* should we pause? */
 	size_t		 copyblock; /* threads blocking on copy */
@@ -111,6 +114,7 @@ struct	simwarm {
 	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
+	struct stats	*islands; /* statistics per island */
 	uint64_t	 truns; /* total number of runs */
 	uint64_t	 tgens; /* total number of generations */
 };
@@ -152,6 +156,7 @@ struct	cqueue {
  */
 struct	simcold {
 	struct stats	*stats; /* statistics per incumbent */
+	struct stats	*islands; /* statistics per island */
 	double	   	*smeans; /* smoothed mean */
 	double	   	*sextms; /* smoothed mutant extinctions */
 	double	   	*coeffs; /* fitpoly coefficients */
@@ -375,8 +380,6 @@ void		  stats_push(struct stats *p, double x);
 double		  stats_mean(const struct stats *p);
 double		  stats_variance(const struct stats *p);
 double		  stats_stddev(const struct stats *p);
-double		  stats_skewness(const struct stats *p);
-double		  stats_kurtosis(const struct stats *p);
 double		  stats_extinctm(const struct stats *p);
 double		  stats_extincti(const struct stats *p);
 

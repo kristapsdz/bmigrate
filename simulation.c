@@ -53,14 +53,14 @@ fitpoly(const double *fits, size_t poly, double x)
 
 /*
  * Copy the "hot" data into "warm" holding.
- * While here, set our "work" parameter (if "fitpoly" is set) to contain
- * the necessary dependent variable.
+ * While here, set our simulation's "work" parameter (if "fitpoly" is
+ * set) to contain the necessary dependent variable.
  * Do this all as quickly as possible, as we're holding both the
  * simulation "hot" lock and the "warm" lock as well.
  */
 static void
-snapshot(struct simwork *work, const struct sim *sim,
-	struct simwarm *warm, uint64_t truns, uint64_t tgens)
+snapshot(struct sim *sim, struct simwarm *warm, 
+	uint64_t truns, uint64_t tgens)
 {
 	double	 min, max, v, chisq, x;
 	size_t	 i, j, k;
@@ -75,6 +75,8 @@ snapshot(struct simwork *work, const struct sim *sim,
 	}
 
 	memcpy(warm->stats, sim->hot.statslsb, 
+		sim->dims * sizeof(struct stats));
+	memcpy(warm->islands, sim->hot.islandslsb, 
 		sim->dims * sizeof(struct stats));
 	warm->truns = truns;
 	warm->tgens = tgens;
@@ -138,7 +140,7 @@ snapshot(struct simwork *work, const struct sim *sim,
 	 */
 	if (sim->fitpoly)
 		for (i = 0; i < sim->dims; i++)
-			gsl_vector_set(work->y, i,
+			gsl_vector_set(sim->work.y, i,
 				 stats_mean(&warm->stats[i]));
 
 	/*
@@ -147,7 +149,7 @@ snapshot(struct simwork *work, const struct sim *sim,
 	 */
 	if (sim->fitpoly && sim->weighted)
 		for (i = 0; i < sim->dims; i++) 
-			gsl_vector_set(work->w, i,
+			gsl_vector_set(sim->work.w, i,
 				 stats_stddev(&warm->stats[i]));
 
 	/*
@@ -162,7 +164,7 @@ snapshot(struct simwork *work, const struct sim *sim,
 	 * variables now.
 	 */
 	for (i = 0; i < sim->dims; i++) {
-		gsl_matrix_set(work->X, i, 0, 1.0);
+		gsl_matrix_set(sim->work.X, i, 0, 1.0);
 		for (j = 0; j < sim->fitpoly; j++) {
 			v = sim->continuum.xmin +
 				(sim->continuum.xmax -
@@ -170,7 +172,7 @@ snapshot(struct simwork *work, const struct sim *sim,
 				(i / (double)sim->dims);
 			for (k = 0; k < j; k++)
 				v *= v;
-			gsl_matrix_set(work->X, i, j + 1, v);
+			gsl_matrix_set(sim->work.X, i, j + 1, v);
 		}
 	}
 
@@ -180,11 +182,13 @@ snapshot(struct simwork *work, const struct sim *sim,
 	 * non-weighted fitting algorithms.
 	 */
 	if (sim->weighted) 
-		gsl_multifit_wlinear(work->X, work->w, work->y, 
-			work->c, work->cov, &chisq, work->work);
+		gsl_multifit_wlinear(sim->work.X, sim->work.w, 
+			sim->work.y, sim->work.c, sim->work.cov, 
+			&chisq, sim->work.work);
 	else
-		gsl_multifit_linear(work->X, work->y, 
-			work->c, work->cov, &chisq, work->work);
+		gsl_multifit_linear(sim->work.X, sim->work.y, 
+			sim->work.c, sim->work.cov, &chisq, 
+			sim->work.work);
 
 	/*
 	 * Now snapshot the fitted polynomial coefficients and compute
@@ -192,7 +196,7 @@ snapshot(struct simwork *work, const struct sim *sim,
 	 * minimum value).
 	 */
 	for (i = 0; i < sim->fitpoly + 1; i++)
-		warm->coeffs[i] = gsl_vector_get(work->c, i);
+		warm->coeffs[i] = gsl_vector_get(sim->work.c, i);
 	min = FLT_MAX;
 	for (i = 0; i < sim->dims; i++) {
 		x = sim->continuum.xmin + 
@@ -215,10 +219,9 @@ snapshot(struct simwork *work, const struct sim *sim,
  * strategy domain.
  */
 static int
-on_sim_next(struct simwork *work, struct sim *sim, 
-	const gsl_rng *rng, double *mutantp, 
-	double *incumbentp, size_t *incumbentidx, double *vp,
-	size_t gen)
+on_sim_next(struct sim *sim, const gsl_rng *rng, 
+	size_t *islandidx, double *mutantp, double *incumbentp, 
+	size_t *incumbentidx, double *vp, size_t gen)
 {
 	int		 fit = 0;
 	size_t		 mutant;
@@ -230,6 +233,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	truns = tgens = 0; /* Silence compiler. */
 
 	assert(*incumbentidx < sim->dims);
+	assert(*islandidx < sim->islands);
 	g_mutex_lock(&sim->hot.mux);
 
 	/*
@@ -239,6 +243,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	 */
 	if (NULL != vp) {
 		stats_push(&sim->hot.stats[*incumbentidx], *vp);
+		stats_push(&sim->hot.islands[*islandidx], *vp);
 		sim->hot.tgens += gen;
 		sim->hot.truns++;
 	}
@@ -261,6 +266,8 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	if (1 == sim->hot.copyout) {
 		memcpy(sim->hot.statslsb, sim->hot.stats,
 			sim->dims * sizeof(struct stats));
+		memcpy(sim->hot.islandslsb, sim->hot.islands,
+			sim->islands * sizeof(struct stats));
 		truns = sim->hot.truns;
 		tgens = sim->hot.tgens;
 		sim->hot.copyout = fit = 2;
@@ -272,6 +279,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	 * These both increment in single movements until the end of the
 	 * lattice, then wrap around.
 	 */
+	*islandidx = gsl_rng_uniform_int(rng, sim->islands);
 	mutant = sim->hot.mutant;
 	*incumbentidx = sim->hot.incumbent;
 	sim->hot.mutant++;
@@ -313,7 +321,7 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	 * When we're finished, lower the copyout semaphor.
 	 */
 	if (fit) {
-		snapshot(work, sim, &sim->warm, truns, tgens);
+		snapshot(sim, &sim->warm, truns, tgens);
 		g_mutex_lock(&sim->hot.mux);
 		assert(2 == sim->hot.copyout);
 		sim->hot.copyout = 0;
@@ -360,7 +368,7 @@ simulation(void *arg)
 	double		**icache, **mcache;
 	size_t		 *kids[2], *migrants[2], *imutants;
 	size_t		  t, i, j, k, new, mutants, incumbents,
-			  len1, len2, incumbentidx;
+			  len1, len2, incumbentidx, islandidx;
 	int		  mutant_old, mutant_new;
 	gsl_rng		 *rng;
 
@@ -379,7 +387,7 @@ simulation(void *arg)
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 	vp = NULL;
-	incumbentidx = 0;
+	incumbentidx = islandidx = 0;
 	t = 0;
 
 	/*
@@ -399,8 +407,8 @@ again:
 	 * Repeat til we're instructed to terminate. 
 	 * We also pass in our last result for processing.
 	 */
-	if ( ! on_sim_next(&sim->work, sim, rng, 
-		&mutant, &incumbent, &incumbentidx, vp, t)) {
+	if ( ! on_sim_next(sim, rng, &islandidx, &mutant, 
+		&incumbent, &incumbentidx, vp, t)) {
 		/*
 		 * Upon termination, free up all of the memory
 		 * associated with our simulation.
@@ -426,7 +434,7 @@ again:
 	 * The rest are all incumbents.
 	 */
 	memset(imutants, 0, sim->islands * sizeof(size_t));
-	imutants[gsl_rng_uniform_int(rng, sim->islands)] = 1;
+	imutants[islandidx] = 1;
 	mutants = 1;
 	incumbents = sim->totalpop - mutants;
 

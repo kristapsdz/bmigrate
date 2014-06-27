@@ -47,12 +47,6 @@ stats_push(struct stats *p, double x)
 	term1 = delta * delta_n * (double)n1;
 
 	p->M1 += delta_n;
-	p->M4 += term1 * delta_n2 * 
-		((double)p->n * (double)p->n - 3.0 * 
-		 (double)p->n + 3.0) + 6.0 * 
-		delta_n2 * p->M2 - 4.0 * delta_n * p->M3;
-	p->M3 += term1 * delta_n * 
-		((double)p->n - 2.0) - 3.0 * delta_n * p->M2;
 	p->M2 += term1;
 }
 
@@ -97,18 +91,4 @@ stats_stddev(const struct stats *p)
 	if (0 == p->n)
 		return(0.0);
 	return(sqrt(stats_variance(p)));
-}
-
-double 
-stats_skewness(const struct stats *p)
-{
-
-	return(sqrt((double)p->n * p->M3 / pow(p->M2, 1.5)));
-}
-
-double 
-stats_kurtosis(const struct stats *p)
-{
-	
-	return((double)p->n * p->M4 / (p->M2 * p->M2) - 3.0);
 }
