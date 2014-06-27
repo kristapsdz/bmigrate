@@ -238,6 +238,7 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	for (i = 0; i < VIEW__MAX; i++)
 		b->wins.menus = g_list_append
 			(b->wins.menus, b->wins.views[i]);
+
 	b->wins.menus = g_list_append
 		(b->wins.menus, b->wins.viewclone);
 	b->wins.menus = g_list_append
@@ -1135,7 +1136,7 @@ on_activate(GtkButton *button, gpointer dat)
 		islands = (size_t)g_list_length(list);
 		if (islands < 2) {
 			gtk_label_set_text(err, 
-				"Error: need more than one island.");
+				"Error: need at least two islands.");
 			gtk_widget_show_all(GTK_WIDGET(err));
 			goto cleanup;
 		}
@@ -1642,6 +1643,17 @@ main(int argc, char *argv[])
 	 */
 	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
 	b.wins.allmenus = GTK_MENU(gtk_menu_new());
+
+	/*
+	 * gtk_container_remove() will unreference these menus, and they
+	 * may possibly be destroyed.
+	 * Make sure we have an extra reference to them.
+	 */
+	g_object_ref(b.wins.menufile);
+	g_object_ref(b.wins.menuview);
+	g_object_ref(b.wins.menutools);
+
+	/* Reparent... */
 	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
 		GTK_WIDGET(b.wins.menufile));
 	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
@@ -1654,6 +1666,12 @@ main(int argc, char *argv[])
 		(b.wins.allmenus), GTK_WIDGET(b.wins.menuview));
 	gtk_menu_shell_append(GTK_MENU_SHELL
 		(b.wins.allmenus), GTK_WIDGET(b.wins.menutools));
+
+	/* Remove our temporary reference... */
+	g_object_unref(b.wins.menufile);
+	g_object_unref(b.wins.menuview);
+	g_object_unref(b.wins.menutools);
+
 	gtk_widget_show_all(GTK_WIDGET(b.wins.allmenus));
 #endif
 	/*
