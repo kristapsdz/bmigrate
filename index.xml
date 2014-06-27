@@ -29,9 +29,15 @@
 			</p>
 			<p>
 				The system has an extensive <a href="bmigrate.html">manual</a>.
+				Beyond how to deploy and operate the system, the manual describes topics like parallelism, data-flow,
+				randomness, precision, and so forth.
 			</p>
 			<p>
-				For source questions, contact <a href="http://www.kcons.eu">Kristaps</a>.
+				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv">Kristaps
+					Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who originally wrote <span
+					class="name">bmigrate</span> for <a href="http://pzp.hhs.se/jorgen-weibull">J&#246;rgen Weibull</a>, <a
+					href="http://www.hhs.se">Stockholm School of Economics</a>, with financial support from the <a
+					href="http://www.wallenberg.com/kaw/en">Knut and Alice Wallenberg Research Foundation</a>.
 			</p>
 		</article>
 		<footer>

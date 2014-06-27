@@ -66,10 +66,11 @@
 						</orderedlist>
 					</listitem>
 					<listitem>
-						Terminate the run after a fixed number of generations or when the global mutant or incumbent tally reaches zero.
+						Terminate the run after a fixed number of generations or when the global mutant or incumbent
+						tally reaches zero.
 					</listitem>
 					<listitem>
-						Re-assign the incumbent and mutant strategies, then repeat.
+						Re-assign the incumbent strategy, mutant strategy, initial mutant's island, then repeat.
 					</listitem>
 				</orderedlist>
 			</listitem>
@@ -233,8 +234,8 @@
 			</orderedlist>
 			<para>
 				When a simulation run terminates, the fraction of mutants remaining is recorded.
-				After accumulating statistics, the run is re-started in its initial configuration with mutant and incumbent
-				strategy re-assigned.
+				After accumulating statistics, the run is re-started in its initial configuration with mutant strategy,
+				incumbent strategy, and initial mutant island re-assigned.
 			</para>
 		</sect2>
 		<sect2>
@@ -322,6 +323,9 @@
 				</listitem>
 			</itemizedlist>
 			<para>
+				When the incumbent strategy reaches its upper bound, it resets to the lower bound.
+				At this point, the initial mutant island is also incremented.
+				The initial mutant island will also wrap when it completes the last island.
 			</para>
 		</sect2>
 	</sect1>

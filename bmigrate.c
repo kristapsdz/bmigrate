@@ -86,6 +86,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "radiobutton1"));
 	b->wins.mutants[MUTANTS_GAUSSIAN] = GTK_RADIO_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton2"));
+	b->wins.views[VIEW_ISLANDMEAN] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem45"));
 	b->wins.views[VIEW_MEAN] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem8"));
 	b->wins.views[VIEW_SMEAN] = GTK_CHECK_MENU_ITEM

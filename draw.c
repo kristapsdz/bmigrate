@@ -35,7 +35,8 @@
  */
 #define GETX(_j) \
 	(width * (sim->continuum.xmin - minx) / (maxx - minx) + \
-	(_j) / (double)(sim->dims - 1) * width * (sim->continuum.xmax - sim->continuum.xmin) / (maxx - minx))
+	(_j) / (double)(sim->dims - 1) * width * \
+	 (sim->continuum.xmax - sim->continuum.xmin) / (maxx - minx))
 #define	GETY(_v) (height - ((_v) / maxy * height))
 #define	GETC(_a) b->wins.colours[sim->colour].red, \
 		 b->wins.colours[sim->colour].green, \
@@ -336,6 +337,13 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
+	case (VIEW_ISLANDMEAN):
+		for (i = 0; i < s->islands; i++) {
+			v = stats_mean(&s->cold.islands[i]);
+			if (v > *maxy)
+				*maxy = v;
+		}
+		break;
 	default:
 		for (i = 0; i < s->dims; i++) {
 			v = stats_mean(&s->cold.stats[i]);
@@ -447,6 +455,11 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		case (VIEW_EXTMMAXS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->cold.extmmaxst);
+			break;
+		case (VIEW_ISLANDMEAN):
+			(void)g_snprintf(buf, sizeof(buf),
+				"%s: runs %" PRIu64, 
+				sim->name, sim->cold.truns);
 			break;
 		case (VIEW_MEAN):
 		case (VIEW_MEANMINQ):
@@ -586,6 +599,22 @@ draw_stddev(const struct sim *sim, const struct bmigrate *b,
 		v = stats_mean(&sim->cold.stats[i]) +
 			stats_stddev(&sim->cold.stats[i]);
 		cairo_line_to(cr, GETX(i), GETY(v));
+	}
+}
+
+static void
+draw_islandmean(const struct sim *sim, const struct bmigrate *b,
+	cairo_t *cr, double width, double height, double maxy)
+{
+	size_t	 i;
+	double	 v;
+
+	for (i = 0; i < sim->islands; i++) {
+		v = stats_mean(&sim->cold.islands[i]);
+		cairo_move_to(cr, width * i / 
+			(double)(sim->islands - 1), height);
+		cairo_line_to(cr, width * i / 
+			(double)(sim->islands - 1), GETY(v));
 	}
 }
 
@@ -983,6 +1012,11 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 				cairo_line_to(cr, GETX(i), GETY(v));
 			}
 			cairo_set_line_width(cr, 2.0);
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_stroke(cr);
+			break;
+		case (VIEW_ISLANDMEAN):
+			draw_islandmean(sim, b, cr, width, height, maxy);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;

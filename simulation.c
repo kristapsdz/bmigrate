@@ -279,12 +279,16 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * These both increment in single movements until the end of the
 	 * lattice, then wrap around.
 	 */
-	*islandidx = gsl_rng_uniform_int(rng, sim->islands);
+	*islandidx = sim->hot.island;
 	mutant = sim->hot.mutant;
 	*incumbentidx = sim->hot.incumbent;
 	sim->hot.mutant++;
 	if (sim->hot.mutant == sim->dims) {
-		sim->hot.incumbent = (sim->hot.incumbent + 1) % sim->dims;
+		sim->hot.incumbent++;
+		if (sim->hot.incumbent == sim->dims) {
+			sim->hot.incumbent = 0;
+			sim->hot.island = (sim->hot.island + 1) % sim->islands;
+		}
 		sim->hot.mutant = 0;
 	}
 	

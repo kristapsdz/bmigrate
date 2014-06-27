@@ -261,6 +261,14 @@ save(FILE *f, struct bmigrate *b)
 				fprintf(f, "%g\n", v);
 			}
 			break;
+		case (VIEW_ISLANDMEAN):
+			for (j = 0; j < sim->islands; j++) {
+				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", j);
+				v = stats_mean(&sim->cold.islands[j]);
+				fprintf(f, "%g\n", v);
+			}
+			break;
 		default:
 			for (j = 0; j < sim->dims; j++) {
 				fprintf(f, "%zu ", simnum);

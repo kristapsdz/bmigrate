@@ -94,6 +94,7 @@ struct	simhot {
 	size_t		 copyblock; /* threads blocking on copy */
 	size_t		 incumbent; /* current incumbent index */
 	size_t		 mutant; /* current mutant index */
+	size_t		 island; /* current island index */
 };
 
 /*
@@ -269,6 +270,7 @@ enum	view {
 	VIEW_EXTMMAXCDF,
 	VIEW_EXTMMAXPDF,
 	VIEW_EXTMMAXS,
+	VIEW_ISLANDMEAN,
 	VIEW_MEAN,
 	VIEW_MEANMINCDF,
 	VIEW_MEANMINPDF,
