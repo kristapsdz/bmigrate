@@ -29,7 +29,7 @@
 void
 stats_push(struct stats *p, double x)
 {
-	double	delta, delta_n, delta_n2, term1;
+	double	delta, delta_n, term1;
 	size_t	n1;
 
 	n1 = p->n;
@@ -43,7 +43,6 @@ stats_push(struct stats *p, double x)
 
 	delta = x - p->M1;
 	delta_n = delta / (double)p->n;
-	delta_n2 = delta_n * delta_n;
 	term1 = delta * delta_n * (double)n1;
 
 	p->M1 += delta_n;

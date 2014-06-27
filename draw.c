@@ -162,6 +162,7 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	case (VIEW_EXTMMAXS):
 	case (VIEW_EXTIMINS):
 	case (VIEW_SMEANMINS):
+	case (VIEW_ISLANDMEAN):
 		break;
 	default:
 		/* Right bottom. */
@@ -611,10 +612,10 @@ draw_islandmean(const struct sim *sim, const struct bmigrate *b,
 
 	for (i = 0; i < sim->islands; i++) {
 		v = stats_mean(&sim->cold.islands[i]);
-		cairo_move_to(cr, width * i / 
-			(double)(sim->islands - 1), height);
-		cairo_line_to(cr, width * i / 
-			(double)(sim->islands - 1), GETY(v));
+		cairo_move_to(cr, width * (i + 1) / 
+			(double)(sim->islands + 1), height);
+		cairo_line_to(cr, width * (i + 1) / 
+			(double)(sim->islands + 1), GETY(v));
 	}
 }
 
