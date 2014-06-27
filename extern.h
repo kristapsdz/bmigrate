@@ -186,20 +186,9 @@ struct	simcold {
  * distributed from a given population size or manually set, etc.
  */
 enum	input {
-	INPUT_UNIFORM,
-	INPUT_MAPPED,
+	INPUT_UNIFORM = 0,
+	INPUT_VARIABLE,
 	INPUT__MAX
-};
-
-/*
- * This defines the game itself.
- * There can be lots of different kinds of games--two-player bimatrix,
- * continuum games with n-players, etc.
- */
-enum	payoff {
-	PAYOFF_CONTINUUM2,
-	PAYOFF_SYMMETRIC2,
-	PAYOFF__MAX
 };
 
 enum	mutants {
@@ -226,6 +215,7 @@ struct	sim {
 	size_t		  refs; /* GUI references */
 	int		  terminate; /* terminate the process */
 	enum mutants	  mutants; /* mutant assignation */
+	enum input	  input; /* input structure type */
 	double		  mutantsigma; /* mutant gaussian sigma */
 	size_t		  stop; /* when to stop */
 	gchar		 *name; /* name of simulation */
@@ -233,11 +223,8 @@ struct	sim {
 	double		  alpha; /* outer multiplier */
 	double		  delta; /* inner multiplier */
 	double		  m; /* migration probability */
-	enum payoff	  type; /* type of game */
 	size_t		  colour; /* graph colour */
-	union {
-		struct sim_continuum continuum;
-	} d;
+	struct sim_continuum continuum;
 	struct simhot	  hot; /* current results */
 	struct simwarm	  warm; /* current results */
 	struct simcold	  cold; /* graphed results */
@@ -248,8 +235,8 @@ struct	sim {
  * (out if the simulation's dimensions) lies within the domain.
  */
 #define	GETS(_s, _v) \
-	((_s)->d.continuum.xmin + \
-	 ((_s)->d.continuum.xmax - (_s)->d.continuum.xmin) * \
+	((_s)->continuum.xmin + \
+	 ((_s)->continuum.xmax - (_s)->continuum.xmin) * \
 	 (_v) / (double)((_s)->dims))
 
 /*
@@ -320,14 +307,13 @@ struct	hwin {
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
-	GtkEntry	 *payoff;
+	GtkBox		 *mapbox;
 	GtkEntry	 *name;
 	GtkEntry	 *xmin;
 	GtkEntry	 *xmax;
 	GtkEntry	 *ymin;
 	GtkEntry	 *ymax;
 	GtkNotebook	 *inputs;
-	GtkNotebook	 *payoffs;
 	GtkLabel	 *error;
 	GtkEntry	 *func;
 	GtkAdjustment	 *nthreads;
@@ -337,7 +323,7 @@ struct	hwin {
 	GtkEntry	 *totalpop;
 	GtkEntry	 *alpha;
 	GtkEntry	 *delta;
-	GtkEntry	 *migrate;
+	GtkEntry	 *migrate[INPUT__MAX];
 	GtkEntry	 *incumbents;
 	GtkLabel	 *curthreads;
 	GtkToggleButton	 *analsingle;

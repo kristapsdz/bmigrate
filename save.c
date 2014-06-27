@@ -104,14 +104,16 @@ save(FILE *f, struct bmigrate *b)
 		assert(NULL != sim);
 		fprintf(f, "# Simulation %zu: %s\n", 
 			simnum, sim->name);
-		fprintf(f, "#   N=%zu, n=%zu, m=%g, T=%zu\n", 
-			sim->islands, sim->pops[0], 
+		fprintf(f, "#   N=%zu, n=%s, m=%g, T=%zu\n", 
+			sim->islands, 
+			INPUT_VARIABLE == sim->input ?
+			"variable" : "uniform",
 			sim->m, sim->stop);
 		fprintf(f, "#   %g(1 + %g * pi)\n",
 			sim->alpha, sim->delta);
 		fprintf(f, "#   pi(x,X,n) = %s, x=[%g, %g)\n",
-			sim->func, sim->d.continuum.xmin,
-			sim->d.continuum.xmax);
+			sim->func, sim->continuum.xmin,
+			sim->continuum.xmax);
 		fprintf(f, "#   fit-poly degree: %zu (%s)\n",
 			sim->fitpoly, sim->weighted ? 
 			"weighted" : "unweighted");
@@ -121,8 +123,8 @@ save(FILE *f, struct bmigrate *b)
 			fprintf(f, "#   mutants: Gaussian "
 				"(sigma=%g, [%g, %g])\n",
 				sim->mutantsigma,
-				sim->d.continuum.ymin,
-				sim->d.continuum.ymax);
+				sim->continuum.ymin,
+				sim->continuum.ymax);
 	}
 
 	if (VIEW_CONFIG == cur->view)

@@ -222,7 +222,7 @@
 			<title>Simulation</title>
 			<para>
 				Simulations are configured with a number of islands <mathphrase>N</mathphrase>, individuals per island
-				<mathphrase>n</mathphrase>, migration probability <mathphrase>m</mathphrase>, utility function
+				<mathphrase>n</mathphrase> (which may be non-uniform), migration probability <mathphrase>m</mathphrase>, utility function
 				<mathphrase>&pi;</mathphrase>, and strategy domain <mathphrase>X</mathphrase>, maximum generation
 				<mathphrase>T</mathphrase>, and variables <mathphrase>&alpha;</mathphrase> and <mathphrase>&delta;</mathphrase>
 				for transforming utility into the Poisson mean.
@@ -522,10 +522,13 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
-				<term>Mapped</term>
+				<term>Variable</term>
 				<listitem>
 					<para>
-						This is not yet used.
+						A slightly more complex configuration allowing for non-uniform individuals per island.
+						There must be at least two individuals per island.
+						The probability <mathphrase>m</mathphrase> of inter-island migration must also be applied (it
+						remains uniform per island).
 					</para>
 				</listitem>
 			</varlistentry>
@@ -556,14 +559,6 @@
 					<para>
 						You can also change the strategy domain for any individual's strategy, which is inclusive of the
 						lower bound, non-inclusive of the upper bound.
-					</para>
-				</listitem>
-			</varlistentry>
-			<varlistentry>
-				<term>Finite 2-strategy, 2-player</term>
-				<listitem>
-					<para>
-						This is not yet used.
 					</para>
 				</listitem>
 			</varlistentry>

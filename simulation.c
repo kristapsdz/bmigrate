@@ -164,9 +164,9 @@ snapshot(struct simwork *work, const struct sim *sim,
 	for (i = 0; i < sim->dims; i++) {
 		gsl_matrix_set(work->X, i, 0, 1.0);
 		for (j = 0; j < sim->fitpoly; j++) {
-			v = sim->d.continuum.xmin +
-				(sim->d.continuum.xmax -
-				 sim->d.continuum.xmin) *
+			v = sim->continuum.xmin +
+				(sim->continuum.xmax -
+				 sim->continuum.xmin) *
 				(i / (double)sim->dims);
 			for (k = 0; k < j; k++)
 				v *= v;
@@ -195,9 +195,9 @@ snapshot(struct simwork *work, const struct sim *sim,
 		warm->coeffs[i] = gsl_vector_get(work->c, i);
 	min = FLT_MAX;
 	for (i = 0; i < sim->dims; i++) {
-		x = sim->d.continuum.xmin + 
-			(sim->d.continuum.xmax -
-			 sim->d.continuum.xmin) *
+		x = sim->continuum.xmin + 
+			(sim->continuum.xmax -
+			 sim->continuum.xmin) *
 			i / (double)sim->dims;
 		warm->fits[i] = fitpoly
 			(warm->coeffs, sim->fitpoly + 1, x);
@@ -289,9 +289,9 @@ on_sim_next(struct simwork *work, struct sim *sim,
 	 * The mutant is either assigned the same way or from a Gaussian
 	 * distribution around the current incumbent.
 	 */
-	*incumbentp = sim->d.continuum.xmin + 
-		(sim->d.continuum.xmax - 
-		 sim->d.continuum.xmin) * 
+	*incumbentp = sim->continuum.xmin + 
+		(sim->continuum.xmax - 
+		 sim->continuum.xmin) * 
 		(*incumbentidx / (double)sim->dims);
 
 	if (MUTANTS_GAUSSIAN == sim->mutants) {
@@ -299,12 +299,12 @@ on_sim_next(struct simwork *work, struct sim *sim,
 			*mutantp = *incumbentp + 
 				gsl_ran_gaussian
 				(rng, sim->mutantsigma);
-		} while (*mutantp < sim->d.continuum.ymin ||
-			 *mutantp >= sim->d.continuum.ymax);
+		} while (*mutantp < sim->continuum.ymin ||
+			 *mutantp >= sim->continuum.ymax);
 	} else
-		*mutantp = sim->d.continuum.xmin + 
-			(sim->d.continuum.xmax - 
-			 sim->d.continuum.xmin) * 
+		*mutantp = sim->continuum.xmin + 
+			(sim->continuum.xmax - 
+			 sim->continuum.xmin) * 
 			(mutant / (double)sim->dims);
 
 	/*
@@ -337,7 +337,7 @@ continuum_lambda(const struct sim *sim, double x,
 
 	v = hnode_exec
 		((const struct hnode *const *)
-		 sim->d.continuum.exp, x,
+		 sim->continuum.exp, x,
 		 (mutants * mutant) + ((pop - mutants) * incumbent),
 		 pop);
 	assert( ! (isnan(v) || isinf(v)));
@@ -351,19 +351,19 @@ continuum_lambda(const struct sim *sim, double x,
 void *
 simulation(void *arg)
 {
-	struct simthr	*thr = arg;
-	struct sim	*sim = thr->sim;
-	double		 mutant, incumbent, v, lambda;
-	unsigned int	 offs;
-	unsigned long	 seed;
-	double		*vp;
-	double		*icache, *mcache;
-	size_t		*kids[2], *migrants[2], *imutants;
-	size_t		 t, j, k, new, mutants, incumbents,
-			 len1, len2, incumbentidx;
-	int		 mutant_old, mutant_new;
-	struct simwork	 work;
-	gsl_rng		*rng;
+	struct simthr	 *thr = arg;
+	struct sim	 *sim = thr->sim;
+	double		  mutant, incumbent, v, lambda;
+	unsigned int	  offs;
+	unsigned long	  seed;
+	double		 *vp;
+	double		**icache, **mcache;
+	size_t		 *kids[2], *migrants[2], *imutants;
+	size_t		  t, i, j, k, new, mutants, incumbents,
+			  len1, len2, incumbentidx;
+	int		  mutant_old, mutant_new;
+	struct simwork	  work;
+	gsl_rng		 *rng;
 
 	rng = gsl_rng_alloc(gsl_rng_default);
 	seed = arc4random();
@@ -401,10 +401,17 @@ simulation(void *arg)
 	incumbentidx = 0;
 	t = 0;
 
-	icache = g_malloc0_n(sim->pops[0] + 1, sizeof(double));
-	mcache = g_malloc0_n(sim->pops[0] + 1, sizeof(double));
-	for (j = 1; j < sim->islands; j++) 
-		assert(sim->pops[j] == sim->pops[0]);
+	/*
+	 * Set up our mutant and incumbent payoff caches.
+	 * These consist of all possible payoffs with a given number of
+	 * mutants and incumbents on an island.
+	 */
+	icache = g_malloc0_n(sim->islands, sizeof(double *));
+	mcache = g_malloc0_n(sim->islands, sizeof(double *));
+	for (i = 0; i < sim->islands; i++) {
+		icache[i] = g_malloc0_n(sim->pops[i] + 1, sizeof(double));
+		mcache[i] = g_malloc0_n(sim->pops[i] + 1, sizeof(double));
+	}
 
 again:
 	/* 
@@ -430,6 +437,10 @@ again:
 			gsl_matrix_free(work.cov);
 			gsl_multifit_linear_free(work.work);
 		}
+		for (i = 0; i < sim->islands; i++) {
+			g_free(icache[i]);
+			g_free(mcache[i]);
+		}
 		g_free(icache);
 		g_free(mcache);
 		g_debug("Thread %p (simulation %p) exiting", 
@@ -446,12 +457,19 @@ again:
 	mutants = 1;
 	incumbents = sim->totalpop - mutants;
 
-	for (j = 0; j <= sim->pops[0]; j++)
-		mcache[j] = continuum_lambda(sim, mutant,
-			mutant, incumbent, j, sim->pops[0]);
-	for (j = 0; j <= sim->pops[0]; j++)
-		icache[j] = continuum_lambda(sim, incumbent,
-			mutant, incumbent, j, sim->pops[0]);
+	/*
+	 * Precompute all possible payoffs.
+	 * This allows us not to re-run the lambda calculation for each
+	 * individual.
+	 */
+	for (i = 0; i < sim->islands; i++) {
+		for (j = 0; j <= sim->pops[i]; j++)
+			mcache[i][j] = continuum_lambda(sim, mutant,
+				mutant, incumbent, j, sim->pops[i]);
+		for (j = 0; j <= sim->pops[i]; j++)
+			icache[i][j] = continuum_lambda(sim, incumbent,
+				mutant, incumbent, j, sim->pops[i]);
+	}
 
 	for (t = 0; t < sim->stop; t++) {
 		/*
@@ -465,12 +483,12 @@ again:
 			assert(0 == kids[1][j]);
 			assert(0 == migrants[0][j]);
 			assert(0 == migrants[1][j]);
-			lambda = mcache[imutants[j]];
+			lambda = mcache[j][imutants[j]];
 			for (k = 0; k < imutants[j]; k++) {
 				offs = gsl_ran_poisson(rng, lambda);
 				kids[0][j] += offs;
 			}
-			lambda = icache[imutants[j]];
+			lambda = icache[j][imutants[j]];
 			for ( ; k < sim->pops[j]; k++) {
 				offs = gsl_ran_poisson(rng, lambda);
 				kids[1][j] += offs;

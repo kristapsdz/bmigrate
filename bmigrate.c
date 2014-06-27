@@ -33,12 +33,7 @@
 
 static	const char *const inputs[INPUT__MAX] = {
 	"uniform",
-	"mapped",
-};
-
-static	const char *const payoffs[PAYOFF__MAX] = {
-	"continuum",
-	"finite two-player two-strategy",
+	"variable",
 };
 
 static	const char *const colours[SIZE_COLOURS] = {
@@ -67,6 +62,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gboolean	 val;
 	size_t		 i;
 
+	b->wins.mapbox = GTK_BOX
+		(gtk_builder_get_object(builder, "box31"));
 	b->wins.config = GTK_WINDOW
 		(gtk_builder_get_object(builder, "window1"));
 	b->wins.status = GTK_STATUSBAR
@@ -151,8 +148,6 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem34"));
 	b->wins.input = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry3"));
-	b->wins.payoff = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry11"));
 	b->wins.mutantsigma = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry17"));
 	b->wins.name = GTK_ENTRY
@@ -169,8 +164,6 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry19"));
 	b->wins.inputs = GTK_NOTEBOOK
 		(gtk_builder_get_object(builder, "notebook1"));
-	b->wins.payoffs = GTK_NOTEBOOK
-		(gtk_builder_get_object(builder, "notebook2"));
 	b->wins.error = GTK_LABEL
 		(gtk_builder_get_object(builder, "label8"));
 	b->wins.func = GTK_ENTRY
@@ -195,16 +188,16 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry13"));
 	b->wins.delta = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry14"));
-	b->wins.migrate = GTK_ENTRY
+	b->wins.migrate[INPUT_UNIFORM] = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry1"));
+	b->wins.migrate[INPUT_VARIABLE] = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry20"));
 	b->wins.incumbents = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry15"));
 
 	/* Set the initially-selected notebooks. */
 	gtk_entry_set_text(b->wins.input, inputs
 		[gtk_notebook_get_current_page(b->wins.inputs)]);
-	gtk_entry_set_text(b->wins.payoff, payoffs
-		[gtk_notebook_get_current_page(b->wins.payoffs)]);
 
 	/* Builder doesn't do this. */
 	w = gtk_builder_get_object(builder, "comboboxtext1");
@@ -288,14 +281,7 @@ sim_free(gpointer arg)
 		}
 	p->nprocs = 0;
 
-	switch (p->type) {
-	case (PAYOFF_CONTINUUM2):
-		hnode_free(p->d.continuum.exp);
-		break;
-	default:
-		break;
-	}
-
+	hnode_free(p->continuum.exp);
 	g_mutex_clear(&p->hot.mux);
 	g_cond_clear(&p->hot.cond);
 	g_free(p->name);
@@ -663,26 +649,36 @@ entry2func(GtkEntry *entry, struct hnode ***exp, GtkLabel *error)
 }
 
 static int
-entry2size(GtkEntry *entry, size_t *sz, GtkLabel *error)
+entry2size(GtkEntry *entry, size_t *sz, GtkLabel *error, size_t min)
 {
 	guint64	 v;
 	gchar	*ep;
 	GdkRGBA	 bad = { 1.0, 0.0, 0.0, 0.5 };
 
 	v = g_ascii_strtoull(gtk_entry_get_text(entry), &ep, 10);
-	if (ERANGE != errno && '\0' == *ep && v < SIZE_MAX) {
-		*sz = (size_t)v;
+	if (ERANGE == errno || '\0' != *ep || v >= SIZE_MAX) {
+		gtk_label_set_text
+			(error, "Error: not a natural number.");
+		gtk_widget_show_all(GTK_WIDGET(error));
 		gtk_widget_override_background_color
 			(GTK_WIDGET(entry), 
-			 GTK_STATE_FLAG_NORMAL, NULL);
-		return(1);
+			 GTK_STATE_FLAG_NORMAL, &bad);
+		return(0);
+	} else if (v < min) {
+		gtk_label_set_text
+			(error, "Error: number too small.");
+		gtk_widget_show_all(GTK_WIDGET(error));
+		gtk_widget_override_background_color
+			(GTK_WIDGET(entry), 
+			 GTK_STATE_FLAG_NORMAL, &bad);
+		return(0);
 	}
 
-	gtk_label_set_text(error, "Error: not a natural number.");
-	gtk_widget_show_all(GTK_WIDGET(error));
+	*sz = (size_t)v;
 	gtk_widget_override_background_color
-		(GTK_WIDGET(entry), GTK_STATE_FLAG_NORMAL, &bad);
-	return(0);
+		(GTK_WIDGET(entry), 
+		 GTK_STATE_FLAG_NORMAL, NULL);
+	return(1);
 }
 
 static int
@@ -755,6 +751,39 @@ entry2double(GtkEntry *entry, gdouble *sz, GtkLabel *error)
 	gtk_widget_override_background_color
 		(GTK_WIDGET(entry), GTK_STATE_FLAG_NORMAL, &bad);
 	return(0);
+}
+
+/*
+ * Validate the contents of a "mapbox", that is, an island
+ * configuration.
+ * For the moment, this simply checks the island population.
+ */
+static int
+mapbox2pair(GtkLabel *err, GtkWidget *w, size_t *n)
+{
+	GList		*list, *cur;
+
+	list = gtk_container_get_children(GTK_CONTAINER(w));
+	g_assert(NULL != list);
+	cur = list->next;
+	g_assert(NULL != cur);
+#if 0
+	if ( ! entry2double(GTK_ENTRY(cur->data), m, err)) {
+		g_list_free(list);
+		return(0);
+	}
+	cur = cur->next;
+	g_assert(NULL != cur);
+	cur = cur->next;
+	g_assert(NULL != cur);
+#endif
+	if ( ! entry2size(GTK_ENTRY(cur->data), n, err, 2))  {
+		g_list_free(list);
+		return(0);
+	}
+
+	g_list_free(list);
+	return(1);
 }
 
 /*
@@ -1053,85 +1082,102 @@ onunpause(GtkMenuItem *menuitem, gpointer dat)
 void
 on_activate(GtkButton *button, gpointer dat)
 {
-	gint	 	  input, payoff;
+	gint	 	  input;
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
 	GTimeVal	  gt;
+	GtkWidget	 *w;
+	GList		 *list;
+	GtkLabel	 *err = b->wins.error;
 	const gchar	 *name, *func;
 	gdouble		  xmin, xmax, delta, alpha, m, sigma,
 			  ymin, ymax;
 	enum mutants	  mutants;
-	size_t		  i, totalpop, islandpop, islands, 
-			  stop, slices;
+	size_t		  i, j, totalpop, islands, stop, slices;
+	size_t		 *islandpops;
 	struct sim	 *sim;
 	struct curwin	 *cur;
+
+	islandpops = NULL;
 
 	/* 
 	 * Validation.
 	 */
 	input = gtk_notebook_get_current_page(b->wins.inputs);
-	payoff = gtk_notebook_get_current_page(b->wins.payoffs);
 
-	if (INPUT_UNIFORM != input) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: only uniform input supported.");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if (PAYOFF_CONTINUUM2 != payoff) {
-		gtk_label_set_text
-			(b->wins.error,
-			 "Error: only continuum payoff supported.");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
-	} else if (gtk_toggle_button_get_active(b->wins.analsingle)) {
-		gtk_label_set_text
-			(b->wins.error,
+	if (gtk_toggle_button_get_active(b->wins.analsingle)) {
+		gtk_label_set_text(err,
 			 "Error: single run not supported.");
-		gtk_widget_show_all(GTK_WIDGET(b->wins.error));
-		return;
+		gtk_widget_show_all(GTK_WIDGET(err));
+		goto cleanup;
 	}
 	
-	if ( ! entry2size(b->wins.totalpop, &totalpop, b->wins.error)) 
-		return;
-	if ( ! entry2size(b->wins.stop, &stop, b->wins.error))
-		return;
-	
-	islandpop = (size_t)gtk_adjustment_get_value(b->wins.pop);
-	islands = (size_t)gtk_adjustment_get_value(b->wins.islands);
+	if ( ! entry2size(b->wins.stop, &stop, err, 1))
+		goto cleanup;
 
-	if ( ! entry2double(b->wins.xmin, &xmin, b->wins.error))
-		return;
-	if ( ! entry2double(b->wins.xmax, &xmax, b->wins.error))
-		return;
-	if ( ! entry2double(b->wins.ymin, &ymin, b->wins.error))
-		return;
-	if ( ! entry2double(b->wins.ymax, &ymax, b->wins.error))
-		return;
-	if ( ! entryworder(b->wins.xmin, 
-		b->wins.xmax, xmin, xmax, b->wins.error))
-		return;
-	if ( ! entryworder(b->wins.ymin, 
-		b->wins.ymax, ymin, ymax, b->wins.error))
-		return;
-	if ( ! entryorder(b->wins.ymin, 
-		b->wins.xmin, ymin, xmin, b->wins.error))
-		return;
-	if ( ! entryorder(b->wins.xmax, 
-		b->wins.ymax, xmax, ymax, b->wins.error))
-		return;
-	if ( ! entry2double(b->wins.mutantsigma, &sigma, b->wins.error))
-		return;
-	if ( ! entry2double(b->wins.alpha, &alpha, b->wins.error))
-		return;
-	if ( ! entry2double(b->wins.delta, &delta, b->wins.error)) 
-		return;
-	if ( ! entry2double(b->wins.migrate, &m, b->wins.error))
-		return;
-	if ( ! entry2size(b->wins.incumbents, &slices, b->wins.error)) 
-		return;
-	if ( ! entry2func(b->wins.func, &exp, b->wins.error))
-		return;
+	/*
+	 * We diverge here on the type of input.
+	 */
+	if (INPUT_UNIFORM == input) {
+		if ( ! entry2size(b->wins.totalpop, &totalpop, err, 1))
+			goto cleanup;
+		islands = (size_t)gtk_adjustment_get_value
+			(b->wins.islands);
+		j = (size_t)gtk_adjustment_get_value(b->wins.pop);
+		islandpops = g_malloc0_n(islands, sizeof(size_t));
+		for (i = 0; i < islands; i++)
+			islandpops[i] = j;
+		g_assert(totalpop == j * islands);
+	} else {
+		g_assert(INPUT_VARIABLE == input);
+		list = gtk_container_get_children
+			(GTK_CONTAINER(b->wins.mapbox));
+		islands = (size_t)g_list_length(list);
+		if (islands < 2) {
+			gtk_label_set_text(err, 
+				"Error: need more than one island.");
+			gtk_widget_show_all(GTK_WIDGET(err));
+			goto cleanup;
+		}
+		islandpops = g_malloc0_n(islands, sizeof(size_t));
+		for (i = 0; i < islands; i++) {
+			w = GTK_WIDGET(g_list_nth_data(list, i));
+			if ( ! mapbox2pair(err, w, &islandpops[i]))
+				goto cleanup;
+		}
+		g_list_free(list);
+		for (totalpop = i = 0; i < islands; i++)
+			totalpop += islandpops[i];
+	}
+
+	if ( ! entry2double(b->wins.xmin, &xmin, err))
+		goto cleanup;
+	if ( ! entry2double(b->wins.xmax, &xmax, err))
+		goto cleanup;
+	if ( ! entry2double(b->wins.ymin, &ymin, err))
+		goto cleanup;
+	if ( ! entry2double(b->wins.ymax, &ymax, err))
+		goto cleanup;
+	if ( ! entryworder(b->wins.xmin, b->wins.xmax, xmin, xmax, err))
+		goto cleanup;
+	if ( ! entryworder(b->wins.ymin, b->wins.ymax, ymin, ymax, err))
+		goto cleanup;
+	if ( ! entryorder(b->wins.ymin, b->wins.xmin, ymin, xmin, err))
+		goto cleanup;
+	if ( ! entryorder(b->wins.xmax, b->wins.ymax, xmax, ymax, err))
+		goto cleanup;
+	if ( ! entry2double(b->wins.mutantsigma, &sigma, err))
+		goto cleanup;
+	if ( ! entry2double(b->wins.alpha, &alpha, err))
+		goto cleanup;
+	if ( ! entry2double(b->wins.delta, &delta, err))
+		goto cleanup;
+	if ( ! entry2double(b->wins.migrate[input], &m, err))
+		goto cleanup;
+	if ( ! entry2size(b->wins.incumbents, &slices, err, 1))
+		goto cleanup;
+	if ( ! entry2func(b->wins.func, &exp, err))
+		goto cleanup;
 
 	func = gtk_entry_get_text(b->wins.func);
 	name = gtk_entry_get_text(b->wins.name);
@@ -1148,7 +1194,7 @@ on_activate(GtkButton *button, gpointer dat)
 	 * All parameters check out!
 	 * Allocate the simulation now.
 	 */
-	gtk_widget_hide(GTK_WIDGET(b->wins.error));
+	gtk_widget_hide(GTK_WIDGET(err));
 
 	sim = g_malloc0(sizeof(struct sim));
 	sim->dims = slices;
@@ -1205,7 +1251,6 @@ on_activate(GtkButton *button, gpointer dat)
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.extimins, xmin, xmax);
 
-	sim->type = PAYOFF_CONTINUUM2;
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
 	sim->totalpop = totalpop;
 	sim->islands = islands;
@@ -1215,24 +1260,25 @@ on_activate(GtkButton *button, gpointer dat)
 	b->nextcolour = (b->nextcolour + 1) % SIZE_COLOURS;
 	sim->delta = delta;
 	sim->m = m;
-	sim->pops = g_malloc0_n(sim->islands, sizeof(size_t));
-	for (i = 0; i < sim->islands; i++)
-		sim->pops[i] = islandpop;
-	sim->d.continuum.exp = exp;
-	sim->d.continuum.xmin = xmin;
-	sim->d.continuum.xmax = xmax;
-	sim->d.continuum.ymin = ymin;
-	sim->d.continuum.ymax = ymax;
+	sim->pops = islandpops;
+	sim->input = input;
+	sim->continuum.exp = exp;
+	sim->continuum.xmin = xmin;
+	sim->continuum.xmax = xmax;
+	sim->continuum.ymin = ymin;
+	sim->continuum.ymax = ymax;
 	b->sims = g_list_append(b->sims, sim);
 	sim_ref(sim, NULL);
 	sim->threads = g_malloc0_n(sim->nprocs, sizeof(struct simthr));
 	g_debug("New continuum simulation: %zu islands, "
-		"%zu total members (%zu per island) (%zu generations)", 
-		sim->islands, sim->totalpop, islandpop, sim->stop);
+		"%zu total members (%s per island) (%zu generations)", 
+		sim->islands, sim->totalpop, 
+		INPUT_VARIABLE == sim->input ? "variable" : "uniform", 
+		sim->stop);
 	g_debug("New continuum migration %g, %g(1 + %g pi)", 
 		sim->m, sim->alpha, sim->delta);
 	g_debug("New continuum function %s, x = [%g, %g)", sim->func,
-		sim->d.continuum.xmin, sim->d.continuum.xmax);
+		sim->continuum.xmin, sim->continuum.xmax);
 	g_debug("New continuum threads: %zu", sim->nprocs);
 	g_debug("New continuum polynomial: %zu (%s)", 
 		sim->fitpoly, sim->weighted ? 
@@ -1240,7 +1286,7 @@ on_activate(GtkButton *button, gpointer dat)
 	if (MUTANTS_GAUSSIAN == sim->mutants)
 		g_debug("New continuum Gaussian mutants: "
 			"%g in [%g, %g]", sim->mutantsigma,
-			sim->d.continuum.ymin, sim->d.continuum.ymax);
+			sim->continuum.ymin, sim->continuum.ymax);
 	else
 		g_debug("New continuum discrete mutants");
 
@@ -1262,6 +1308,9 @@ on_activate(GtkButton *button, gpointer dat)
 	 */
 	g_get_current_time(&gt);
 	gtk_entry_set_text(b->wins.name, g_time_val_to_iso8601(&gt));
+	return;
+cleanup:
+	g_free(islandpops);
 }
 
 /*
@@ -1298,21 +1347,6 @@ onpreset(GtkComboBox *widget, gpointer dat)
 		gtk_entry_set_text(b->wins.func, "");
 		break;
 	}
-}
-
-/*
- * Run this whenever we select a page from the material payoff notebook.
- * This sets (for the user) the current payoff in an entry.
- */
-gboolean
-on_change_payoff(GtkNotebook *notebook, 
-	GtkWidget *page, gint pnum, gpointer dat)
-{
-	struct bmigrate	*b = dat;
-
-	assert(pnum < PAYOFF__MAX);
-	gtk_entry_set_text(b->wins.payoff, payoffs[pnum]);
-	return(TRUE);
 }
 
 /*
@@ -1442,6 +1476,74 @@ on_deactivate(GtkButton *button, gpointer dat)
 
 	bmigrate_free(dat);
 	gtk_main_quit();
+}
+
+/*
+ * Add an island configuration.
+ * For the time being, we only allow the population size of the island
+ * to be specified.
+ * (Inter-island migration probabilities may not yet be assigned.)
+ */
+static void
+mapbox_add(struct bmigrate *b, size_t sz)
+{
+	GtkWidget	*box, *entry, *label;
+	gchar		 buf[64];
+
+	box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+
+	g_snprintf(buf, sizeof(buf), "Population %zu:", sz);
+	label = gtk_label_new(buf);
+	gtk_misc_set_alignment(GTK_MISC(label), 1.0, 0.5);
+	gtk_label_set_width_chars(GTK_LABEL(label), 18);
+	gtk_container_add(GTK_CONTAINER(box), label);
+
+	entry = gtk_entry_new();
+	gtk_entry_set_text(GTK_ENTRY(entry), "10");
+	gtk_entry_set_width_chars(GTK_ENTRY(entry), 7);
+	gtk_container_add(GTK_CONTAINER(box), entry);
+
+	gtk_container_add(GTK_CONTAINER(b->wins.mapbox), box);
+	gtk_widget_show_all(box);
+}
+
+/*
+ * Remove the last island configuration.
+ */
+static void
+mapbox_rem(struct bmigrate *b)
+{
+	GList		*list, *last;
+
+	list = gtk_container_get_children(GTK_CONTAINER(b->wins.mapbox));
+	last = g_list_last(list);
+	gtk_widget_destroy(GTK_WIDGET(last->data));
+	g_list_free(list);
+}
+
+/*
+ * We've requested more or fewer islands for the mapped scenario.
+ */
+void
+onislandspin(GtkSpinButton *spinbutton, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	guint		 oldsz, newsz;
+	GList		*list;
+
+	list = gtk_container_get_children(GTK_CONTAINER(b->wins.mapbox));
+	oldsz = g_list_length(list);
+	g_list_free(list);
+	newsz = (guint)gtk_spin_button_get_value(spinbutton);
+
+	if (newsz > oldsz) {
+		while (oldsz++ < newsz)
+			mapbox_add(b, oldsz);
+	} else if (oldsz > newsz) {
+		while (oldsz-- > newsz)
+			mapbox_rem(b);
+	}
+
 }
 
 int 

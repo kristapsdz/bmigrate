@@ -336,10 +336,10 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		}
 	}
 
-	if (*xmin > s->d.continuum.xmin)
-		*xmin = s->d.continuum.xmin;
-	if (*xmax < s->d.continuum.xmax)
-		*xmax = s->d.continuum.xmax;
+	if (*xmin > s->continuum.xmin)
+		*xmin = s->continuum.xmin;
+	if (*xmax < s->continuum.xmax)
+		*xmax = s->continuum.xmax;
 }
 
 static void
@@ -780,16 +780,18 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			v += e.height * 1.5;
 			(void)g_snprintf(buf, sizeof(buf),
 				"Function: %s, x = [%g, %g]", 
-				sim->func, sim->d.continuum.xmin,
-				sim->d.continuum.xmax);
+				sim->func, sim->continuum.xmin,
+				sim->continuum.xmax);
 			cairo_move_to(cr, 0.0, v);
 			cairo_show_text(cr, buf);
 			v += e.height * 1.5;
 			(void)g_snprintf(buf, sizeof(buf),
 				"Population: %zu (%zu islands, "
-				"%zu islanders), m=%g, T=%zu", 
+				"%s islanders), m=%g, T=%zu", 
 				sim->totalpop, sim->islands, 
-				sim->pops[0], sim->m, sim->stop);
+				INPUT_VARIABLE == sim->input ?
+				"variable" : "uniform", 
+				sim->m, sim->stop);
 			cairo_move_to(cr, 0.0, v);
 			cairo_show_text(cr, buf);
 			v += e.height * 1.5;
@@ -816,8 +818,8 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 					"Mutants: Gaussian "
 					"(sigma=%g, [%g, %g]",
 					sim->mutantsigma,
-					sim->d.continuum.ymin,
-					sim->d.continuum.ymax);
+					sim->continuum.ymin,
+					sim->continuum.ymax);
 			cairo_move_to(cr, 0.0, v);
 			cairo_show_text(cr, buf);
 			v += e.height * 1.5;
