@@ -628,7 +628,7 @@ draw_islandmean(const struct sim *sim, const struct bmigrate *b,
 		v = stats_mean(&sim->cold.islands[i]);
 		cairo_arc(cr, width * (i + 1) /
 			(double)(sim->islands + 1), GETY(v), 
-			4.0, 0.0, 2.0 * M_PI);
+			3.0, 0.0, 2.0 * M_PI);
 		cairo_set_source_rgba(cr, GETC(1.0));
 		cairo_stroke_preserve(cr);
 		cairo_set_source_rgba(cr, GETC(0.5));
