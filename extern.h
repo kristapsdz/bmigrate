@@ -228,6 +228,7 @@ struct	sim {
 	struct simhot	  hot; /* current results */
 	struct simwarm	  warm; /* current results */
 	struct simcold	  cold; /* graphed results */
+	struct simwork	  work; /* worker data */
 };
 
 /*

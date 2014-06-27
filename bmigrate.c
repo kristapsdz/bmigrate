@@ -300,6 +300,15 @@ sim_free(gpointer arg)
 	gsl_histogram_free(p->cold.meanmins);
 	gsl_histogram_free(p->cold.extmmaxs);
 	gsl_histogram_free(p->cold.extimins);
+	if (p->fitpoly) {
+		gsl_matrix_free(p->work.X);
+		gsl_vector_free(p->work.y);
+		gsl_vector_free(p->work.w);
+		gsl_vector_free(p->work.c);
+		gsl_matrix_free(p->work.cov);
+		gsl_multifit_linear_free(p->work.work);
+		p->fitpoly = 0;
+	}
 	g_free(p->cold.coeffs);
 	g_free(p->cold.smeans);
 	g_free(p->cold.sextms);
@@ -1251,6 +1260,23 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->cold.extmmaxs, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.extimins, xmin, xmax);
+
+	/*
+	 * Conditionally allocate our fitness polynomial structures.
+	 * These are per-simulation as they're only run by one thread at
+	 * any one time during the simulation.
+	 */
+	if (sim->fitpoly) {
+		sim->work.X = gsl_matrix_alloc
+			(sim->dims, sim->fitpoly + 1);
+		sim->work.y = gsl_vector_alloc(sim->dims);
+		sim->work.w = gsl_vector_alloc(sim->dims);
+		sim->work.c = gsl_vector_alloc(sim->fitpoly + 1);
+		sim->work.cov = gsl_matrix_alloc
+			(sim->fitpoly + 1, sim->fitpoly + 1);
+		sim->work.work = gsl_multifit_linear_alloc
+			(sim->dims, sim->fitpoly + 1);
+	}
 
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);
 	sim->totalpop = totalpop;

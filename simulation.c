@@ -362,7 +362,6 @@ simulation(void *arg)
 	size_t		  t, i, j, k, new, mutants, incumbents,
 			  len1, len2, incumbentidx;
 	int		  mutant_old, mutant_new;
-	struct simwork	  work;
 	gsl_rng		 *rng;
 
 	rng = gsl_rng_alloc(gsl_rng_default);
@@ -373,24 +372,6 @@ simulation(void *arg)
 		"seed %lu, initial %lu", 
 		g_thread_self(), sim, gsl_rng_name(rng),
 		seed, gsl_rng_get(rng));
-
-	/* 
-	 * Conditionally allocate polynomial fitting.
-	 * There's no need for all of this extra memory allocated if
-	 * we're not going to use it!
-	 */
-	memset(&work, 0, sizeof(struct simwork));
-
-	if (sim->fitpoly) {
-		work.X = gsl_matrix_alloc(sim->dims, sim->fitpoly + 1);
-		work.y = gsl_vector_alloc(sim->dims);
-		work.w = gsl_vector_alloc(sim->dims);
-		work.c = gsl_vector_alloc(sim->fitpoly + 1);
-		work.cov = gsl_matrix_alloc
-			(sim->fitpoly + 1, sim->fitpoly + 1);
-		work.work = gsl_multifit_linear_alloc
-			(sim->dims, sim->fitpoly + 1);
-	}
 
 	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	kids[1] = g_malloc0_n(sim->islands, sizeof(size_t));
@@ -418,7 +399,7 @@ again:
 	 * Repeat til we're instructed to terminate. 
 	 * We also pass in our last result for processing.
 	 */
-	if ( ! on_sim_next(&work, sim, rng, 
+	if ( ! on_sim_next(&sim->work, sim, rng, 
 		&mutant, &incumbent, &incumbentidx, vp, t)) {
 		/*
 		 * Upon termination, free up all of the memory
@@ -429,14 +410,6 @@ again:
 		g_free(kids[1]);
 		g_free(migrants[0]);
 		g_free(migrants[1]);
-		if (sim->fitpoly) {
-			gsl_matrix_free(work.X);
-			gsl_vector_free(work.y);
-			gsl_vector_free(work.w);
-			gsl_vector_free(work.c);
-			gsl_matrix_free(work.cov);
-			gsl_multifit_linear_free(work.work);
-		}
 		for (i = 0; i < sim->islands; i++) {
 			g_free(icache[i]);
 			g_free(mcache[i]);
