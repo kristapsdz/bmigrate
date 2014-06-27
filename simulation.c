@@ -77,7 +77,7 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	memcpy(warm->stats, sim->hot.statslsb, 
 		sim->dims * sizeof(struct stats));
 	memcpy(warm->islands, sim->hot.islandslsb, 
-		sim->dims * sizeof(struct stats));
+		sim->islands * sizeof(struct stats));
 	warm->truns = truns;
 	warm->tgens = tgens;
 
