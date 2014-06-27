@@ -33,19 +33,22 @@
  * These macros shorten the drawing routines by automatically computing
  * X and Y coordinates as well as colour.
  */
-#define	GETX(_j) (width * (_j) / (double)(sim->dims - 1))
+#define GETX(_j) \
+	(width * (sim->continuum.xmin - minx) / (maxx - minx) + \
+	(_j) / (double)(sim->dims - 1) * width * (sim->continuum.xmax - sim->continuum.xmin) / (maxx - minx))
 #define	GETY(_v) (height - ((_v) / maxy * height))
 #define	GETC(_a) b->wins.colours[sim->colour].red, \
 		 b->wins.colours[sim->colour].green, \
 		 b->wins.colours[sim->colour].blue, (_a)
 
+/* 
+ * Draw a grid containing the data.
+ * FIXME: snapping pixels to position for fine lines.
+ */
 static void
 drawgrid(cairo_t *cr, double width, double height)
 {
 	static const double dash[] = {6.0};
-
-	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-	cairo_set_line_width(cr, 0.2);
 
 	/* Top line. */
 	cairo_move_to(cr, 0.0, 0.0);
@@ -66,8 +69,10 @@ drawgrid(cairo_t *cr, double width, double height)
 	cairo_move_to(cr, 0.0, height * 0.5);
 	cairo_line_to(cr, width, height * 0.5);
 
+	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+
+	cairo_set_line_width(cr, 0.5);
 	cairo_stroke(cr);
-	cairo_set_dash(cr, dash, 1, 0);
 
 	/* Vertical left. */
 	cairo_move_to(cr, 0.0, height * 0.25);
@@ -82,7 +87,10 @@ drawgrid(cairo_t *cr, double width, double height)
 	cairo_move_to(cr, width * 0.25, 0.0);
 	cairo_line_to(cr, width * 0.25, height);
 
+	cairo_set_line_width(cr, 0.5);
+	cairo_set_dash(cr, dash, 1, 0);
 	cairo_stroke(cr);
+
 	cairo_set_dash(cr, dash, 0, 0);
 }
 
@@ -334,6 +342,7 @@ max_sim(const struct curwin *cur, const struct sim *s,
 			if (v > *maxy)
 				*maxy = v;
 		}
+		break;
 	}
 
 	if (*xmin > s->continuum.xmin)
@@ -513,7 +522,7 @@ draw_set(const struct sim *sim, const struct bmigrate *b, cairo_t *cr,
 static void
 draw_cdf(const struct sim *sim, const struct bmigrate *b, 
 	cairo_t *cr, double width, double height, double maxy, 
-	const gsl_histogram *p)
+	const gsl_histogram *p, double minx, double maxx)
 {
 	double	v, sum;
 	size_t	i;
@@ -534,7 +543,7 @@ draw_cdf(const struct sim *sim, const struct bmigrate *b,
 static void
 draw_pdf(const struct sim *sim, const struct bmigrate *b, 
 	cairo_t *cr, double width, double height, double maxy, 
-	const gsl_histogram *p)
+	const gsl_histogram *p, double minx, double maxx)
 {
 	double	v;
 	size_t	i;
@@ -554,7 +563,8 @@ draw_pdf(const struct sim *sim, const struct bmigrate *b,
  */
 static void
 draw_stddev(const struct sim *sim, const struct bmigrate *b,
-	cairo_t *cr, double width, double height, double maxy)
+	cairo_t *cr, double width, double height, double maxy,
+	double minx, double maxx)
 {
 	size_t	 i;
 	double	 v;
@@ -584,7 +594,8 @@ draw_stddev(const struct sim *sim, const struct bmigrate *b,
  */
 static void
 draw_mean(const struct sim *sim, const struct bmigrate *b,
-	cairo_t *cr, double width, double height, double maxy)
+	cairo_t *cr, double width, double height, 
+	double maxy, double minx, double maxx)
 {
 	size_t	 i;
 	double	 v;
@@ -602,7 +613,8 @@ draw_mean(const struct sim *sim, const struct bmigrate *b,
  */
 static void
 draw_poly(const struct sim *sim, const struct bmigrate *b,
-	cairo_t *cr, double width, double height, double maxy)
+	cairo_t *cr, double width, double height, 
+	double maxy, double minx, double maxx)
 {
 	size_t	 i;
 	double	 v;
@@ -660,7 +672,7 @@ void
 draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 {
 	struct curwin	*cur;
-	double		 width, height, maxy, v, xmin, xmax;
+	double		 width, height, maxy, v, minx, maxx;
 	GtkWidget	*top;
 	struct sim	*sim;
 	size_t		 i, simnum, simmax;
@@ -704,11 +716,11 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	 * domain extrema (the range minimum is always zero).
 	 * Buffer the maximum range by 110%.
 	 */
-	xmin = FLT_MAX;
-	xmax = maxy = -FLT_MAX;
+	minx = FLT_MAX;
+	maxx = maxy = -FLT_MAX;
 	simmax = 0;
 	for (list = sims; NULL != list; list = list->next, simmax++)
-		max_sim(cur, list->data, &xmin, &xmax, &maxy);
+		max_sim(cur, list->data, &minx, &maxx, &maxy);
 
 	/* 
 	 * See if we should scale the graph to be above the maximum
@@ -746,7 +758,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		break;
 	default:
 		drawlabels(cur, cr, "%.2g", &width, 
-			&height, 0.0, maxy, xmin, xmax);
+			&height, 0.0, maxy, minx, maxx);
 		break;
 	}
 
@@ -825,38 +837,42 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			v += e.height * 1.5;
 			break;
 		case (VIEW_DEV):
-			draw_mean(sim, b, cr, width, height, maxy);
+			draw_mean(sim, b, cr, width, 
+				height, maxy, minx, maxx);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
-			draw_stddev(sim, b, cr, width, height, maxy);
+			draw_stddev(sim, b, cr, width, 
+				height, maxy, minx, maxx);
 			cairo_set_line_width(cr, 1.5);
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			break;
 		case (VIEW_POLY):
-			draw_mean(sim, b, cr, width, height, maxy);
+			draw_mean(sim, b, cr, width, 
+				height, maxy, minx, maxx);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
-			draw_poly(sim, b, cr, width, height, maxy);
+			draw_poly(sim, b, cr, width, 
+				height, maxy, minx, maxx);
 			cairo_set_line_width(cr, 1.5);
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
 			break;
 		case (VIEW_POLYMINPDF):
-			draw_pdf(sim, b, cr, width, 
-				height, maxy, sim->cold.fitmins);
+			draw_pdf(sim, b, cr, width, height, 
+				maxy, sim->cold.fitmins, minx, maxx);
 			break;
 		case (VIEW_POLYMINCDF):
-			draw_cdf(sim, b, cr, width, 
-				height, maxy, sim->cold.fitmins);
+			draw_cdf(sim, b, cr, width, height, 
+				maxy, sim->cold.fitmins, minx, maxx);
 			break;
 		case (VIEW_MEANMINPDF):
-			draw_pdf(sim, b, cr, width, 
-				height, maxy, sim->cold.meanmins);
+			draw_pdf(sim, b, cr, width, height, 
+				maxy, sim->cold.meanmins, minx, maxx);
 			break;
 		case (VIEW_MEANMINCDF):
-			draw_cdf(sim, b, cr, width, 
-				height, maxy, sim->cold.meanmins);
+			draw_cdf(sim, b, cr, width, height, 
+				maxy, sim->cold.meanmins, minx, maxx);
 			break;
 		case (VIEW_MEANMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
@@ -911,28 +927,28 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_stroke(cr);
 			break;
 		case (VIEW_EXTIMINCDF):
-			draw_cdf(sim, b, cr, width, 
-				height, maxy, sim->cold.extimins);
+			draw_cdf(sim, b, cr, width, height, 
+				maxy, sim->cold.extimins, minx, maxx);
 			break;
 		case (VIEW_EXTIMINPDF):
-			draw_pdf(sim, b, cr, width, 
-				height, maxy, sim->cold.extimins);
+			draw_pdf(sim, b, cr, width, height, 
+				maxy, sim->cold.extimins, minx, maxx);
 			break;
 		case (VIEW_EXTMMAXCDF):
-			draw_cdf(sim, b, cr, width, 
-				height, maxy, sim->cold.extmmaxs);
+			draw_cdf(sim, b, cr, width, height, 
+				maxy, sim->cold.extmmaxs, minx, maxx);
 			break;
 		case (VIEW_EXTMMAXPDF):
-			draw_pdf(sim, b, cr, width, 
-				height, maxy, sim->cold.extmmaxs);
+			draw_pdf(sim, b, cr, width, height, 
+				maxy, sim->cold.extmmaxs, minx, maxx);
 			break;
 		case (VIEW_SMEANMINCDF):
-			draw_cdf(sim, b, cr, width, 
-				height, maxy, sim->cold.smeanmins);
+			draw_cdf(sim, b, cr, width, height, 
+				maxy, sim->cold.smeanmins, minx, maxx);
 			break;
 		case (VIEW_SMEANMINPDF):
-			draw_pdf(sim, b, cr, width, 
-				height, maxy, sim->cold.smeanmins);
+			draw_pdf(sim, b, cr, width, height, 
+				maxy, sim->cold.smeanmins, minx, maxx);
 			break;
 		case (VIEW_SEXTM):
 			for (i = 1; i < sim->dims; i++) {
@@ -955,7 +971,8 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_stroke(cr);
 			break;
 		case (VIEW_SMEAN):
-			draw_mean(sim, b, cr, width, height, maxy);
+			draw_mean(sim, b, cr, width, 
+				height, maxy, minx, maxx);
 			cairo_set_line_width(cr, 1.5);
 			cairo_set_source_rgba(cr, GETC(0.5));
 			cairo_stroke(cr);
@@ -970,7 +987,8 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_stroke(cr);
 			break;
 		default:
-			draw_mean(sim, b, cr, width, height, maxy);
+			draw_mean(sim, b, cr, width, 
+				height, maxy, minx, maxx);
 			cairo_set_source_rgba(cr, GETC(1.0));
 			cairo_stroke(cr);
 			break;
