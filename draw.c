@@ -340,7 +340,8 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		break;
 	case (VIEW_ISLANDMEAN):
 		for (i = 0; i < s->islands; i++) {
-			v = stats_mean(&s->cold.islands[i]);
+			v = stats_mean(&s->cold.islands[i]) +
+				stats_stddev(&s->cold.islands[i]);
 			if (v > *maxy)
 				*maxy = v;
 		}
@@ -611,11 +612,27 @@ draw_islandmean(const struct sim *sim, const struct bmigrate *b,
 	double	 v;
 
 	for (i = 0; i < sim->islands; i++) {
-		v = stats_mean(&sim->cold.islands[i]);
+		v = stats_mean(&sim->cold.islands[i]) -
+			stats_stddev(&sim->cold.islands[i]);
+		if (v < 0.0)
+			v = 0.0;
 		cairo_move_to(cr, width * (i + 1) / 
-			(double)(sim->islands + 1), height);
+			(double)(sim->islands + 1), GETY(v));
+		v = stats_mean(&sim->cold.islands[i]) +
+			stats_stddev(&sim->cold.islands[i]);
 		cairo_line_to(cr, width * (i + 1) / 
 			(double)(sim->islands + 1), GETY(v));
+		cairo_set_source_rgba(cr, GETC(1.0));
+		cairo_stroke(cr);
+		cairo_new_path(cr);
+		v = stats_mean(&sim->cold.islands[i]);
+		cairo_arc(cr, width * (i + 1) /
+			(double)(sim->islands + 1), GETY(v), 
+			4.0, 0.0, 2.0 * M_PI);
+		cairo_set_source_rgba(cr, GETC(1.0));
+		cairo_stroke_preserve(cr);
+		cairo_set_source_rgba(cr, GETC(0.5));
+		cairo_fill(cr);
 	}
 }
 
@@ -1018,8 +1035,6 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			break;
 		case (VIEW_ISLANDMEAN):
 			draw_islandmean(sim, b, cr, width, height, maxy);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
 			break;
 		default:
 			draw_mean(sim, b, cr, width, 
