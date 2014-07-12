@@ -34,6 +34,7 @@
 static	const char *const inputs[INPUT__MAX] = {
 	"uniform",
 	"variable",
+	"mapped",
 };
 
 static	const char *const colours[SIZE_COLOURS] = {
@@ -1520,6 +1521,23 @@ on_deactivate(GtkButton *button, gpointer dat)
 
 	bmigrate_free(dat);
 	gtk_main_quit();
+}
+
+void
+onkml(GtkFileChooserButton *widget, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	gchar		*file;
+
+	file = gtk_file_chooser_get_filename
+		(GTK_FILE_CHOOSER(widget));
+
+	if (NULL == file)
+		return;
+	g_debug("Trying KML file: %s", file);
+
+	kml_parse(file);
+	g_free(file);
 }
 
 /*

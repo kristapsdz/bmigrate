@@ -386,6 +386,8 @@ double		  stats_stddev(const struct stats *p);
 double		  stats_extinctm(const struct stats *p);
 double		  stats_extincti(const struct stats *p);
 
+void		  kml_parse(const gchar *file);
+
 __END_DECLS
 
 #endif

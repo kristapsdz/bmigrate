@@ -398,6 +398,10 @@ simulation(void *arg)
 	 * Set up our mutant and incumbent payoff caches.
 	 * These consist of all possible payoffs with a given number of
 	 * mutants and incumbents on an island.
+	 * TODO: a large per-island population and island count will
+	 * swamp system memory.
+	 * We can reduce this to a single array in the event of uniform
+	 * island sizes.
 	 */
 	icache = g_malloc0_n(sim->islands, sizeof(double *));
 	mcache = g_malloc0_n(sim->islands, sizeof(double *));
