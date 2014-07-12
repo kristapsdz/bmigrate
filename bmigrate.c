@@ -1527,17 +1527,39 @@ void
 onkml(GtkFileChooserButton *widget, gpointer dat)
 {
 	struct bmigrate	*b = dat;
+	GError		*er;
 	gchar		*file;
+	GtkWidget	*dialog;
+	GList		*list;
 
 	file = gtk_file_chooser_get_filename
 		(GTK_FILE_CHOOSER(widget));
 
 	if (NULL == file)
 		return;
-	g_debug("Trying KML file: %s", file);
 
-	kml_parse(file);
+	g_debug("Trying KML file: %s", file);
+	er = NULL;
+	list = kml_parse(file, &er);
+	if (NULL == list) {
+		g_assert(NULL != er);
+		gtk_file_chooser_unselect_filename
+			(GTK_FILE_CHOOSER(widget), file);
+		dialog = gtk_message_dialog_new
+			(GTK_WINDOW(gtk_widget_get_toplevel
+			    (GTK_WIDGET(widget))),
+			 GTK_DIALOG_DESTROY_WITH_PARENT, 
+			 GTK_MESSAGE_ERROR, 
+			 GTK_BUTTONS_CLOSE, 
+			 "Error reading %s: %s", 
+			 file, er->message);
+		gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+		g_error_free(er);
+	}
+
 	g_free(file);
+	g_list_free_full(list, kml_free);
 }
 
 /*

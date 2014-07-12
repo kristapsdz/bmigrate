@@ -27,12 +27,6 @@
 
 #include "extern.h"
 
-struct	kmlplace {
-	char	*name;
-	double	 lat;
-	double	 lng;
-};
-
 enum	kmltype {
 	KML_INIT = 0,
 	KML_KML,
@@ -63,11 +57,11 @@ struct	kmlparse {
 static	const char *const kmltypes[KML__MAX] = {
 	NULL, /* KML_INIT */
 	"kml", /* KML_KML */
-	"document", /* KML_DOCUMENT */
-	"folder", /* KML_FOLDER */
-	"placemark", /* KML_PLACEMARK */
+	"Document", /* KML_DOCUMENT */
+	"Folder", /* KML_FOLDER */
+	"Placemark", /* KML_PLACEMARK */
 	"name", /* KML_NAME */
-	"point", /* KML_POINT */
+	"Point", /* KML_POINT */
 	"coordinates", /* KML_COORDINATES */
 	"description", /* KML_DESCRIPTION */
 };
@@ -80,14 +74,14 @@ kml_lookup(const gchar *name)
 	for (i = 0; i < KML__MAX; i++) {
 		if (NULL == kmltypes[i])
 			continue;
-		if (0 == g_ascii_strcasecmp(kmltypes[i], name))
+		if (0 == g_strcmp0(kmltypes[i], name))
 			break;
 	}
 
 	return(i);
 }
 
-static void
+void
 kml_free(gpointer dat)
 {
 	struct kmlplace	*place = dat;
@@ -109,7 +103,7 @@ kml_elem_end(GMarkupParseContext *ctx,
 
 	if (NULL != p->ign) {
 		g_assert(p->ignstack > 0);
-		if (0 == g_ascii_strcasecmp(p->ign, name))
+		if (0 == g_strcmp0(p->ign, name))
 			p->ignstack--;
 		if (p->ignstack > 0)
 			return;
@@ -166,7 +160,7 @@ kml_elem_start(GMarkupParseContext *ctx,
 
 	if (NULL != p->ign) {
 		g_assert(p->ignstack > 0);
-		if (0 == g_ascii_strcasecmp(p->ign, name))
+		if (0 == g_strcmp0(p->ign, name))
 			p->ignstack++;
 		return;
 	}
@@ -237,8 +231,8 @@ kml_error(GMarkupParseContext *ctx, GError *er, gpointer dat)
 	g_warning("%s", er->message);
 }
 
-void
-kml_parse(const gchar *file)
+GList *
+kml_parse(const gchar *file, GError **er)
 {
 	GMarkupParseContext	*ctx;
 	GMarkupParser	  	 parse;
@@ -256,20 +250,26 @@ kml_parse(const gchar *file)
 	parse.text = kml_text;
 	parse.error = kml_error;
 
-	if (NULL == (f = g_mapped_file_new(file, FALSE, NULL)))
-		return;
+	if (NULL == (f = g_mapped_file_new(file, FALSE, er)))
+		return(NULL);
 
 	ctx = g_markup_parse_context_new
 		(&parse, 0, &data, NULL);
 	g_assert(NULL != ctx);
 	rc = g_markup_parse_context_parse
 		(ctx, g_mapped_file_get_contents(f),
-		 g_mapped_file_get_length(f), NULL);
+		 g_mapped_file_get_length(f), er);
 	g_mapped_file_unref(f);
 	g_markup_parse_context_free(ctx);
-
 	g_free(data.buf);
 	g_free(data.ign);
 	kml_free(data.cur);
-	g_list_free_full(data.places, kml_free);
+
+	if (0 == rc) {
+		g_assert(NULL != er);
+		g_list_free_full(data.places, kml_free);
+		data.places = NULL;
+	}
+
+	return(data.places);
 }

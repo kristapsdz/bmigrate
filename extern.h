@@ -364,6 +364,12 @@ struct	bmigrate {
 	size_t		  nprocs; /* total number processors */
 };
 
+struct	kmlplace {
+	char	*name;
+	double	 lat;
+	double	 lng;
+};
+
 __BEGIN_DECLS
 
 struct hnode	**hnode_parse(const char **v);
@@ -386,7 +392,8 @@ double		  stats_stddev(const struct stats *p);
 double		  stats_extinctm(const struct stats *p);
 double		  stats_extincti(const struct stats *p);
 
-void		  kml_parse(const gchar *file);
+GList		 *kml_parse(const gchar *file, GError **er);
+void		  kml_free(gpointer dat);
 
 __END_DECLS
 
