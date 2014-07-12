@@ -194,6 +194,7 @@ struct	simcold {
 enum	input {
 	INPUT_UNIFORM = 0,
 	INPUT_VARIABLE,
+	INPUT_MAPPED,
 	INPUT__MAX
 };
 
@@ -384,8 +385,6 @@ double		  stats_variance(const struct stats *p);
 double		  stats_stddev(const struct stats *p);
 double		  stats_extinctm(const struct stats *p);
 double		  stats_extincti(const struct stats *p);
-
-size_t		  poisson(const gsl_rng *rng, double l);
 
 __END_DECLS
 
