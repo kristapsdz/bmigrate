@@ -120,6 +120,7 @@ kml_elem_end(GMarkupParseContext *ctx,
 	switch (p->stack[p->stackpos]) {
 	case (KML_PLACEMARK):
 		g_assert(NULL != p->cur);
+		p->cur->pop = 2; /* FIXME */
 		p->places = g_list_prepend(p->places, p->cur);
 		p->cur = NULL;
 		break;

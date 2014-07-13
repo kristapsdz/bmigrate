@@ -230,6 +230,7 @@ struct	sim {
 	double		  alpha; /* outer multiplier */
 	double		  delta; /* inner multiplier */
 	double		  m; /* migration probability */
+	double		**ms; /* nonuniform migration probability */
 	size_t		  colour; /* graph colour */
 	struct sim_continuum continuum;
 	struct simhot	  hot; /* current results */
@@ -337,6 +338,7 @@ struct	hwin {
 	GtkLabel	 *curthreads;
 	GtkToggleButton	 *analsingle;
 	GtkToggleButton	 *analmultiple;
+	GtkFileChooser	 *mapfile;
 #define	SIZE_COLOURS	  9 
 	GdkRGBA		  colours[SIZE_COLOURS];
 	GList		 *menus;
@@ -366,6 +368,7 @@ struct	bmigrate {
 
 struct	kmlplace {
 	char	*name;
+	size_t	 pop;
 	double	 lat;
 	double	 lng;
 };

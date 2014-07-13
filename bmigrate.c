@@ -197,6 +197,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry20"));
 	b->wins.incumbents = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry15"));
+	b->wins.mapfile = GTK_FILE_CHOOSER
+		(gtk_builder_get_object(builder, "filechooserbutton1"));
 
 	/* Set the initially-selected notebooks. */
 	gtk_entry_set_text(b->wins.input, inputs
@@ -1110,6 +1112,7 @@ on_activate(GtkButton *button, gpointer dat)
 	GList		 *list;
 	GtkLabel	 *err = b->wins.error;
 	const gchar	 *name, *func;
+	gchar	  	 *file;
 	gdouble		  xmin, xmax, delta, alpha, m, sigma,
 			  ymin, ymax;
 	enum mutants	  mutants;
@@ -1117,6 +1120,7 @@ on_activate(GtkButton *button, gpointer dat)
 	size_t		 *islandpops;
 	struct sim	 *sim;
 	struct curwin	 *cur;
+	struct kmlplace	 *kml;
 
 	islandpops = NULL;
 
@@ -1138,7 +1142,8 @@ on_activate(GtkButton *button, gpointer dat)
 	/*
 	 * We diverge here on the type of input.
 	 */
-	if (INPUT_UNIFORM == input) {
+	switch (input) {
+	case (INPUT_UNIFORM):
 		if ( ! entry2size(b->wins.totalpop, &totalpop, err, 1))
 			goto cleanup;
 		islands = (size_t)gtk_adjustment_get_value
@@ -1148,17 +1153,11 @@ on_activate(GtkButton *button, gpointer dat)
 		for (i = 0; i < islands; i++)
 			islandpops[i] = j;
 		g_assert(totalpop == j * islands);
-	} else {
-		g_assert(INPUT_VARIABLE == input);
+		break;
+	case (INPUT_VARIABLE):
 		list = gtk_container_get_children
 			(GTK_CONTAINER(b->wins.mapbox));
 		islands = (size_t)g_list_length(list);
-		if (islands < 2) {
-			gtk_label_set_text(err, 
-				"Error: need at least two islands.");
-			gtk_widget_show_all(GTK_WIDGET(err));
-			goto cleanup;
-		}
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++) {
 			w = GTK_WIDGET(g_list_nth_data(list, i));
@@ -1168,6 +1167,34 @@ on_activate(GtkButton *button, gpointer dat)
 		g_list_free(list);
 		for (totalpop = i = 0; i < islands; i++)
 			totalpop += islandpops[i];
+	case (INPUT_MAPPED):
+		file = gtk_file_chooser_get_filename
+			(b->wins.mapfile);
+		if (NULL == file) {
+			gtk_label_set_text(err, 
+				"Error: map file not specified.");
+			gtk_widget_show_all(GTK_WIDGET(err));
+			goto cleanup;
+		}
+		list = kml_parse(file, NULL);
+		g_assert(NULL != list);
+		islands = (size_t)g_list_length(list);
+		islandpops = g_malloc0_n(islands, sizeof(size_t));
+		for (i = 0; i < islands; i++) {
+			kml = g_list_nth_data(list, i);
+			islandpops[i] = kml->pop;
+		}
+		g_free(file);
+		break;
+	default:
+		abort();
+	}
+
+	if (islands < 2) {
+		gtk_label_set_text(err, 
+			"Error: need at least two islands.");
+		gtk_widget_show_all(GTK_WIDGET(err));
+		goto cleanup;
 	}
 
 	if ( ! entry2double(b->wins.xmin, &xmin, err))
@@ -1523,10 +1550,14 @@ on_deactivate(GtkButton *button, gpointer dat)
 	gtk_main_quit();
 }
 
+/*
+ * Just make sure that the KML file is sane by parsing it now instead of
+ * later.
+ * This just makes on_activate() a little simpler.
+ */
 void
 onkml(GtkFileChooserButton *widget, gpointer dat)
 {
-	struct bmigrate	*b = dat;
 	GError		*er;
 	gchar		*file;
 	GtkWidget	*dialog;
