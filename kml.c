@@ -231,6 +231,77 @@ kml_error(GMarkupParseContext *ctx, GError *er, gpointer dat)
 	g_warning("%s", er->message);
 }
 
+void
+kml_write(FILE *f, const gchar *p)
+{
+
+	for ( ; '\0' != *p; p++) 
+		switch (*p) {
+		case ('<'):
+			fputs("&lt;", f);
+			break;
+		case ('>'):
+			fputs("&gt;", f);
+			break;
+		case ('&'):
+			fputs("&amp;", f);
+			break;
+		case ('\''):
+			fputs("&apos;", f);
+			break;
+		case ('"'):
+			fputs("&quot;", f);
+			break;
+		default:
+			fputc(*p, f);
+			break;
+		}
+}
+
+void
+kml_save(FILE *f, GList *sims)
+{
+	struct sim	*sim;
+	size_t		 i;
+	GList		*kmls;
+	struct kmlplace	*kml;
+
+	fputs("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n", f);
+	fputs("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n", f);
+	fputs("\t<Document>\n", f);
+
+	for ( ; NULL != sims; sims = g_list_next(sims)) {
+		sim = sims->data;
+		if (NULL == sim->kml)
+			continue;
+		fputs("\t\t<Folder>\n", f);
+		fputs("\t\t\t<name>\n\t\t\t\t", f);
+		kml_write(f, sim->name);
+		fputs("\n\t\t\t</name>\n", f);
+		i = 0;
+		for (kmls = sim->kml; NULL != kmls; kmls = g_list_next(kmls)) {
+			assert(i < sim->islands);
+			kml = kmls->data;
+			fputs("\t\t\t<Placemark>\n", f);
+			fputs("\t\t\t\t<name>", f);
+			kml_write(f, kml->name);
+			fputs("</name>\n", f);
+			fprintf(f, "\t\t\t\t<description>Mean: %g</description>\n", 
+				stats_mean(&sim->cold.islands[i]));
+			fputs("\t\t\t\t<Point>\n", f);
+			fprintf(f, "\t\t\t\t\t<coordinates>%g,%g</coordinates>\n", 
+				kml->lng, kml->lat);
+			fputs("\t\t\t\t</Point>\n", f);
+			fputs("\t\t\t</Placemark>\n", f);
+			i++;
+		}
+		fputs("\t\t</Folder>\n", f);
+	}
+
+	fputs("\t</Document>\n", f);
+	fputs("</kml>\n", f);
+}
+
 GList *
 kml_parse(const gchar *file, GError **er)
 {

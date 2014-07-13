@@ -149,6 +149,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem24"));
 	b->wins.menusave = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem34"));
+	b->wins.menusavekml = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem17"));
 	b->wins.input = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry3"));
 	b->wins.mutantsigma = GTK_ENTRY
@@ -255,6 +257,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	b->wins.menus = g_list_append
 		(b->wins.menus, b->wins.menusave);
 	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.menusavekml);
+	b->wins.menus = g_list_append
 		(b->wins.menus, b->wins.menuclose);
 }
 
@@ -306,6 +310,12 @@ sim_free(gpointer arg)
 	g_free(p->warm.fits);
 	g_free(p->cold.stats);
 	g_free(p->cold.islands);
+	if (NULL != p->ms)
+		for (i = 0; i < p->islands; i++)
+			g_free(p->ms[i]);
+	g_free(p->ms);
+	g_free(p->pops);
+	g_list_free_full(p->kml, kml_free);
 	gsl_histogram_free(p->cold.smeanmins);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
@@ -324,7 +334,6 @@ sim_free(gpointer arg)
 	g_free(p->cold.smeans);
 	g_free(p->cold.sextms);
 	g_free(p->cold.fits);
-	g_free(p->pops);
 	g_free(p->threads);
 	g_free(p);
 	g_debug("Simulation %p freed", p);
@@ -1111,7 +1120,7 @@ on_activate(GtkButton *button, gpointer dat)
 	struct hnode	**exp;
 	GTimeVal	  gt;
 	GtkWidget	 *w;
-	GList		 *list;
+	GList		 *list, *kml;
 	GtkLabel	 *err = b->wins.error;
 	const gchar	 *name, *func;
 	gchar	  	 *file;
@@ -1119,12 +1128,13 @@ on_activate(GtkButton *button, gpointer dat)
 	gdouble		  xmin, xmax, delta, alpha, m, sigma,
 			  ymin, ymax;
 	enum mutants	  mutants;
+	double		  sum;
 	size_t		  i, j, totalpop, islands, stop, 
 			  slices, islandpop;
 	size_t		 *islandpops;
 	struct sim	 *sim;
 	struct curwin	 *cur;
-	struct kmlplace	 *kml;
+	struct kmlplace	 *kmlp;
 
 	islandpops = NULL;
 	islandpop = 0;
@@ -1180,22 +1190,23 @@ on_activate(GtkButton *button, gpointer dat)
 			gtk_widget_show_all(GTK_WIDGET(err));
 			goto cleanup;
 		}
-		list = kml_parse(file, NULL);
-		g_assert(NULL != list);
-		islands = (size_t)g_list_length(list);
+		kml = kml_parse(file, NULL);
+		g_assert(NULL != kml);
+		islands = (size_t)g_list_length(kml);
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++) {
-			kml = g_list_nth_data(list, i);
-			islandpops[i] = kml->pop;
+			kmlp = g_list_nth_data(kml, i);
+			islandpops[i] = kmlp->pop;
 		}
-		ms = kml_migration_distance(list);
+		ms = kml_migration_distance(kml);
 		for (i = 0; i < islands; i++)
-			for (j = 0; j < islands; j++)
+			for (sum = 0.0, j = 0; j < islands; j++) {
+				sum += ms[i][j];
 				g_debug("Map migration probability: "
-					"%zu -> %zu: %g", 
-					i, j, ms[i][j]);
+					"%zu -> %zu: %g (%g)", 
+					i, j, ms[i][j], sum);
+			}
 		g_free(file);
-		g_list_free_full(list, kml_free);
 		break;
 	default:
 		abort();
@@ -1263,6 +1274,7 @@ on_activate(GtkButton *button, gpointer dat)
 	sim->name = g_strdup(name);
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
+	sim->kml = kml;
 	g_mutex_init(&sim->hot.mux);
 	g_cond_init(&sim->hot.cond);
 	sim->hot.stats = g_malloc0_n
@@ -1401,6 +1413,7 @@ cleanup:
 			g_free(ms[i]);
 	g_free(islandpops);
 	g_free(ms);
+	g_list_free_full(kml, kml_free);
 }
 
 /*
@@ -1470,6 +1483,42 @@ on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
 	gtk_entry_set_text(b->wins.totalpop, buf);
 }
 
+void
+onsavekml(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	GtkWidget	*dialog;
+	gint		 res;
+	GtkFileChooser	*chooser;
+	FILE		*f;
+	char 		*filename;
+	GList		*sims;
+
+	g_assert(NULL != b->current);
+	dialog = gtk_file_chooser_dialog_new
+		("Save KML Data", GTK_WINDOW(b->current),
+		 GTK_FILE_CHOOSER_ACTION_SAVE,
+		 "_Cancel", GTK_RESPONSE_CANCEL,
+		 "_Save", GTK_RESPONSE_ACCEPT, NULL);
+
+	chooser = GTK_FILE_CHOOSER(dialog);
+	gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
+	gtk_file_chooser_set_current_name(chooser, "bmigrate.kml");
+	sims = g_object_get_data(G_OBJECT(b->current), "sims");
+	res = gtk_dialog_run(GTK_DIALOG(dialog));
+	if (res == GTK_RESPONSE_ACCEPT) {
+		filename = gtk_file_chooser_get_filename(chooser);
+		if (NULL != (f = fopen(filename, "w+"))) {
+			kml_save(f, sims);
+			fclose(f);
+			g_debug("Saved KML: %s", filename);
+		}
+		g_free(filename);
+	}
+
+	gtk_widget_destroy(dialog);
+}
+
 /*
  * Run when we quit from a simulation window.
  */
@@ -1482,10 +1531,12 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	GtkFileChooser	*chooser;
 	FILE		*f;
 	char 		*filename;
+	const gchar	*viewname;
+	struct curwin	*cur;
 
 	g_assert(NULL != b->current);
 	dialog = gtk_file_chooser_dialog_new
-		("Open File", GTK_WINDOW(b->current),
+		("Save View Data", GTK_WINDOW(b->current),
 		 GTK_FILE_CHOOSER_ACTION_SAVE,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Save", GTK_RESPONSE_ACCEPT, NULL);
@@ -1493,6 +1544,9 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	chooser = GTK_FILE_CHOOSER(dialog);
 	gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
 	gtk_file_chooser_set_current_name(chooser, "bmigrate.dat");
+	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	viewname = gtk_menu_item_get_label
+		(GTK_MENU_ITEM(b->wins.views[cur->view]));
 
 	res = gtk_dialog_run(GTK_DIALOG(dialog));
 	if (res == GTK_RESPONSE_ACCEPT) {
@@ -1500,7 +1554,8 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 		if (NULL != (f = fopen(filename, "w+"))) {
 			save(f, b);
 			fclose(f);
-			g_debug("Saved: %s", filename);
+			g_debug("Saved View: %s, %s", 
+				viewname, filename);
 		}
 		g_free(filename);
 	}

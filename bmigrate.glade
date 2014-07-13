@@ -63,9 +63,18 @@
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Save</property>
+                        <property name="label" translatable="yes">_Save View Data</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onsave" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="menuitem17">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Save KML Data</property>
+                        <signal name="activate" handler="onsavekml" swapped="no"/>
                       </object>
                     </child>
                     <child>

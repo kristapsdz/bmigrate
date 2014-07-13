@@ -232,6 +232,7 @@ struct	sim {
 	double		  delta; /* inner multiplier */
 	double		  m; /* migration probability */
 	double		**ms; /* nonuniform migration probability */
+	GList		 *kml; /* KML places */
 	size_t		  colour; /* graph colour */
 	struct sim_continuum continuum;
 	struct simhot	  hot; /* current results */
@@ -305,6 +306,7 @@ struct	hwin {
 	GtkMenuItem	 *menuquit;
 	GtkMenuItem	 *menuclose;
 	GtkMenuItem	 *menusave;
+	GtkMenuItem	 *menusavekml;
 	GtkMenuItem	 *menufile;
 	GtkMenuItem	 *menuview;
 	GtkMenuItem	 *menutools;
@@ -398,6 +400,7 @@ double		  stats_extincti(const struct stats *p);
 
 GList		 *kml_parse(const gchar *file, GError **er);
 void		  kml_free(gpointer dat);
+void		  kml_save(FILE *file, GList *kmls);
 double		**kml_migration_distance(GList *);
 
 __END_DECLS
