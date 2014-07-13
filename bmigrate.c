@@ -1153,9 +1153,6 @@ on_activate(GtkButton *button, gpointer dat)
 		islands = (size_t)gtk_adjustment_get_value
 			(b->wins.islands);
 		islandpop = (size_t)gtk_adjustment_get_value(b->wins.pop);
-		islandpops = g_malloc0_n(islands, sizeof(size_t));
-		for (i = 0; i < islands; i++)
-			islandpops[i] = islandpop;
 		g_assert(totalpop == islandpop * islands);
 		break;
 	case (INPUT_VARIABLE):
@@ -1171,6 +1168,7 @@ on_activate(GtkButton *button, gpointer dat)
 		g_list_free(list);
 		for (totalpop = i = 0; i < islands; i++)
 			totalpop += islandpops[i];
+		break;
 	case (INPUT_MAPPED):
 		file = gtk_file_chooser_get_filename
 			(b->wins.mapfile);

@@ -287,7 +287,8 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 		sim->hot.incumbent++;
 		if (sim->hot.incumbent == sim->dims) {
 			sim->hot.incumbent = 0;
-			sim->hot.island = (sim->hot.island + 1) % sim->islands;
+			sim->hot.island = (sim->hot.island + 1) % 
+				sim->islands;
 		}
 		sim->hot.mutant = 0;
 	}
@@ -368,8 +369,8 @@ simulation(void *arg)
 	double		  mutant, incumbent, v, lambda;
 	unsigned int	  offs;
 	unsigned long	  seed;
-	double		 *vp;
-	double		**icache, **mcache;
+	double		 *vp, *icache, *mcache;
+	double		**icaches, **mcaches;
 	size_t		 *kids[2], *migrants[2], *imutants;
 	size_t		  t, i, j, k, new, mutants, incumbents,
 			  len1, len2, incumbentidx, islandidx;
@@ -385,6 +386,8 @@ simulation(void *arg)
 		g_thread_self(), sim, gsl_rng_name(rng),
 		seed, gsl_rng_get(rng));
 
+	icache = mcache = NULL;
+	icaches = mcaches = NULL;
 	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	kids[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
@@ -398,18 +401,30 @@ simulation(void *arg)
 	 * Set up our mutant and incumbent payoff caches.
 	 * These consist of all possible payoffs with a given number of
 	 * mutants and incumbents on an island.
-	 * TODO: a large per-island population and island count will
-	 * swamp system memory.
-	 * We can reduce this to a single array in the event of uniform
-	 * island sizes.
+	 * We have two ways of doing this: with non-uniform island sizes
+	 * (icaches and mcaches) and uniform sizes (icache and mcache,
+	 * notice the singular).
 	 */
-	icache = g_malloc0_n(sim->islands, sizeof(double *));
-	mcache = g_malloc0_n(sim->islands, sizeof(double *));
-	for (i = 0; i < sim->islands; i++) {
-		icache[i] = g_malloc0_n(sim->pops[i] + 1, sizeof(double));
-		mcache[i] = g_malloc0_n(sim->pops[i] + 1, sizeof(double));
+	if (NULL != sim->pops) {
+		g_debug("Thread %p (simulation %p) has non-uniform "
+			"populations", g_thread_self(), sim);
+		assert(0 == sim->pop);
+		icaches = g_malloc0_n(sim->islands, sizeof(double *));
+		mcaches = g_malloc0_n(sim->islands, sizeof(double *));
+		for (i = 0; i < sim->islands; i++) {
+			icaches[i] = g_malloc0_n
+				(sim->pops[i] + 1, sizeof(double));
+			mcaches[i] = g_malloc0_n
+				(sim->pops[i] + 1, sizeof(double));
+		}
+	} else {
+		g_debug("Thread %p (simulation %p) has "
+			"uniform populations: %zu", 
+			g_thread_self(), sim, sim->pop);
+		assert(sim->pop > 0);
+		icache = g_malloc0_n(sim->pop + 1, sizeof(double));
+		mcache = g_malloc0_n(sim->pop + 1, sizeof(double));
 	}
-
 again:
 	/* 
 	 * Repeat til we're instructed to terminate. 
@@ -417,6 +432,8 @@ again:
 	 */
 	if ( ! on_sim_next(sim, rng, &islandidx, &mutant, 
 		&incumbent, &incumbentidx, vp, t)) {
+		g_debug("Thread %p (simulation %p) exiting", 
+			g_thread_self(), sim);
 		/*
 		 * Upon termination, free up all of the memory
 		 * associated with our simulation.
@@ -426,14 +443,15 @@ again:
 		g_free(kids[1]);
 		g_free(migrants[0]);
 		g_free(migrants[1]);
-		for (i = 0; i < sim->islands; i++) {
-			g_free(icache[i]);
-			g_free(mcache[i]);
-		}
+		if (NULL != sim->pops)
+			for (i = 0; i < sim->islands; i++) {
+				g_free(icaches[i]);
+				g_free(mcaches[i]);
+			}
+		g_free(icaches);
+		g_free(mcaches);
 		g_free(icache);
 		g_free(mcache);
-		g_debug("Thread %p (simulation %p) exiting", 
-			g_thread_self(), sim);
 		return(NULL);
 	}
 
@@ -450,15 +468,27 @@ again:
 	 * Precompute all possible payoffs.
 	 * This allows us not to re-run the lambda calculation for each
 	 * individual.
+	 * If we have only a single island size, then avoid allocating
+	 * for each island by using only the first mcaches index.
 	 */
-	for (i = 0; i < sim->islands; i++) {
-		for (j = 0; j <= sim->pops[i]; j++)
-			mcache[i][j] = continuum_lambda(sim, mutant,
-				mutant, incumbent, j, sim->pops[i]);
-		for (j = 0; j <= sim->pops[i]; j++)
-			icache[i][j] = continuum_lambda(sim, incumbent,
-				mutant, incumbent, j, sim->pops[i]);
-	}
+	if (NULL != sim->pops)
+		for (i = 0; i < sim->islands; i++) {
+			for (j = 0; j <= sim->pops[i]; j++) {
+				mcaches[i][j] = continuum_lambda
+					(sim, mutant, mutant, 
+					 incumbent, j, sim->pops[i]);
+				icaches[i][j] = continuum_lambda
+					(sim, incumbent, mutant, 
+					 incumbent, j, sim->pops[i]);
+			}
+		}
+	else
+		for (i = 0; i <= sim->pop; i++) {
+			mcache[i] = continuum_lambda(sim, mutant,
+				mutant, incumbent, i, sim->pop);
+			icache[i] = continuum_lambda(sim, incumbent,
+				mutant, incumbent, i, sim->pop);
+		}
 
 	for (t = 0; t < sim->stop; t++) {
 		/*
@@ -466,23 +496,47 @@ again:
 		 * then incumbents) give birth.
 		 * Use a Poisson process with the given mean in order to
 		 * properly compute this.
+		 * We need two separate versions for whichever type of
+		 * mcache we decide to use.
 		 */
-		for (j = 0; j < sim->islands; j++) {
-			assert(0 == kids[0][j]);
-			assert(0 == kids[1][j]);
-			assert(0 == migrants[0][j]);
-			assert(0 == migrants[1][j]);
-			lambda = mcache[j][imutants[j]];
-			for (k = 0; k < imutants[j]; k++) {
-				offs = gsl_ran_poisson(rng, lambda);
-				kids[0][j] += offs;
+		if (NULL != sim->pops)
+			for (j = 0; j < sim->islands; j++) {
+				assert(0 == kids[0][j]);
+				assert(0 == kids[1][j]);
+				assert(0 == migrants[0][j]);
+				assert(0 == migrants[1][j]);
+				lambda = mcaches[j][imutants[j]];
+				for (k = 0; k < imutants[j]; k++) {
+					offs = gsl_ran_poisson
+						(rng, lambda);
+					kids[0][j] += offs;
+				}
+				lambda = icaches[j][imutants[j]];
+				for ( ; k < sim->pops[j]; k++) {
+					offs = gsl_ran_poisson
+						(rng, lambda);
+					kids[1][j] += offs;
+				}
 			}
-			lambda = icache[j][imutants[j]];
-			for ( ; k < sim->pops[j]; k++) {
-				offs = gsl_ran_poisson(rng, lambda);
-				kids[1][j] += offs;
+		else
+			for (j = 0; j < sim->islands; j++) {
+				assert(0 == kids[0][j]);
+				assert(0 == kids[1][j]);
+				assert(0 == migrants[0][j]);
+				assert(0 == migrants[1][j]);
+				lambda = mcache[imutants[j]];
+				for (k = 0; k < imutants[j]; k++) {
+					offs = gsl_ran_poisson
+						(rng, lambda);
+					kids[0][j] += offs;
+				}
+				lambda = icache[imutants[j]];
+				for ( ; k < sim->pop; k++) {
+					offs = gsl_ran_poisson
+						(rng, lambda);
+					kids[1][j] += offs;
+				}
 			}
-		}
 
 		/*
 		 * Determine whether we're going to migrate and, if
@@ -514,28 +568,52 @@ again:
 		 * island as well as one from the migrant queue.
 		 * We then replace one with the other.
 		 */
-		for (j = 0; j < sim->islands; j++) {
-			len1 = migrants[0][j] + migrants[1][j];
-			if (0 == len1)
-				continue;
+		if (NULL != sim->pops) 
+			for (j = 0; j < sim->islands; j++) {
+				len1 = migrants[0][j] + migrants[1][j];
+				if (0 == len1)
+					continue;
 
-			len2 = gsl_rng_uniform_int(rng, sim->pops[j]);
-			mutant_old = len2 < imutants[j];
-			len2 = gsl_rng_uniform_int(rng, len1);
-			mutant_new = len2 < migrants[0][j];
+				len2 = gsl_rng_uniform_int(rng, sim->pops[j]);
+				mutant_old = len2 < imutants[j];
+				len2 = gsl_rng_uniform_int(rng, len1);
+				mutant_new = len2 < migrants[0][j];
 
-			if (mutant_old && ! mutant_new) {
-				imutants[j]--;
-				mutants--;
-				incumbents++;
-			} else if ( ! mutant_old && mutant_new) {
-				imutants[j]++;
-				mutants++;
-				incumbents--;
-			} 
+				if (mutant_old && ! mutant_new) {
+					imutants[j]--;
+					mutants--;
+					incumbents++;
+				} else if ( ! mutant_old && mutant_new) {
+					imutants[j]++;
+					mutants++;
+					incumbents--;
+				} 
 
-			migrants[0][j] = migrants[1][j] = 0;
-		}
+				migrants[0][j] = migrants[1][j] = 0;
+			}
+		else
+			for (j = 0; j < sim->islands; j++) {
+				len1 = migrants[0][j] + migrants[1][j];
+				if (0 == len1)
+					continue;
+
+				len2 = gsl_rng_uniform_int(rng, sim->pop);
+				mutant_old = len2 < imutants[j];
+				len2 = gsl_rng_uniform_int(rng, len1);
+				mutant_new = len2 < migrants[0][j];
+
+				if (mutant_old && ! mutant_new) {
+					imutants[j]--;
+					mutants--;
+					incumbents++;
+				} else if ( ! mutant_old && mutant_new) {
+					imutants[j]++;
+					mutants++;
+					incumbents--;
+				} 
+
+				migrants[0][j] = migrants[1][j] = 0;
+			}
 
 		/* Stop when a population goes extinct. */
 		if (0 == mutants || 0 == incumbents) 
