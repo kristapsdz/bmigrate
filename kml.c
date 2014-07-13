@@ -173,7 +173,6 @@ kml_elem_start(GMarkupParseContext *ctx,
 		return;
 	}
 
-	g_debug("Parsing: %s", kmltypes[t]);
 	p->stack[p->stackpos++] = t;
 	p->bufsz = 0;
 	
@@ -292,6 +291,10 @@ kml_migration_distance(GList *list)
 		pl1 = g_list_nth_data(list, i);
 		p[i] = g_malloc0_n(len, sizeof(double));
 		for (sum = 0.0, j = 0; j < len; j++) {
+			if (i == j) {
+				p[i][j] = 0.0;
+				continue;
+			}
 			pl2 = g_list_nth_data(list, j);
 			dist = sqrt((pl1->lat - pl2->lat) * 
 				(pl1->lat - pl2->lat) + 
@@ -301,7 +304,8 @@ kml_migration_distance(GList *list)
 			sum += p[i][j];
 		}
 		for (j = 0; j < len; j++) 
-			p[i][j] = p[i][j] / sum;
+			if (i != j)
+				p[i][j] = p[i][j] / sum;
 	}
 
 	return(p);

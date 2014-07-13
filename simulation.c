@@ -357,6 +357,30 @@ continuum_lambda(const struct sim *sim, double x,
 	return(sim->alpha * (1.0 + sim->delta * v));
 }
 
+static size_t
+migrate(const struct sim *sim, const gsl_rng *rng, size_t cur)
+{
+	double	 v;
+	size_t	 i;
+
+again:
+	v = gsl_rng_uniform(rng);
+	for (i = 0; i < sim->islands - 1; i++)
+		if ((v -= sim->ms[cur][i]) <= 0.0)
+			break;
+
+	/*
+	 * This can occur due to floating-point rounding.
+	 * If it does, re-run the algorithm.
+	 */
+	if (i == sim->islands - 1 && i == cur) {
+		g_debug("Degenerate probability: re-running");
+		goto again;
+	}
+
+	return(i);
+}
+
 /*
  * Run a simulation.
  * This can be one thread of many within the same simulation.
@@ -542,25 +566,42 @@ again:
 		 * Determine whether we're going to migrate and, if
 		 * migration is stipulated, to where.
 		 */
-		for (j = 0; j < sim->islands; j++) {
-			for (k = 0; k < kids[0][j]; k++) {
-				new = j;
-				if (gsl_rng_uniform(rng) < sim->m) do 
-					new = gsl_rng_uniform_int
-						(rng, sim->islands);
-				while (new == j);
-				migrants[0][new]++;
+		if (NULL != sim->ms)
+			for (j = 0; j < sim->islands; j++) {
+				for (k = 0; k < kids[0][j]; k++) {
+					new = j;
+					if (gsl_rng_uniform(rng) < sim->m)
+						new = migrate(sim, rng, j);
+					migrants[0][new]++;
+				}
+				for (k = 0; k < kids[1][j]; k++) {
+					new = j;
+					if (gsl_rng_uniform(rng) < sim->m)
+						new = migrate(sim, rng, j);
+					migrants[1][new]++;
+				}
+				kids[0][j] = kids[1][j] = 0;
 			}
-			for (k = 0; k < kids[1][j]; k++) {
-				new = j;
-				if (gsl_rng_uniform(rng) < sim->m) do 
-					new = gsl_rng_uniform_int
-						(rng, sim->islands);
-				while (new == j);
-				migrants[1][new]++;
+		else
+			for (j = 0; j < sim->islands; j++) {
+				for (k = 0; k < kids[0][j]; k++) {
+					new = j;
+					if (gsl_rng_uniform(rng) < sim->m) do 
+						new = gsl_rng_uniform_int
+							(rng, sim->islands);
+					while (new == j);
+					migrants[0][new]++;
+				}
+				for (k = 0; k < kids[1][j]; k++) {
+					new = j;
+					if (gsl_rng_uniform(rng) < sim->m) do 
+						new = gsl_rng_uniform_int
+							(rng, sim->islands);
+					while (new == j);
+					migrants[1][new]++;
+				}
+				kids[0][j] = kids[1][j] = 0;
 			}
-			kids[0][j] = kids[1][j] = 0;
-		}
 
 		/*
 		 * Perform the migration itself.

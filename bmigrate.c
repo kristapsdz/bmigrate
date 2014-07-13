@@ -195,6 +195,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry1"));
 	b->wins.migrate[INPUT_VARIABLE] = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry20"));
+	b->wins.migrate[INPUT_MAPPED] = GTK_ENTRY
+		(gtk_builder_get_object(builder, "entry4"));
 	b->wins.incumbents = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry15"));
 	b->wins.mapfile = GTK_FILE_CHOOSER
@@ -1117,7 +1119,7 @@ on_activate(GtkButton *button, gpointer dat)
 	gdouble		  xmin, xmax, delta, alpha, m, sigma,
 			  ymin, ymax;
 	enum mutants	  mutants;
-	size_t		  i, totalpop, islands, stop, 
+	size_t		  i, j, totalpop, islands, stop, 
 			  slices, islandpop;
 	size_t		 *islandpops;
 	struct sim	 *sim;
@@ -1187,6 +1189,11 @@ on_activate(GtkButton *button, gpointer dat)
 			islandpops[i] = kml->pop;
 		}
 		ms = kml_migration_distance(list);
+		for (i = 0; i < islands; i++)
+			for (j = 0; j < islands; j++)
+				g_debug("Map migration probability: "
+					"%zu -> %zu: %g", 
+					i, j, ms[i][j]);
 		g_free(file);
 		g_list_free_full(list, kml_free);
 		break;
@@ -1353,9 +1360,9 @@ on_activate(GtkButton *button, gpointer dat)
 		sim->islands, sim->totalpop, 
 		NULL != sim->pops ? "variable" : "uniform", 
 		sim->stop);
-	g_debug("New %s migration, %g(1 + %g pi)", 
+	g_debug("New %s migration, %g probability, %g(1 + %g pi)", 
 		NULL != sim->ms ? "variable" : "uniform", 
-		sim->alpha, sim->delta);
+		sim->m, sim->alpha, sim->delta);
 	g_debug("New function %s, x = [%g, %g)", sim->func,
 		sim->continuum.xmin, sim->continuum.xmax);
 	g_debug("New threads: %zu", sim->nprocs);
