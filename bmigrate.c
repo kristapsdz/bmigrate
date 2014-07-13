@@ -1113,16 +1113,20 @@ on_activate(GtkButton *button, gpointer dat)
 	GtkLabel	 *err = b->wins.error;
 	const gchar	 *name, *func;
 	gchar	  	 *file;
+	gdouble		**ms;
 	gdouble		  xmin, xmax, delta, alpha, m, sigma,
 			  ymin, ymax;
 	enum mutants	  mutants;
-	size_t		  i, j, totalpop, islands, stop, slices;
+	size_t		  i, totalpop, islands, stop, 
+			  slices, islandpop;
 	size_t		 *islandpops;
 	struct sim	 *sim;
 	struct curwin	 *cur;
 	struct kmlplace	 *kml;
 
 	islandpops = NULL;
+	islandpop = 0;
+	ms = NULL;
 
 	/* 
 	 * Validation.
@@ -1148,11 +1152,11 @@ on_activate(GtkButton *button, gpointer dat)
 			goto cleanup;
 		islands = (size_t)gtk_adjustment_get_value
 			(b->wins.islands);
-		j = (size_t)gtk_adjustment_get_value(b->wins.pop);
+		islandpop = (size_t)gtk_adjustment_get_value(b->wins.pop);
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++)
-			islandpops[i] = j;
-		g_assert(totalpop == j * islands);
+			islandpops[i] = islandpop;
+		g_assert(totalpop == islandpop * islands);
 		break;
 	case (INPUT_VARIABLE):
 		list = gtk_container_get_children
@@ -1184,7 +1188,9 @@ on_activate(GtkButton *button, gpointer dat)
 			kml = g_list_nth_data(list, i);
 			islandpops[i] = kml->pop;
 		}
+		ms = kml_migration_distance(list);
 		g_free(file);
+		g_list_free_full(list, kml_free);
 		break;
 	default:
 		abort();
@@ -1332,6 +1338,8 @@ on_activate(GtkButton *button, gpointer dat)
 	b->nextcolour = (b->nextcolour + 1) % SIZE_COLOURS;
 	sim->delta = delta;
 	sim->m = m;
+	sim->ms = ms;
+	sim->pop = islandpop;
 	sim->pops = islandpops;
 	sim->input = input;
 	sim->continuum.exp = exp;
@@ -1342,25 +1350,26 @@ on_activate(GtkButton *button, gpointer dat)
 	b->sims = g_list_append(b->sims, sim);
 	sim_ref(sim, NULL);
 	sim->threads = g_malloc0_n(sim->nprocs, sizeof(struct simthr));
-	g_debug("New continuum simulation: %zu islands, "
-		"%zu total members (%s per island) (%zu generations)", 
+	g_debug("New simulation: %zu islands, %zu total members "
+		"(%s per island) (%zu generations)", 
 		sim->islands, sim->totalpop, 
-		INPUT_VARIABLE == sim->input ? "variable" : "uniform", 
+		NULL != sim->pops ? "variable" : "uniform", 
 		sim->stop);
-	g_debug("New continuum migration %g, %g(1 + %g pi)", 
-		sim->m, sim->alpha, sim->delta);
-	g_debug("New continuum function %s, x = [%g, %g)", sim->func,
+	g_debug("New %s migration, %g(1 + %g pi)", 
+		NULL != sim->ms ? "variable" : "uniform", 
+		sim->alpha, sim->delta);
+	g_debug("New function %s, x = [%g, %g)", sim->func,
 		sim->continuum.xmin, sim->continuum.xmax);
-	g_debug("New continuum threads: %zu", sim->nprocs);
-	g_debug("New continuum polynomial: %zu (%s)", 
+	g_debug("New threads: %zu", sim->nprocs);
+	g_debug("New polynomial: %zu (%s)", 
 		sim->fitpoly, sim->weighted ? 
 		"weighted" : "unweighted");
 	if (MUTANTS_GAUSSIAN == sim->mutants)
-		g_debug("New continuum Gaussian mutants: "
+		g_debug("New Gaussian mutants: "
 			"%g in [%g, %g]", sim->mutantsigma,
 			sim->continuum.ymin, sim->continuum.ymax);
 	else
-		g_debug("New continuum discrete mutants");
+		g_debug("New discrete mutants");
 
 	/* Create the simulation threads. */
 	for (i = 0; i < sim->nprocs; i++) {
@@ -1382,7 +1391,11 @@ on_activate(GtkButton *button, gpointer dat)
 	gtk_entry_set_text(b->wins.name, g_time_val_to_iso8601(&gt));
 	return;
 cleanup:
+	if (NULL != ms)
+		for (i = 0; i < islands; i++)
+			g_free(ms[i]);
 	g_free(islandpops);
+	g_free(ms);
 }
 
 /*

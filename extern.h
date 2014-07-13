@@ -217,7 +217,8 @@ struct	sim {
 	size_t		  fitpoly; /* fitting polynomial */
 	int		  weighted; /* weighted fit poly */
 	size_t		  totalpop; /* total population */
-	size_t		 *pops; /* per-island population */
+	size_t		  pop; /* island population */
+	size_t		 *pops; /* non-uniform island population */
 	size_t		  islands; /* island population */
 	size_t		  refs; /* GUI references */
 	int		  terminate; /* terminate the process */
@@ -397,6 +398,7 @@ double		  stats_extincti(const struct stats *p);
 
 GList		 *kml_parse(const gchar *file, GError **er);
 void		  kml_free(gpointer dat);
+double		**kml_migration_distance(GList *);
 
 __END_DECLS
 

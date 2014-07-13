@@ -274,3 +274,35 @@ kml_parse(const gchar *file, GError **er)
 
 	return(data.places);
 }
+
+/*
+ * Probabilities being the normalised inverse square distance.
+ */
+double **
+kml_migration_distance(GList *list)
+{
+	double		**p;
+	double		  dist, sum;
+	size_t		  i, j, len;
+	struct kmlplace	 *pl1, *pl2;
+
+	len = (size_t)g_list_length(list);
+	p = g_malloc0_n(len, sizeof(double *));
+	for (i = 0; i < len; i++) {
+		pl1 = g_list_nth_data(list, i);
+		p[i] = g_malloc0_n(len, sizeof(double));
+		for (sum = 0.0, j = 0; j < len; j++) {
+			pl2 = g_list_nth_data(list, j);
+			dist = sqrt((pl1->lat - pl2->lat) * 
+				(pl1->lat - pl2->lat) + 
+				(pl1->lng - pl2->lng) * 
+				(pl1->lng - pl2->lng));
+			p[i][j] = 1.0 / (dist * dist);
+			sum += p[i][j];
+		}
+		for (j = 0; j < len; j++) 
+			p[i][j] = p[i][j] / sum;
+	}
+
+	return(p);
+}
