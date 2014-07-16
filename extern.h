@@ -205,6 +205,7 @@ enum	mutants {
 };
 
 struct	simthr;
+struct	kml;
 
 /*
  * A single simulation.
@@ -232,7 +233,7 @@ struct	sim {
 	double		  delta; /* inner multiplier */
 	double		  m; /* migration probability */
 	double		**ms; /* nonuniform migration probability */
-	GList		 *kml; /* KML places */
+	struct kml	 *kml; /* KML places */
 	size_t		  colour; /* graph colour */
 	struct sim_continuum continuum;
 	struct simhot	  hot; /* current results */
@@ -370,10 +371,14 @@ struct	bmigrate {
 };
 
 struct	kmlplace {
-	char	*name;
-	size_t	 pop;
-	double	 lat;
-	double	 lng;
+	size_t	 pop; /* population always > 1 */
+	double	 lat; /* KML latitude */
+	double	 lng; /* KML longitude */
+};
+
+struct	kml {
+	GMappedFile	*file;
+	GList		*kmls;
 };
 
 __BEGIN_DECLS
@@ -398,8 +403,8 @@ double		  stats_stddev(const struct stats *p);
 double		  stats_extinctm(const struct stats *p);
 double		  stats_extincti(const struct stats *p);
 
-GList		 *kml_parse(const gchar *file, GError **er);
-void		  kml_free(gpointer dat);
+struct kml	 *kml_parse(const gchar *file, GError **er);
+void		  kml_free(struct kml *kml);
 void		  kml_save(FILE *file, GList *kmls);
 double		**kml_migration_distance(GList *);
 

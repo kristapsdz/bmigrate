@@ -315,7 +315,7 @@ sim_free(gpointer arg)
 			g_free(p->ms[i]);
 	g_free(p->ms);
 	g_free(p->pops);
-	g_list_free_full(p->kml, kml_free);
+	kml_free(p->kml);
 	gsl_histogram_free(p->cold.smeanmins);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
@@ -1120,7 +1120,8 @@ on_activate(GtkButton *button, gpointer dat)
 	struct hnode	**exp;
 	GTimeVal	  gt;
 	GtkWidget	 *w;
-	GList		 *list, *kml;
+	struct kml	 *kml;
+	GList		 *list;
 	GtkLabel	 *err = b->wins.error;
 	const gchar	 *name, *func;
 	gchar	  	 *file;
@@ -1192,13 +1193,13 @@ on_activate(GtkButton *button, gpointer dat)
 		}
 		kml = kml_parse(file, NULL);
 		g_assert(NULL != kml);
-		islands = (size_t)g_list_length(kml);
+		islands = (size_t)g_list_length(kml->kmls);
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++) {
-			kmlp = g_list_nth_data(kml, i);
+			kmlp = g_list_nth_data(kml->kmls, i);
 			islandpops[i] = kmlp->pop;
 		}
-		ms = kml_migration_distance(kml);
+		ms = kml_migration_distance(kml->kmls);
 		for (i = 0; i < islands; i++)
 			for (sum = 0.0, j = 0; j < islands; j++) {
 				sum += ms[i][j];
@@ -1413,7 +1414,7 @@ cleanup:
 			g_free(ms[i]);
 	g_free(islandpops);
 	g_free(ms);
-	g_list_free_full(kml, kml_free);
+	kml_free(kml);
 }
 
 /*
@@ -1634,7 +1635,7 @@ onkml(GtkFileChooserButton *widget, gpointer dat)
 	GError		*er;
 	gchar		*file;
 	GtkWidget	*dialog;
-	GList		*list;
+	struct kml	*kml;
 
 	file = gtk_file_chooser_get_filename
 		(GTK_FILE_CHOOSER(widget));
@@ -1644,8 +1645,8 @@ onkml(GtkFileChooserButton *widget, gpointer dat)
 
 	g_debug("Trying KML file: %s", file);
 	er = NULL;
-	list = kml_parse(file, &er);
-	if (NULL == list) {
+	kml = kml_parse(file, &er);
+	if (NULL == kml) {
 		g_assert(NULL != er);
 		gtk_file_chooser_unselect_filename
 			(GTK_FILE_CHOOSER(widget), file);
@@ -1663,7 +1664,7 @@ onkml(GtkFileChooserButton *widget, gpointer dat)
 	}
 
 	g_free(file);
-	g_list_free_full(list, kml_free);
+	kml_free(kml);
 }
 
 /*

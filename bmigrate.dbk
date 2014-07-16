@@ -17,8 +17,8 @@
 	<sect1 id="intro">
 		<title id="intro.title">Introduction</title>
 		<para>
-			<command>bmigrate</command> is a high-performance scientific application simulating the island model for
-			evolutionary algorithms.
+			<command>bmigrate</command> is a high-performance scientific application simulating the island model for evolutionary
+			algorithms.
 			A <firstterm>simulation</firstterm> consists of one or more <firstterm>runs</firstterm>, with each run consisting of a
 			finite sequence of <firstterm>generations</firstterm>.
 		</para>
@@ -75,9 +75,6 @@
 				</orderedlist>
 			</listitem>
 		</orderedlist>
-		<para>
-			The following sub-sections define specific behaviour.
-		</para>
 		<sect2 id="generations">
 			<title id="generations.title">Generations</title>
 			<para>
@@ -208,7 +205,7 @@
 			<title>Runs</title>
 			<para>
 				A simulation run begins with all individuals but one being incumbents.
-				The mutant type is assigned to a random individual in the total population.
+				The mutant type is assigned to a single individual in the total population.
 				Each individual is assigned a strategy 
 				<inlineequation>
 					<alt>x_i</alt>
@@ -252,8 +249,8 @@
 				(which may be non-uniform), migration probability 
 				<inlineequation>
 					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
-				</inlineequation>, 
-				utility function
+				</inlineequation>
+				(which may be non-uniform and asymmetric), utility function
 				<inlineequation>
 					<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&pi;</mi></mrow></math>
 				</inlineequation>, 
@@ -344,7 +341,7 @@
 		<sect2>
 			<title>Binary Installation</title>
 			<para>
-				Application binaries are available for Mac OS X Snow Leopard (10.6) and later.
+				Application binaries are available for Mac OS X Lion (10.7) and later.
 				To use these, simply download the ZIP file from the website.
 				You may need to configure your system to allow downloaded binaries to run.
 			</para>
@@ -512,8 +509,10 @@
 		<sect2>
 			<title>Randomness</title>
 			<para>
-				By default, <command>bmigrate</command> uses the MT19937 generator of <citation>matsumoto98</citation>.
+				By default, <command>bmigrate</command> uses the MT19937 (Mersenne-Twister) generator of
+				<citation>matsumoto98</citation>.
 				This ensures good-quality randomness with a very high period.
+				(There is currently no facility in <command>bmigrate</command> for handlng period roll-over.)
 			</para>
 			<para>
 				Each simulation thread is allocated its own randomn number generator.
@@ -611,8 +610,31 @@
 						<inlineequation>
 							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
 						</inlineequation>
-						of inter-island migration must also be applied (it
-						remains uniform per island).
+						of inter-island migration must also be applied (it remains uniform per island).
+					</para>
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>Mapped</term>
+				<listitem>
+					<para>
+						This feature allows for non-uniform inter-island migration and non-uniform population sizes.
+						It accepts a <ulink url="http://www.opengeospatial.org/standards/kml/">KML</ulink> map file (as
+						created, e.g., with <ulink url="https://www.google.com/earth/">Google Earth</ulink>) populated
+						with two or more <code>Placemark</code> sections with appropriate <code>coordinates</code>.
+						Inter-island migration is then computed as the normalised inverse-square distance between each
+						island.
+					</para>
+					<para>
+						Normalised means that, for each island, the inverse-square distance is computed to all other
+						islands.  
+						These values are then divided by the sum of all so that each pair of islands is associated with
+						a probability.
+					</para>
+					<para>
+						The initial island population defaults to zero unless the string <code>@@population=N@@</code>
+						is specified somewhere in the KML text portion within an island's <code>Placemark</code> section.
+						The value <code>N</code> must be greater than one.
 					</para>
 				</listitem>
 			</varlistentry>
@@ -793,9 +815,6 @@
 					If an incumbent does not have any runs yet, it will display as zero.
 					The graph y-maximum will automatically adjust to the highest simulation peak.
 				</para>
-				<screenshot>
-					<graphic fileref="screen-win1.png" />
-				</screenshot>
 				<para>
 					Each simulation is shown in the legend below the graph.
 					The legend shows the simulation colour and name, as well as the number of runs involved in constructing
@@ -808,9 +827,6 @@
 					This graph augments the <link linkend="samplemean" endterm="samplemean.title" /> graph with the standard
 					deviation above and below each incumbent's mean.
 				</para>
-				<screenshot>
-					<graphic fileref="screen-win2.png" />
-				</screenshot>
 				<para>
 					The standard deviation is computed from the unbiased sample variance algorithm of
 					<citation>knuth98</citation>.
@@ -837,9 +853,6 @@
 					If the weighted option was selected during <link linkend="configuration" endterm="configuration.title"
 						/>, the incumbents' standard deviation will be used as a weight.
 				</para>
-				<screenshot>
-					<graphic fileref="screen-win3.png" />
-				</screenshot>
 				<para>
 					Unlike the <link linkend="samplemean" endterm="samplemean.title" /> or <link linkend="samplemeansigma"
 						endterm="samplemeansigma.title" />, the data for this graph is computed roughly four times per
@@ -858,9 +871,6 @@
 					into an empirical probability distribution.
 					The mean, mode, and standard deviation (population, not sample) are also displayed.
 				</para>
-				<screenshot>
-					<graphic fileref="screen-win5.png" />
-				</screenshot>
 				<para>
 					The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are
 					ignored.
@@ -874,9 +884,6 @@
 					into an empirical cumulative distribution.
 					The mean, mode, and standard deviation (population, not sample) are also displayed.
 				</para>
-				<screenshot>
-					<graphic fileref="screen-win6.png" />
-				</screenshot>
 				<para>
 					The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are
 					ignored.
@@ -890,9 +897,6 @@
 						endterm="samplemeanfitted.title" />.
 					The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
 				</para>
-				<screenshot>
-					<graphic fileref="screen-win7.png" />
-				</screenshot>
 			</sect3>
 		</sect2>
 	</sect1>

@@ -33,19 +33,38 @@ enum	kmltype {
 	KML_DOCUMENT,
 	KML_FOLDER,
 	KML_PLACEMARK,
-	KML_NAME,
 	KML_POINT,
 	KML_COORDINATES,
 	KML_DESCRIPTION,
 	KML__MAX
 };
 
+enum	kmlkey {
+	KMLKEY_MEAN,
+	KMLKEY_STDDEV,
+	KMLKEY_POPULATION,
+	KMLKEY__MAX
+};
+
+struct	kmlsave {
+	FILE		*f;
+	struct sim	*cursim;
+	size_t		 curisland;
+	gchar		*buf;
+	gsize		 bufsz;
+	gsize		 bufmax;
+	int		 buffering;
+};
+
 struct	kmlparse {
 	enum kmltype	 elem; /* current element */
 	struct kmlplace	*cur; /* currently-parsed kmlplace */
 	gchar		*buf; /* current parse text buffer */
-	size_t	 	 bufsz; /* size in parse buffer */
-	size_t	 	 bufmax; /* maximum sized buffer */
+	gsize	 	 bufsz; /* size in parse buffer */
+	gsize	 	 bufmax; /* maximum sized buffer */
+	gchar		*altbuf; 
+	gsize	 	 altbufsz; 
+	gsize	 	 altbufmax; 
 	GList		*places; /* parsed places */
 	gchar		*ign; /* element we're currently ignoring */
 	size_t		 ignstack; /* stack of "ign" while ignoring */
@@ -54,17 +73,39 @@ struct	kmlparse {
 	size_t		 stackpos;
 };
 
+static	const char *const kmlkeys[KMLKEY__MAX] = {
+	"mean", /* KMLKEY_MEAN */
+	"stddev", /* KMLKEY_STDDEV */
+	"population", /* KMLKEY_POPULATION */
+};
+
 static	const char *const kmltypes[KML__MAX] = {
 	NULL, /* KML_INIT */
 	"kml", /* KML_KML */
 	"Document", /* KML_DOCUMENT */
 	"Folder", /* KML_FOLDER */
 	"Placemark", /* KML_PLACEMARK */
-	"name", /* KML_NAME */
 	"Point", /* KML_POINT */
 	"coordinates", /* KML_COORDINATES */
 	"description", /* KML_DESCRIPTION */
 };
+
+static void
+kml_append(gchar **buf, gsize *bufsz, 
+	gsize *bufmax, const char *text, gsize sz)
+{
+
+	/* XXX: no check for overflow... */
+	if (*bufsz + sz + 1 > *bufmax) {
+		*bufmax = *bufsz + sz + 1024;
+		*buf = g_realloc(*buf, *bufmax);
+	}
+
+	memcpy(*buf + *bufsz, text, sz);
+	*bufsz += sz;
+	(*buf)[*bufsz] = '\0';
+	g_assert(*bufsz <= *bufmax);
+}
 
 static enum kmltype
 kml_lookup(const gchar *name)
@@ -81,16 +122,187 @@ kml_lookup(const gchar *name)
 	return(i);
 }
 
-void
-kml_free(gpointer dat)
+static void
+kmlparse_free(gpointer dat)
 {
 	struct kmlplace	*place = dat;
 
 	if (NULL == place)
 		return;
 
-	free(place->name);
 	free(place);
+}
+
+void
+kml_free(struct kml *kml)
+{
+
+	if (NULL == kml)
+		return;
+
+	g_list_free_full(kml->kmls, kmlparse_free);
+	g_mapped_file_unref(kml->file);
+}
+
+static void
+kml_placemark(const gchar *buf, struct kmlplace *place)
+{
+	const gchar	*cp;
+	gchar		*ep;
+	gsize		 keysz;
+	gchar		 nbuf[22];
+
+	place->pop = 2;
+	keysz = strlen("@@population=");
+	while (NULL != (cp = strstr(buf, "@@population="))) {
+		buf = cp + keysz;
+		if (NULL == (cp = strstr(buf, "@@")))
+			return;
+		if ((gsize)(cp - buf) >= sizeof(nbuf) - 1)
+			return;
+		memcpy(nbuf, buf, cp - buf);
+		nbuf[cp - buf] = '\0';
+		place->pop = g_ascii_strtoull(buf, &ep, 10);
+		if (ERANGE == errno || EINVAL == errno || 
+			ep == buf || place->pop < 2)
+			place->pop = 2;
+		return;
+	}
+}
+
+static void
+kml_replace(const gchar *buf, gsize sz, struct kmlsave *p)
+{
+	gsize		 i, len, start, end, vend;
+	void		*cp;
+	enum kmltype	 j;
+
+	for (i = 0; i < sz - 1; i++) {
+		/* Look for the starting "@@" marker. */
+		if ('@' != buf[i]) {
+			fputc(buf[i], p->f);
+			continue;
+		} else if ('@' != buf[i + 1]) {
+			fputc(buf[i], p->f);
+			continue;
+		} 
+
+		/* Seek to find the end "@@" marker. */
+		start = i + 2;
+		for (end = start + 2; end < sz - 1; end++)
+			if ('@' == buf[end] && '@' == buf[end + 1])
+				break;
+
+		/* Continue printing if not found of 0-length. */
+		if (end == sz - 1 || end == start) {
+			fputc(buf[i], p->f);
+			continue;
+		}
+
+		vend = end;
+		if (NULL != (cp = memchr(&buf[start], '=', len)))
+			vend = start + (cp - (void *)&buf[start]);
+
+		/* Look for a matching key. */
+		for (j = 0; j < KMLKEY__MAX; j++) {
+			len = strlen(kmlkeys[j]);
+			if (len != vend - start)
+				continue;
+			else if (memcmp(&buf[start], kmlkeys[j], len))
+				continue;
+
+			switch (j) {
+			case (KMLKEY_MEAN):
+				fprintf(p->f, "%g", stats_mean
+					(&p->cursim->cold.islands
+					 [p->curisland]));
+				break;
+			case (KMLKEY_STDDEV):
+				fprintf(p->f, "%g", stats_stddev
+					(&p->cursim->cold.islands
+					 [p->curisland]));
+			case (KMLKEY_POPULATION):
+				assert(NULL != p->cursim->pops);
+				fprintf(p->f, "%zu", 
+					p->cursim->pops[p->curisland]);
+			default:
+				break;
+			}
+
+			break;
+		}
+
+		/* Didn't find it... */
+		if (j == KMLKEY__MAX)
+			fputc(buf[i], p->f);
+		else
+			i = end + 1;
+	}
+
+	if (i < sz)
+		fputc(buf[i], p->f);
+}
+
+static void	
+kml_save_elem_end(GMarkupParseContext *ctx, 
+	const gchar *name, gpointer dat, GError **er)
+{
+	struct kmlsave	*p = dat;
+
+	if (p->buffering) {
+		kml_replace(p->buf, p->bufsz, p);
+		p->bufsz = 0;
+	}
+
+	if (0 == g_strcmp0(name, kmltypes[KML_PLACEMARK])) {
+		g_assert(p->buffering);
+		p->curisland++;
+		p->buffering = 0;
+	}
+
+	fprintf(p->f, "</%s>", name);
+}
+
+static void
+kml_save_elem_start(GMarkupParseContext *ctx, 
+	const gchar *name, const gchar **attrn, 
+	const gchar **attrv, gpointer dat, GError **er)
+{
+	struct kmlsave	*p = dat;
+
+	if (p->buffering) {
+		kml_replace(p->buf, p->bufsz, p);
+		p->bufsz = 0;
+	}
+
+	if (0 == g_strcmp0(name, kmltypes[KML_PLACEMARK])) {
+		g_assert(p->curisland < p->cursim->islands);
+		p->buffering = 1;
+	}
+
+	fputc('<', p->f);
+	fputs(name, p->f);
+	while (NULL != *attrn) {
+		g_assert(NULL != *attrv);
+		fprintf(p->f, " %s=\"%s\"", *attrn, *attrv);
+		attrn++;
+		attrv++;
+	}
+	fputc('>', p->f);
+}
+
+static void
+kml_save_text(GMarkupParseContext *ctx, 
+	const gchar *txt, gsize sz, gpointer dat, GError **er)
+{
+	struct kmlsave	*p = dat;
+
+	if ( ! p->buffering) {
+		fwrite(txt, sz, 1, p->f);
+		return;
+	}
+
+	kml_append(&p->buf, &p->bufsz, &p->bufmax, txt, sz);
 }
 
 static void	
@@ -120,15 +332,9 @@ kml_elem_end(GMarkupParseContext *ctx,
 	switch (p->stack[p->stackpos]) {
 	case (KML_PLACEMARK):
 		g_assert(NULL != p->cur);
-		p->cur->pop = 2; /* FIXME */
-		p->places = g_list_prepend(p->places, p->cur);
+		kml_placemark(p->altbuf, p->cur);
+		p->places = g_list_append(p->places, p->cur);
 		p->cur = NULL;
-		break;
-	case (KML_NAME):
-		if (NULL == p->cur)
-			break;
-		g_free(p->cur->name);
-		p->cur->name = g_strdup(p->buf);
 		break;
 	case (KML_COORDINATES):
 		set = g_strsplit(p->buf, ",", 3);
@@ -180,6 +386,7 @@ kml_elem_start(GMarkupParseContext *ctx,
 	case (KML_PLACEMARK):
 		if (NULL == p->cur) {
 			p->cur = g_malloc0(sizeof(struct kmlplace));
+			p->altbufsz = 0;
 			break;
 		}
 		*er = g_error_new_literal
@@ -198,30 +405,23 @@ kml_text(GMarkupParseContext *ctx,
 {
 	struct kmlparse	*p = dat;
 
+	if (NULL != p->cur)
+		kml_append(&p->altbuf, &p->altbufsz, 
+			&p->altbufmax, txt, sz);
+
 	/* No collection w/o element or while ignoring. */
 	if (NULL != p->ign || 0 == p->stackpos)
 		return;
 
 	/* Each element for which we're going to collect text. */
 	switch (p->stack[p->stackpos - 1]) {
-	case (KML_NAME):
-		/* FALLTHROUGH */
 	case (KML_COORDINATES):
 		break;
 	default:
 		return;
 	}
 
-	/* XXX: no check for overflow... */
-	if (p->bufsz + sz + 1 > p->bufmax) {
-		p->bufmax = p->bufsz + sz + 1024;
-		p->buf = g_realloc(p->buf, p->bufmax);
-	}
-
-	memcpy(p->buf + p->bufsz, txt, sz);
-	p->bufsz += sz;
-	p->buf[p->bufsz] = '\0';
-	g_assert(p->bufsz <= p->bufmax);
+	kml_append(&p->buf, &p->bufsz, &p->bufmax, txt, sz);
 }
 
 static void
@@ -232,77 +432,43 @@ kml_error(GMarkupParseContext *ctx, GError *er, gpointer dat)
 }
 
 void
-kml_write(FILE *f, const gchar *p)
-{
-
-	for ( ; '\0' != *p; p++) 
-		switch (*p) {
-		case ('<'):
-			fputs("&lt;", f);
-			break;
-		case ('>'):
-			fputs("&gt;", f);
-			break;
-		case ('&'):
-			fputs("&amp;", f);
-			break;
-		case ('\''):
-			fputs("&apos;", f);
-			break;
-		case ('"'):
-			fputs("&quot;", f);
-			break;
-		default:
-			fputc(*p, f);
-			break;
-		}
-}
-
-void
 kml_save(FILE *f, GList *sims)
 {
-	struct sim	*sim;
-	size_t		 i;
-	GList		*kmls;
-	struct kmlplace	*kml;
+	GMarkupParseContext	*ctx;
+	GMarkupParser	  	 parse;
+	struct kmlsave		 data;
+	struct sim		*sim;
+	struct kml		*kml;
+	int			 rc;
 
-	fputs("<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n", f);
-	fputs("<kml xmlns=\"http://www.opengis.net/kml/2.2\">\n", f);
-	fputs("\t<Document>\n", f);
+	memset(&parse, 0, sizeof(GMarkupParser));
+	memset(&data, 0, sizeof(struct kmlsave));
+
+	data.f = f;
+	parse.end_element = kml_save_elem_end;
+	parse.start_element = kml_save_elem_start;
+	parse.text = kml_save_text;
+	ctx = g_markup_parse_context_new(&parse, 0, &data, NULL);
+	g_assert(NULL != ctx);
 
 	for ( ; NULL != sims; sims = g_list_next(sims)) {
+		g_assert(NULL != sims->data);
 		sim = sims->data;
-		if (NULL == sim->kml)
+		if (NULL == (kml = sim->kml))
 			continue;
-		fputs("\t\t<Folder>\n", f);
-		fputs("\t\t\t<name>\n\t\t\t\t", f);
-		kml_write(f, sim->name);
-		fputs("\n\t\t\t</name>\n", f);
-		i = 0;
-		for (kmls = sim->kml; NULL != kmls; kmls = g_list_next(kmls)) {
-			assert(i < sim->islands);
-			kml = kmls->data;
-			fputs("\t\t\t<Placemark>\n", f);
-			fputs("\t\t\t\t<name>", f);
-			kml_write(f, kml->name);
-			fputs("</name>\n", f);
-			fprintf(f, "\t\t\t\t<description>Mean: %g</description>\n", 
-				stats_mean(&sim->cold.islands[i]));
-			fputs("\t\t\t\t<Point>\n", f);
-			fprintf(f, "\t\t\t\t\t<coordinates>%g,%g</coordinates>\n", 
-				kml->lng, kml->lat);
-			fputs("\t\t\t\t</Point>\n", f);
-			fputs("\t\t\t</Placemark>\n", f);
-			i++;
-		}
-		fputs("\t\t</Folder>\n", f);
+		data.cursim = sim;
+		data.curisland = 0;
+		rc = g_markup_parse_context_parse
+			(ctx, g_mapped_file_get_contents(kml->file),
+			 g_mapped_file_get_length(kml->file), NULL);
+		g_assert(0 != rc);
 	}
 
-	fputs("\t</Document>\n", f);
-	fputs("</kml>\n", f);
+	g_markup_parse_context_free(ctx);
+	g_free(data.buf);
 }
 
-GList *
+struct kml *
 kml_parse(const gchar *file, GError **er)
 {
 	GMarkupParseContext	*ctx;
@@ -310,6 +476,7 @@ kml_parse(const gchar *file, GError **er)
 	GMappedFile		*f;
 	int			 rc;
 	struct kmlparse		 data;
+	struct kml		*kml;
 
 	memset(&parse, 0, sizeof(GMarkupParser));
 	memset(&data, 0, sizeof(struct kmlparse));
@@ -330,19 +497,24 @@ kml_parse(const gchar *file, GError **er)
 	rc = g_markup_parse_context_parse
 		(ctx, g_mapped_file_get_contents(f),
 		 g_mapped_file_get_length(f), er);
-	g_mapped_file_unref(f);
+
 	g_markup_parse_context_free(ctx);
 	g_free(data.buf);
+	g_free(data.altbuf);
 	g_free(data.ign);
-	kml_free(data.cur);
+	kmlparse_free(data.cur);
 
 	if (0 == rc) {
 		g_assert(NULL != er);
-		g_list_free_full(data.places, kml_free);
-		data.places = NULL;
+		g_list_free_full(data.places, kmlparse_free);
+		g_mapped_file_unref(f);
+		return(NULL);
 	}
 
-	return(data.places);
+	kml = g_malloc0(sizeof(struct kml));
+	kml->file = f;
+	kml->kmls = data.places;
+	return(kml);
 }
 
 /*
