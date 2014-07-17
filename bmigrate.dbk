@@ -714,12 +714,10 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
-				<term>Analysis</term>
+				<term>Simulation Runs</term>
 				<listitem>
 					<para>
-						For now, this only accepts the multiple runs option.
-						Here you can set the maximum number of generations per simulation run.
-						Note that a simulation run may terminate before the maximum if a population type goes extinct.
+						The maximum number of generations per simulation run.
 					</para>
 				</listitem>
 			</varlistentry>

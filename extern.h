@@ -347,8 +347,6 @@ struct	hwin {
 	GtkEntry	 *migrate[INPUT__MAX];
 	GtkEntry	 *incumbents;
 	GtkLabel	 *curthreads;
-	GtkToggleButton	 *analsingle;
-	GtkToggleButton	 *analmultiple;
 	GtkFileChooser	 *mapfile;
 #define	SIZE_COLOURS	  9 
 	GdkRGBA		  colours[SIZE_COLOURS];

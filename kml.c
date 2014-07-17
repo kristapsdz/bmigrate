@@ -200,7 +200,7 @@ kml_replace(const gchar *buf, gsize sz, struct kmlsave *p)
 		}
 
 		vend = end;
-		if (NULL != (cp = memchr(&buf[start], '=', len)))
+		if (NULL != (cp = memchr(&buf[start], '=', vend)))
 			vend = start + (cp - (void *)&buf[start]);
 
 		/* Look for a matching key. */

@@ -185,10 +185,6 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "adjustment2"));
 	b->wins.curthreads = GTK_LABEL
 		(gtk_builder_get_object(builder, "label10"));
-	b->wins.analsingle = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton3"));
-	b->wins.analmultiple = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton4"));
 	b->wins.alpha = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry13"));
 	b->wins.delta = GTK_ENTRY
@@ -1144,21 +1140,15 @@ on_activate(GtkButton *button, gpointer dat)
 	islandpops = NULL;
 	islandpop = 0;
 	ms = NULL;
+	kml = NULL;
 
 	/* 
 	 * Validation.
 	 */
-	input = gtk_notebook_get_current_page(b->wins.inputs);
-
-	if (gtk_toggle_button_get_active(b->wins.analsingle)) {
-		gtk_label_set_text(err,
-			 "Error: single run not supported.");
-		gtk_widget_show_all(GTK_WIDGET(err));
-		goto cleanup;
-	}
-	
 	if ( ! entry2size(b->wins.stop, &stop, err, 1))
 		goto cleanup;
+
+	input = gtk_notebook_get_current_page(b->wins.inputs);
 
 	/*
 	 * We diverge here on the type of input.
