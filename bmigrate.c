@@ -203,6 +203,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry15"));
 	b->wins.mapfile = GTK_FILE_CHOOSER
 		(gtk_builder_get_object(builder, "filechooserbutton1"));
+	b->wins.mapmigrants[MAPMIGRANT_UNIFORM] = GTK_RADIO_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton5"));
+	b->wins.mapmigrants[MAPMIGRANT_DISTANCE] = GTK_RADIO_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton6"));
 
 	/* Set the initially-selected notebooks. */
 	gtk_entry_set_text(b->wins.input, inputs

@@ -198,6 +198,12 @@ enum	input {
 	INPUT__MAX
 };
 
+enum	mapmigrant {
+	MAPMIGRANT_UNIFORM = 0,
+	MAPMIGRANT_DISTANCE,
+	MAPMIGRANT__MAX
+};
+
 enum	mutants {
 	MUTANTS_DISCRETE = 0,
 	MUTANTS_GAUSSIAN,
@@ -315,6 +321,7 @@ struct	hwin {
 	GtkCheckMenuItem *views[VIEW__MAX];
 	GtkEntry	 *mutantsigma;
 	GtkRadioButton   *mutants[MUTANTS__MAX];
+	GtkRadioButton   *mapmigrants[MAPMIGRANT__MAX];
 	GtkMenuItem	 *viewclone;
 	GtkMenuItem	 *viewpause;
 	GtkMenuItem	 *viewunpause;
