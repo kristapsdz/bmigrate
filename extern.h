@@ -321,7 +321,7 @@ struct	hwin {
 	GtkCheckMenuItem *views[VIEW__MAX];
 	GtkEntry	 *mutantsigma;
 	GtkRadioButton   *mutants[MUTANTS__MAX];
-	GtkRadioButton   *mapmigrants[MAPMIGRANT__MAX];
+	GtkToggleButton	 *mapmigrants[MAPMIGRANT__MAX];
 	GtkMenuItem	 *viewclone;
 	GtkMenuItem	 *viewpause;
 	GtkMenuItem	 *viewunpause;

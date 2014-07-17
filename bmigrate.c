@@ -199,9 +199,9 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry15"));
 	b->wins.mapfile = GTK_FILE_CHOOSER
 		(gtk_builder_get_object(builder, "filechooserbutton1"));
-	b->wins.mapmigrants[MAPMIGRANT_UNIFORM] = GTK_RADIO_BUTTON
+	b->wins.mapmigrants[MAPMIGRANT_UNIFORM] = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton5"));
-	b->wins.mapmigrants[MAPMIGRANT_DISTANCE] = GTK_RADIO_BUTTON
+	b->wins.mapmigrants[MAPMIGRANT_DISTANCE] = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton6"));
 
 	/* Set the initially-selected notebooks. */
@@ -1118,6 +1118,7 @@ on_activate(GtkButton *button, gpointer dat)
 	gint	 	  input;
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
+	enum mapmigrant	  migrants;
 	GTimeVal	  gt;
 	GtkWidget	 *w;
 	struct kml	 *kml;
@@ -1149,6 +1150,10 @@ on_activate(GtkButton *button, gpointer dat)
 		goto cleanup;
 
 	input = gtk_notebook_get_current_page(b->wins.inputs);
+	migrants = MAPMIGRANT_UNIFORM;
+	if (gtk_toggle_button_get_active
+		(b->wins.mapmigrants[MAPMIGRANT_DISTANCE]))
+		migrants = MAPMIGRANT_DISTANCE;
 
 	/*
 	 * We diverge here on the type of input.
@@ -1185,23 +1190,58 @@ on_activate(GtkButton *button, gpointer dat)
 			gtk_widget_show_all(GTK_WIDGET(err));
 			goto cleanup;
 		}
-		kml = kml_parse(file, NULL);
-		g_assert(NULL != kml);
+
+		/*
+		 * We already checked for this, but somebody could have
+		 * modified the file after setting the field.
+		 * So make sure that it's clean here.
+		 */
+		if (NULL == (kml = kml_parse(file, NULL))) {
+			gtk_label_set_text(err, 
+				"Error: map file didn't parse.");
+			gtk_widget_show_all(GTK_WIDGET(err));
+			g_free(file);
+			goto cleanup;
+		}
+
+		/*
+		 * Grok our island populations from the input file.
+		 * This will have a reasonable default, but make sure
+		 * anyway with some assertions.
+		 */
+		g_free(file);
 		islands = (size_t)g_list_length(kml->kmls);
+		g_assert(islands > 1);
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++) {
 			kmlp = g_list_nth_data(kml->kmls, i);
 			islandpops[i] = kmlp->pop;
+			g_assert(islandpops[i] > 1);
 		}
+
+		/*
+		 * If we're uniformly migrating, then stop processing
+		 * right now.
+		 * If we're distance-migrating, then have the kml file
+		 * set the inter-island migration probabilities.
+		 * Give us wiggle-room for floating-point error.
+		 */
+		if (MAPMIGRANT_UNIFORM == migrants)
+			break;
+
 		ms = kml_migration_distance(kml->kmls);
-		for (i = 0; i < islands; i++)
+		for (i = 0; i < islands; i++) {
 			for (sum = 0.0, j = 0; j < islands; j++) {
+				g_assert(ms[i][j] >= 0.0);
+				g_assert(ms[i][j] <= 1.0);
 				sum += ms[i][j];
 				g_debug("Map migration probability: "
 					"%zu -> %zu: %g (%g)", 
 					i, j, ms[i][j], sum);
 			}
-		g_free(file);
+			g_assert(sum <= 1.0 + 
+				(double)islands * DBL_EPSILON);
+		}
 		break;
 	default:
 		abort();
