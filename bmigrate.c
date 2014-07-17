@@ -921,11 +921,9 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 	gboolean	 v;
 
 	if (w == GTK_WIDGET(b->wins.config)) {
-		g_debug("Setting focus on main window.");
 		b->current = NULL;
 		v = FALSE;
 	} else {
-		g_debug("Setting focus on simulation window.");
 		b->current = w;
 		v = TRUE;
 		cur = g_object_get_data(G_OBJECT(b->current), "cfg");
@@ -955,8 +953,10 @@ onpress(GtkWidget *widget, GdkEvent *event, gpointer dat)
 
 	if (((GdkEventButton *)event)->button != 3)
 		return(FALSE);
-	gtk_menu_popup(GTK_MENU(b->wins.allmenus), NULL, 
-		NULL, NULL, NULL, 0, gtk_get_current_event_time());
+
+	gtk_menu_popup(GTK_MENU(b->wins.allmenus), 
+		NULL, NULL, NULL, NULL, 0, 
+		gtk_get_current_event_time());
 
 	return(TRUE);
 }
