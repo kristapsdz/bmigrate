@@ -948,6 +948,9 @@ onpress(GtkWidget *widget, GdkEvent *event, gpointer dat)
 {
 	struct bmigrate	*b = dat;
 
+	if (b->current != gtk_widget_get_toplevel(widget))
+		b->current = gtk_widget_get_toplevel(widget);
+
 	if (((GdkEventButton *)event)->button != 3)
 		return(FALSE);
 	gtk_menu_popup(GTK_MENU(b->wins.allmenus), NULL, 
