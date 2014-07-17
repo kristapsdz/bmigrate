@@ -144,7 +144,13 @@ kml_free(struct kml *kml)
 	g_mapped_file_unref(kml->file);
 }
 
-static void
+/*
+ * Try to find the string "@@population=NN@@", which stipulates the
+ * population for this particular island.
+ * If we don't find it, just return--we'll use the default.
+ * If we find a bad population, raise an error.
+ */
+static int
 kml_placemark(const gchar *buf, struct kmlplace *place)
 {
 	const gchar	*cp;
@@ -152,22 +158,22 @@ kml_placemark(const gchar *buf, struct kmlplace *place)
 	gsize		 keysz;
 	gchar		 nbuf[22];
 
-	place->pop = 2;
 	keysz = strlen("@@population=");
 	while (NULL != (cp = strstr(buf, "@@population="))) {
 		buf = cp + keysz;
 		if (NULL == (cp = strstr(buf, "@@")))
-			return;
+			break;
 		if ((gsize)(cp - buf) >= sizeof(nbuf) - 1)
-			return;
+			return(0);
 		memcpy(nbuf, buf, cp - buf);
 		nbuf[cp - buf] = '\0';
 		place->pop = g_ascii_strtoull(buf, &ep, 10);
-		if (ERANGE == errno || EINVAL == errno || 
-			ep == buf || place->pop < 2)
-			place->pop = 2;
-		return;
+		if (ERANGE == errno || EINVAL == errno || ep == buf)
+			return(0);
+		break;
 	}
+
+	return(1);
 }
 
 static void
@@ -331,25 +337,60 @@ kml_elem_end(GMarkupParseContext *ctx,
 
 	switch (p->stack[p->stackpos]) {
 	case (KML_PLACEMARK):
+		/*
+		 * if we're ending a Placemark, first check whether
+		 * we've listed a population somewhere in any of the
+		 * nested text segments.
+		 * Also make sure that we have some coordinates (the
+		 * default value was 360 for both, which of course isn't
+		 * a valid coordinate).
+		 */
 		g_assert(NULL != p->cur);
-		kml_placemark(p->altbuf, p->cur);
+		if ( ! kml_placemark(p->altbuf, p->cur)) {
+			*er = g_error_new_literal
+				(G_MARKUP_ERROR, 
+				 G_MARKUP_ERROR_INVALID_CONTENT, 
+				 "Cannot parse population");
+			break;
+		} else if (p->cur->lat > 180 || p->cur->lng > 180) {
+			*er = g_error_new_literal
+				(G_MARKUP_ERROR, 
+				 G_MARKUP_ERROR_INVALID_CONTENT, 
+				 "No coordinates for placemark");
+			break;
+		}
 		p->places = g_list_append(p->places, p->cur);
 		p->cur = NULL;
 		break;
 	case (KML_COORDINATES):
+		/*
+		 * Parse coordinates from the mix.
+		 * Coordinates are longitude,latitude,altitude.
+		 * Parse quickly and just make sure they're valid.
+		 */
 		set = g_strsplit(p->buf, ",", 3);
 		p->cur->lng = g_ascii_strtod(set[0], NULL);
 		if (ERANGE == errno)
 			*er = g_error_new_literal
 				(G_MARKUP_ERROR, 
 				 G_MARKUP_ERROR_INVALID_CONTENT, 
-				 "");
+				 "Cannot parse longitude");
+		else if (p->cur->lng > 180.0 || p->cur->lng < -180.0)
+			*er = g_error_new_literal
+				(G_MARKUP_ERROR, 
+				 G_MARKUP_ERROR_INVALID_CONTENT, 
+				 "Invalid longitude");
 		p->cur->lat = g_ascii_strtod(set[1], NULL);
 		if (ERANGE == errno)
 			*er = g_error_new_literal
 				(G_MARKUP_ERROR, 
 				 G_MARKUP_ERROR_INVALID_CONTENT, 
-				 "");
+				 "Cannot parse latitude");
+		else if (p->cur->lat > 90.0 || p->cur->lat < -90.0)
+			*er = g_error_new_literal
+				(G_MARKUP_ERROR, 
+				 G_MARKUP_ERROR_INVALID_CONTENT, 
+				 "Invalid latitude");
 		g_strfreev(set);
 		break;
 	default:
@@ -384,15 +425,21 @@ kml_elem_start(GMarkupParseContext *ctx,
 	
 	switch (p->stack[p->stackpos - 1]) {
 	case (KML_PLACEMARK):
+		/*
+		 * If we're starting a Placemark, initialise ourselves
+		 * with bad coorindates and a default population.
+		 */
 		if (NULL == p->cur) {
 			p->cur = g_malloc0(sizeof(struct kmlplace));
+			p->cur->lat = p->cur->lng = 360;
+			p->cur->pop = 2;
 			p->altbufsz = 0;
 			break;
 		}
 		*er = g_error_new_literal
 			(G_MARKUP_ERROR, 
 			 G_MARKUP_ERROR_INVALID_CONTENT, 
-			 "");
+			 "Nested placemarks not allowed.");
 		break;
 	default:
 		break;

@@ -1130,8 +1130,7 @@ on_activate(GtkButton *button, gpointer dat)
 	gdouble		  xmin, xmax, delta, alpha, m, sigma,
 			  ymin, ymax;
 	enum mutants	  mutants;
-	double		  sum;
-	size_t		  i, j, totalpop, islands, stop, 
+	size_t		  i, totalpop, islands, stop, 
 			  slices, islandpop;
 	size_t		 *islandpops;
 	struct sim	 *sim;
@@ -1155,19 +1154,23 @@ on_activate(GtkButton *button, gpointer dat)
 		(b->wins.mapmigrants[MAPMIGRANT_DISTANCE]))
 		migrants = MAPMIGRANT_DISTANCE;
 
-	/*
-	 * We diverge here on the type of input.
-	 */
 	switch (input) {
 	case (INPUT_UNIFORM):
-		if ( ! entry2size(b->wins.totalpop, &totalpop, err, 1))
-			goto cleanup;
+		/*
+		 * In the simplest possible case, we use uniform values
+		 * for both migration (no inter-island migration) and
+		 * populations.
+		 */
 		islands = (size_t)gtk_adjustment_get_value
 			(b->wins.islands);
 		islandpop = (size_t)gtk_adjustment_get_value(b->wins.pop);
-		g_assert(totalpop == islandpop * islands);
 		break;
 	case (INPUT_VARIABLE):
+		/*
+		 * Variable number of islands.
+		 * We also add a check to see if we're really running
+		 * with different island sizes or not.
+		 */
 		list = gtk_container_get_children
 			(GTK_CONTAINER(b->wins.mapbox));
 		islands = (size_t)g_list_length(list);
@@ -1178,10 +1181,12 @@ on_activate(GtkButton *button, gpointer dat)
 				goto cleanup;
 		}
 		g_list_free(list);
-		for (totalpop = i = 0; i < islands; i++)
-			totalpop += islandpops[i];
 		break;
 	case (INPUT_MAPPED):
+		/*
+		 * Possibly variable island sizes, possibly variable
+		 * inter-island migration.
+		 */
 		file = gtk_file_chooser_get_filename
 			(b->wins.mapfile);
 		if (NULL == file) {
@@ -1189,14 +1194,7 @@ on_activate(GtkButton *button, gpointer dat)
 				"Error: map file not specified.");
 			gtk_widget_show_all(GTK_WIDGET(err));
 			goto cleanup;
-		}
-
-		/*
-		 * We already checked for this, but somebody could have
-		 * modified the file after setting the field.
-		 * So make sure that it's clean here.
-		 */
-		if (NULL == (kml = kml_parse(file, NULL))) {
+		} else if (NULL == (kml = kml_parse(file, NULL))) {
 			gtk_label_set_text(err, 
 				"Error: map file didn't parse.");
 			gtk_widget_show_all(GTK_WIDGET(err));
@@ -1211,12 +1209,10 @@ on_activate(GtkButton *button, gpointer dat)
 		 */
 		g_free(file);
 		islands = (size_t)g_list_length(kml->kmls);
-		g_assert(islands > 1);
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++) {
 			kmlp = g_list_nth_data(kml->kmls, i);
 			islandpops[i] = kmlp->pop;
-			g_assert(islandpops[i] > 1);
 		}
 
 		/*
@@ -1224,33 +1220,68 @@ on_activate(GtkButton *button, gpointer dat)
 		 * right now.
 		 * If we're distance-migrating, then have the kml file
 		 * set the inter-island migration probabilities.
-		 * Give us wiggle-room for floating-point error.
 		 */
-		if (MAPMIGRANT_UNIFORM == migrants)
-			break;
-
-		ms = kml_migration_distance(kml->kmls);
-		for (i = 0; i < islands; i++) {
-			for (sum = 0.0, j = 0; j < islands; j++) {
-				g_assert(ms[i][j] >= 0.0);
-				g_assert(ms[i][j] <= 1.0);
-				sum += ms[i][j];
-				g_debug("Map migration probability: "
-					"%zu -> %zu: %g (%g)", 
-					i, j, ms[i][j], sum);
-			}
-			g_assert(sum <= 1.0 + 
-				(double)islands * DBL_EPSILON);
-		}
+		if (MAPMIGRANT_UNIFORM != migrants)
+			ms = kml_migration_distance(kml->kmls);
 		break;
 	default:
 		abort();
 	}
 
+	/*
+	 * Base check: we need at least two islands.
+	 */
 	if (islands < 2) {
 		gtk_label_set_text(err, 
 			"Error: need at least two islands.");
 		gtk_widget_show_all(GTK_WIDGET(err));
+		goto cleanup;
+	}
+
+	/*
+	 * If we have an array of island populations, make sure that
+	 * each has more than two islanders.
+	 * While here, revert to a single island population size if our
+	 * sizes are, in fact, uniform.
+	 * Calculate our total population size as well.
+	 */
+	if (NULL != islandpops) {
+		g_assert(0 == islandpop);
+		for (i = 0; i < islands; i++) {
+			if (islandpops[i] > 1)
+				continue;
+			gtk_label_set_text(err, "Error: need at "
+				"least two islanders per island.");
+			gtk_widget_show_all(GTK_WIDGET(err));
+			goto cleanup;
+		}
+		for (totalpop = i = 0; i < islands; i++)
+			totalpop += islandpops[i];
+
+		/* Check for uniformity. */
+		for (i = 1; i < islands; i++)
+			if (islandpops[i] != islandpops[0])
+				break;
+		if (i == islands) {
+			g_debug("Reverting to uniform island "
+				"populations: all islands have "
+				"the same: %zu", islandpops[0]);
+			islandpop = islandpops[0];
+			g_free(islandpops);
+			islandpops = NULL;
+		}
+	} 
+	
+	/*
+	 * Handle uniform island sizes.
+	 * (This isn't part of the conditional above because we might
+	 * set ourselves to be uniform whilst processing.)
+	 */
+	if (NULL == islandpops && islandpop < 2) {
+		gtk_label_set_text(err, "Error: need at "
+			"least two islanders per island.");
+		gtk_widget_show_all(GTK_WIDGET(err));
+		totalpop = islands * islandpop;
 		goto cleanup;
 	}
 
@@ -1468,8 +1499,7 @@ onpreset(GtkComboBox *widget, gpointer dat)
 		break;
 	case (2):
 		/* Cournot */
-		gtk_entry_set_text(b->wins.func, 
-			"x - (X - x) * x - x^2");
+		gtk_entry_set_text(b->wins.func, "(1 - X) * x");
 		break;
 	case (3):
 		/* Exponential Public Goods */
