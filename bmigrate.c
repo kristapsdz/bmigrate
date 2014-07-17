@@ -921,9 +921,11 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 	gboolean	 v;
 
 	if (w == GTK_WIDGET(b->wins.config)) {
+		g_debug("Setting focus on main window.");
 		b->current = NULL;
 		v = FALSE;
 	} else {
+		g_debug("Setting focus on simulation window.");
 		b->current = w;
 		v = TRUE;
 		cur = g_object_get_data(G_OBJECT(b->current), "cfg");
