@@ -378,6 +378,7 @@ again:
 		goto again;
 	}
 
+	g_assert(cur != i);
 	return(i);
 }
 

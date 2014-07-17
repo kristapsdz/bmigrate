@@ -181,7 +181,7 @@ kml_replace(const gchar *buf, gsize sz, struct kmlsave *p)
 {
 	gsize		 i, len, start, end, vend;
 	void		*cp;
-	enum kmltype	 j;
+	enum kmlkey	 j;
 
 	for (i = 0; i < sz - 1; i++) {
 		/* Look for the starting "@@" marker. */

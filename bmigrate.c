@@ -1281,9 +1281,9 @@ on_activate(GtkButton *button, gpointer dat)
 		gtk_label_set_text(err, "Error: need at "
 			"least two islanders per island.");
 		gtk_widget_show_all(GTK_WIDGET(err));
-		totalpop = islands * islandpop;
 		goto cleanup;
-	}
+	} else if (NULL == islandpops)
+		totalpop = islands * islandpop;
 
 	if ( ! entry2double(b->wins.xmin, &xmin, err))
 		goto cleanup;
