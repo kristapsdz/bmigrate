@@ -50,9 +50,7 @@ static	const char *const colours[SIZE_COLOURS] = {
 };
 
 /*
- * Initialise the fixed widgets.
- * Some widgets (e.g., "processing" dialog) are created dynamically and
- * will not be marshalled here.
+ * Extract the widgets we want to know about from the builder.
  */
 static void
 windows_init(struct bmigrate *b, GtkBuilder *builder)
@@ -184,7 +182,7 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	b->wins.islands = GTK_ADJUSTMENT
 		(gtk_builder_get_object(builder, "adjustment2"));
 	b->wins.curthreads = GTK_LABEL
-		(gtk_builder_get_object(builder, "label10"));
+		(gtk_builder_get_object(builder, "label3"));
 	b->wins.alpha = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry13"));
 	b->wins.delta = GTK_ENTRY
@@ -228,13 +226,9 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	g_get_current_time(&gt);
 	gtk_entry_set_text(b->wins.name, g_time_val_to_iso8601(&gt));
 
-	/* Initialise our helpful run-load. */
-	gtk_label_set_text(b->wins.curthreads, "(0% active)");
-	gtk_widget_queue_draw(GTK_WIDGET(b->wins.curthreads));
-
+	/* Initialise our colour matrix. */
 	for (i = 0; i < SIZE_COLOURS; i++) {
-		val = gdk_rgba_parse
-			(&b->wins.colours[i], colours[i]);
+		val = gdk_rgba_parse(&b->wins.colours[i], colours[i]);
 		g_assert(val);
 	}
 
@@ -410,6 +404,8 @@ on_sim_pause(struct sim *sim, int dopause)
  * Dereference a simulation.
  * This means that we've closed an output window that's looking at a
  * particular simulation.
+ * When the simulation has no more references (i.e., no more windows are
+ * painting that simulation), then the simulation destroys itself.
  */
 static void
 on_sim_deref(gpointer dat)
@@ -423,6 +419,10 @@ on_sim_deref(gpointer dat)
 	sim_stop(sim, NULL);
 }
 
+/*
+ * Indicate that a given simulation is now being referenced by a new
+ * window.
+ */
 static void
 sim_ref(gpointer dat, gpointer arg)
 {
@@ -432,6 +432,10 @@ sim_ref(gpointer dat, gpointer arg)
 	g_debug("Simulation %p ref (now %zu)", sim, sim->refs);
 }
 
+/*
+ * Dereference all simulations owned by a given window.
+ * This happens when a window is closing.
+ */
 static void
 on_sims_deref(gpointer dat)
 {
@@ -440,6 +444,11 @@ on_sims_deref(gpointer dat)
 	g_list_free_full(dat, on_sim_deref);
 }
 
+/*
+ * Add an element to a histogram (there are several, e.g., minimum
+ * mean-mean, minimum mutant-extinction, etc.) that record strategy.
+ * This will update all elements of the applicable hstats.
+ */
 static void
 hist_update(const struct sim *sim, 
 	gsl_histogram *p, struct hstats *st, size_t strat)
@@ -451,6 +460,10 @@ hist_update(const struct sim *sim,
 	st->stddev = gsl_histogram_sigma(p);
 }
 
+/*
+ * Push a value onto the circular queue.
+ * This will update our current location and the maximum value, too.
+ */
 static void
 cqueue_push(struct cqueue *q, size_t val)
 {
@@ -462,7 +475,11 @@ cqueue_push(struct cqueue *q, size_t val)
 }
 
 /*
- * This copies data from the threads into local storage.
+ * This copies data from the threads into local ("cold") storage.
+ * It does so by checking whether the threads have copied out of "hot"
+ * storage (locking their mutex in the process) and, if so, indicates
+ * that we're about to read it (and thus to do so again), then after
+ * reading, reset that the data is stale.
  */
 static gboolean
 on_sim_copyout(gpointer dat)
@@ -471,7 +488,7 @@ on_sim_copyout(gpointer dat)
 	GList		*list, *wins, *sims;
 	struct sim	*sim;
 	struct curwin	*cur;
-	int		 nocopy;
+	int		 copy;
 
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = list->data;
@@ -484,18 +501,23 @@ on_sim_copyout(gpointer dat)
 		 * cold storage, as nothing has changed.
 		 */
 		g_mutex_lock(&sim->hot.mux);
-		nocopy = sim->hot.copyout > 0;
-		if ( ! nocopy)
-			sim->hot.copyout = 1;
+		copy = 0 == sim->hot.copyout;
 		g_mutex_unlock(&sim->hot.mux);
-		if (nocopy)
+
+		if ( ! copy)
 			continue;
 
 		/* 
 		 * Don't copy stale data.
+		 * Trigger the simulation to copy-out when it gets a
+		 * chance.
 		 */
 		if (sim->cold.truns == sim->warm.truns) {
 			assert(sim->cold.tgens == sim->warm.tgens);
+			g_mutex_lock(&sim->hot.mux);
+			g_assert(0 == sim->hot.copyout);
+			sim->hot.copyout = 1;
+			g_mutex_unlock(&sim->hot.mux);
 			continue;
 		}
 
@@ -569,6 +591,12 @@ on_sim_copyout(gpointer dat)
 			&sim->cold.extmmaxst, sim->cold.extmmax);
 		hist_update(sim, sim->cold.extimins, 
 			&sim->cold.extiminst, sim->cold.extimin);
+
+		/* Copy-out when convenient. */
+		g_mutex_lock(&sim->hot.mux);
+		g_assert(0 == sim->hot.copyout);
+		sim->hot.copyout = 1;
+		g_mutex_unlock(&sim->hot.mux);
 	}
 
 	return(TRUE);
@@ -621,8 +649,7 @@ on_sim_timer(gpointer dat)
 	 * FIXME: this shows the number of allocated threads, not
 	 * necessarily the number of running threads.
 	 */
-	(void)g_snprintf(buf, sizeof(buf),
-		"(%g%% active)", 100 * (nprocs / (double)b->nprocs));
+	(void)g_snprintf(buf, sizeof(buf), "%zu", nprocs);
 	gtk_label_set_text(b->wins.curthreads, buf);
 	
 	/* 
@@ -635,8 +662,8 @@ on_sim_timer(gpointer dat)
 	if (0.0 == elapsed)
 		elapsed = DBL_MIN;
 	(void)g_snprintf(buf, sizeof(buf), 
-		"Running %zu threads, %.0f matches/second.", 
-		nprocs, (runs - b->lastmatches) / elapsed);
+		"Running %.0f matches/second.", 
+		(runs - b->lastmatches) / elapsed);
 	gtk_statusbar_pop(b->wins.status, 0);
 	gtk_statusbar_push(b->wins.status, 0, buf);
 	g_timer_start(b->status_elapsed);
