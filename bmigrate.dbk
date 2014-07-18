@@ -569,12 +569,10 @@
 				<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
 			</inlineequation>.
 			This constitutes the environment structure of the game; or in other words, the physical layout of the islands.
-			This configuration will improve in the future to allow for non-uniform 
 			<inlineequation>
 				<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
 			</inlineequation>
 			and so on.
-			For now, it only allows the simplest, uniform structure.
 		</para>
 		<variablelist>
 			<title>Environment Structure</title>
@@ -595,7 +593,7 @@
 						<inlineequation>
 							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
 						</inlineequation>
-						of inter-island migration uniform to all islands.
+						of inter-island migration uniform to all [other] islands.
 						The default is 100 individuals across 50 islands.
 					</para>
 				</listitem>
@@ -604,13 +602,15 @@
 				<term>Variable</term>
 				<listitem>
 					<para>
-						A slightly more complex configuration allowing for non-uniform individuals per island.
+						Non-uniform individuals per island.
 						There must be at least two individuals per island.
 						The probability 
 						<inlineequation>
 							<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
 						</inlineequation>
-						of inter-island migration must also be applied (it remains uniform per island).
+						of inter-island migration must also be applied.
+						If you specify an equal number of islanders for all islands, this will revert to the Uniform
+						configuration.
 					</para>
 				</listitem>
 			</varlistentry>
@@ -618,12 +618,12 @@
 				<term>Mapped</term>
 				<listitem>
 					<para>
-						This feature allows for non-uniform inter-island migration and non-uniform population sizes.
+						Non-uniform inter-island migration and non-uniform population sizes.
 						It accepts a <ulink url="http://www.opengeospatial.org/standards/kml/">KML</ulink> map file (as
 						created, e.g., with <ulink url="https://www.google.com/earth/">Google Earth</ulink>) populated
 						with two or more <code>Placemark</code> sections with appropriate <code>coordinates</code>.
-						Inter-island migration is then computed as the normalised inverse-square distance between each
-						island.
+						Inter-island migration is then computed as either the normalised inverse-square distance between
+						each island or uniform random (i.e., the same as that of the Variable or Uniform configuration).
 					</para>
 					<para>
 						Normalised means that, for each island, the inverse-square distance is computed to all other
@@ -632,9 +632,9 @@
 						a probability.
 					</para>
 					<para>
-						The initial island population defaults to zero unless the string <code>@@population=N@@</code>
+						The initial island population defaults to two unless the string <code>@@population=N@@</code>
 						is specified somewhere in the KML text portion within an island's <code>Placemark</code> section.
-						The value <code>N</code> must be greater than one.
+						The value <code>N</code> must be strictly greater than one.
 					</para>
 				</listitem>
 			</varlistentry>
@@ -647,7 +647,6 @@
 			which dictates the reproduction of individuals.
 			Note that the utility function is not provided directly to the Poisson generator, but is linearly transformed as
 			described in <link linkend="generations" endterm="generations.title" />.
-			At this time, only the general case of a continuous function is accepted.
 		</para>
 		<variablelist>
 			<title>Game Configuration</title>
@@ -687,8 +686,9 @@
 						function, and double-precision numbers.
 					</para>
 					<para>
-						You can also change the strategy domain for any individual's strategy, which is inclusive of the
+						You can also change the strategy domain for the incumbent's strategy, which is inclusive of the
 						lower bound, non-inclusive of the upper bound.
+						(The mutant's strategy domain is applied elsewhere.)
 					</para>
 				</listitem>
 			</varlistentry>
@@ -709,7 +709,11 @@
 						You should plan your simulations so as not to oversubscribe your machine, e.g., if you're
 						running 4 simulations on a 64-processor machine, you should allocate 16 threads per simulation.
 						(This assumes that each simulation is equally time-consuming.)
-						Assume that each thread will consume 100% of a processor's resources.
+						Assume that each thread will consume 100% of processor or core resources.
+					</para>
+					<para>
+						The number of reserved threads is the sum of all threads for simulations, regardless of state;
+						running threads show only the count of non-paused simulations.
 					</para>
 				</listitem>
 			</varlistentry>
@@ -787,14 +791,55 @@
 		<title>Visualisation</title>
 		<para>
 			When you've configured a simulation, press <guibutton>Simulate</guibutton> to start the visualisation.
-			A window will pop up visualising the simulation in a variety of ways.
+			If all values validate, a window will pop up visualising the simulation in a variety of ways.
+			If values don't validate, they'll be noted and you can fix them.
+			Each field must be properly filled in before the simulation begins.
+			Don't worry&mdash;you'll be able to review each configuration element while a simulation is running.
+		</para>
+		<para>
+			Simulations are reference-counted: when you start a simulation, it has a single referring window.
 			Each window visualises at least one simulation: to compare different simulations, you can drag and drop simulation
 			windows into each other.
-			On Mac OS X machines, window controls appear in the menu bar.
-			On other UNIX machines, you can pop up a menu bar by right-clicking within a simulation window.
+			This will increase the reference to individual simulations.
+			The same happens if you clone a view.
+			When you close a window, each simulation is dereferenced.
+			When no windows reference a simulation, it will terminate.
 		</para>
 		<sect2>
-			<title>Windows</title>
+			<title>Control</title>
+			<para>
+				Simulation and analyses are controlled from the menu bar in Mac OS X or in a pop-up menu on other UNIX machines.
+				Simulations are controlled with the <guimenu>Tools</guimenu> and <guimenu>File</guimenu> menu.
+				Analysis is controlled with the <guimenu>View</guimenu> menu.
+			</para>
+			<sect3>
+				<title>File</title>
+				<para>
+					You can perform the usual <guimenuitem>Quit</guimenuitem> and <guimenuitem>Close</guimenuitem>
+					operations (the latter will dereference each simulation, just like closing the window by way of your
+					window manager).
+					You can also <guimenuitem>Clone</guimenuitem> your view, which will duplicate the window (including all
+					simulations).
+					You can also save the current view as a data file (described below) or as a KML file.
+				</para>
+			</sect3>
+			<sect3>
+				<title>View</title>
+				<para>
+					Switch the current view, which consists of one or more simulations, to another.
+					These are listed in <link linkend="views" endterm="views.title" />.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Tools</title>
+				<para>
+					From here you can pause or unpause simulations.
+					These apply to all simulations in the current window.
+				</para>
+			</sect3>
+		</sect2>
+		<sect2 id="views">
+			<title id="views.title">Views</title>
 			<para>
 				Each window may have an arbitrary number of simulations and is connected to a particular view of those
 				simulations.
@@ -863,7 +908,31 @@
 				</para>
 			</sect3>
 			<sect3>
-				<title>Fitted Polynomial (PDF)</title>
+				<title>Mutant Extinctions</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Incumbent Extinctions</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Smoothed Sample Mean</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Smoothed Mutant Extinctions</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Fitted Polynomial Minimum (PDF)</title>
 				<para>
 					Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />
 					into an empirical probability distribution.
@@ -876,7 +945,7 @@
 				</para>
 			</sect3>
 			<sect3>
-				<title>Fitted Polynomial (CDF)</title>
+				<title>Fitted Polynomial Minimum (CDF)</title>
 				<para>
 					Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />
 					into an empirical cumulative distribution.
@@ -889,11 +958,119 @@
 				</para>
 			</sect3>
 			<sect3>
+				<title>Sample Mean Minimum (PDF)</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Sample Mean Minimum (CDF)</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Mutant Extinctions Minimum (PDF)</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Mutant Extinctions Minimum (CDF)</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Incumbent Extinctions Minimum (PDF)</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Incumbent Extinctions Minimum (CDF)</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Smoothed Sample Mean Minimum (PDF)</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Smoothed Sample Mean Minimum (CDF)</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
 				<title>Fitted Polynomial Minimum History</title>
 				<para>
 					Accumulate the last 256 minimum values of <link linkend="samplemeanfitted"
 						endterm="samplemeanfitted.title" />.
 					The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Sample Mean Minimum History</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Smoothed Sample Mean Minimum History</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Fitted Polynomial Minimum Mean</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Sample Mean Minimum Mean</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Mutant Extinctions Minimum Mean</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Incumbent Extinctions Minimum Mean</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Smoothed Sample Mean Minimum Mean</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Island Sample Mean and Sigma</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Configuration</title>
+				<para>
+					TODO.
+				</para>
+			</sect3>
+			<sect3>
+				<title>Status</title>
+				<para>
+					TODO.
 				</para>
 			</sect3>
 		</sect2>
