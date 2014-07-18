@@ -90,54 +90,51 @@ save(FILE *f, struct bmigrate *b)
 	struct curwin	*cur;
 	double		 v;
 	struct sim	*sim;
-	size_t		 j, simnum;
-	GList		*sims, *list;
+	size_t		 i, j;
+	GList		*sims, *l;
 
 	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	assert(NULL != cur);
+	g_assert(NULL != cur);
 	sims = g_object_get_data(G_OBJECT(b->current), "sims");
-	assert(NULL != sims);
+	g_assert(NULL != sims);
 
-	simnum = 1;
-	for (list = sims; NULL != list; list = list->next, simnum++) {
-		sim = list->data;
-		assert(NULL != sim);
-		fprintf(f, "# Simulation %zu: %s\n", 
-			simnum, sim->name);
-		fprintf(f, "#   N=%zu, n=%s, m=%g, T=%zu\n", 
-			sim->islands, 
-			INPUT_VARIABLE == sim->input ?
-			"variable" : "uniform",
-			sim->m, sim->stop);
-		fprintf(f, "#   %g(1 + %g * pi)\n",
+	for (i = 1, l = sims; NULL != l; l = l->next, i++) {
+		sim = l->data;
+		g_assert(NULL != sim);
+		fprintf(f, "# simulation %zu: %s\n", i, sim->name);
+		fprintf(f, "## N=%zu, n=%suniform, m=%g "
+			"(%suniform), T=%zu\n", sim->islands, 
+			NULL != sim->pops ?  "non-" : "",
+			sim->m, NULL != sim->ms ? "non-" : "",
+			sim->stop);
+		fprintf(f, "## %g(1 + %g * pi)\n",
 			sim->alpha, sim->delta);
-		fprintf(f, "#   pi(x,X,n) = %s, x=[%g, %g)\n",
+		fprintf(f, "## pi(x,X,n) = %s, x=[%g, %g)\n",
 			sim->func, sim->continuum.xmin,
 			sim->continuum.xmax);
-		fprintf(f, "#   fit-poly degree: %zu (%s)\n",
-			sim->fitpoly, sim->weighted ? 
-			"weighted" : "unweighted");
 		if (MUTANTS_DISCRETE == sim->mutants) 
-			fprintf(f, "#   mutants: discrete\n");
+			fprintf(f, "## mutants: discrete\n");
 		else
-			fprintf(f, "#   mutants: Gaussian "
+			fprintf(f, "## mutants: Gaussian "
 				"(sigma=%g, [%g, %g])\n",
 				sim->mutantsigma,
 				sim->continuum.ymin,
 				sim->continuum.ymax);
+		fprintf(f, "## fitdegree: %zu (%s)\n",
+			sim->fitpoly, sim->weighted ? 
+			"weighted" : "unweighted");
 	}
 
-	if (VIEW_CONFIG == cur->view)
+	if (VIEW_CONFIG == cur->view || VIEW_STATUS == cur->view)
 		return;
 
-	simnum = 1;
-	for (list = sims; NULL != list; list = list->next, simnum++) {
-		sim = list->data;
+	for (i = 1, l = sims; NULL != l; l = l->next, i++) {
+		sim = l->data;
 		assert(NULL != sim);
 		switch (cur->view) {
 		case (VIEW_DEV):
 			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", i);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_mean(&sim->cold.stats[j]);
@@ -154,7 +151,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_POLY):
 			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", i);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_mean(&sim->cold.stats[j]);
@@ -166,50 +163,50 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_POLYMINPDF):
-			write_pdf(f, simnum, sim, sim->cold.fitmins);
+			write_pdf(f, i, sim, sim->cold.fitmins);
 			break;
 		case (VIEW_POLYMINCDF):
-			write_cdf(f, simnum, sim, sim->cold.fitmins);
+			write_cdf(f, i, sim, sim->cold.fitmins);
 			break;
 		case (VIEW_MEANMINPDF):
-			write_pdf(f, simnum, sim, sim->cold.meanmins);
+			write_pdf(f, i, sim, sim->cold.meanmins);
 			break;
 		case (VIEW_MEANMINCDF):
-			write_cdf(f, simnum, sim, sim->cold.meanmins);
+			write_cdf(f, i, sim, sim->cold.meanmins);
 			break;
 		case (VIEW_MEANMINQ):
-			write_cqueue(f, sim, simnum, 
+			write_cqueue(f, sim, i, 
 				&sim->cold.meanminq, 
 				&sim->cold.meanminst);
 			break;
 		case (VIEW_POLYMINS):
-			write_mins(f, simnum, &sim->cold.fitminst);
+			write_mins(f, i, &sim->cold.fitminst);
 			break;
 		case (VIEW_SMEANMINS):
-			write_mins(f, simnum, &sim->cold.smeanminst);
+			write_mins(f, i, &sim->cold.smeanminst);
 			break;
 		case (VIEW_EXTIMINS):
-			write_mins(f, simnum, &sim->cold.extiminst);
+			write_mins(f, i, &sim->cold.extiminst);
 			break;
 		case (VIEW_EXTMMAXS):
-			write_mins(f, simnum, &sim->cold.extmmaxst);
+			write_mins(f, i, &sim->cold.extmmaxst);
 			break;
 		case (VIEW_MEANMINS):
-			write_mins(f, simnum, &sim->cold.meanminst);
+			write_mins(f, i, &sim->cold.meanminst);
 			break;
 		case (VIEW_SMEANMINQ):
-			write_cqueue(f, sim, simnum, 
+			write_cqueue(f, sim, i, 
 				&sim->cold.smeanminq, 
 				&sim->cold.smeanminst);
 			break;
 		case (VIEW_POLYMINQ):
-			write_cqueue(f, sim, simnum, 
+			write_cqueue(f, sim, i, 
 				&sim->cold.fitminq, 
 				&sim->cold.fitminst);
 			break;
 		case (VIEW_EXTI):
 			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", i);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_extincti(&sim->cold.stats[j]);
@@ -218,7 +215,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_EXTM):
 			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", i);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_extinctm(&sim->cold.stats[j]);
@@ -226,26 +223,26 @@ save(FILE *f, struct bmigrate *b)
 			}
 			break;
 		case (VIEW_EXTIMINCDF):
-			write_cdf(f, simnum, sim, sim->cold.extimins);
+			write_cdf(f, i, sim, sim->cold.extimins);
 			break;
 		case (VIEW_EXTIMINPDF):
-			write_pdf(f, simnum, sim, sim->cold.extimins);
+			write_pdf(f, i, sim, sim->cold.extimins);
 			break;
 		case (VIEW_EXTMMAXCDF):
-			write_cdf(f, simnum, sim, sim->cold.extmmaxs);
+			write_cdf(f, i, sim, sim->cold.extmmaxs);
 			break;
 		case (VIEW_EXTMMAXPDF):
-			write_pdf(f, simnum, sim, sim->cold.extmmaxs);
+			write_pdf(f, i, sim, sim->cold.extmmaxs);
 			break;
 		case (VIEW_SMEANMINCDF):
-			write_cdf(f, simnum, sim, sim->cold.smeanmins);
+			write_cdf(f, i, sim, sim->cold.smeanmins);
 			break;
 		case (VIEW_SMEANMINPDF):
-			write_pdf(f, simnum, sim, sim->cold.smeanmins);
+			write_pdf(f, i, sim, sim->cold.smeanmins);
 			break;
 		case (VIEW_SEXTM):
 			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", i);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = sim->cold.sextms[j];
@@ -254,7 +251,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_SMEAN):
 			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", i);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = sim->cold.smeans[j];
@@ -263,7 +260,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		case (VIEW_ISLANDMEAN):
 			for (j = 0; j < sim->islands; j++) {
-				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", i);
 				fprintf(f, "%zu ", j);
 				v = stats_mean(&sim->cold.islands[j]);
 				fprintf(f, "%g\n", v);
@@ -271,7 +268,7 @@ save(FILE *f, struct bmigrate *b)
 			break;
 		default:
 			for (j = 0; j < sim->dims; j++) {
-				fprintf(f, "%zu ", simnum);
+				fprintf(f, "%zu ", i);
 				v = GETS(sim, j);
 				fprintf(f, "%g ", v);
 				v = stats_mean(&sim->cold.stats[j]);

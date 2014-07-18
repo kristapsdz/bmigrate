@@ -139,6 +139,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem14"));
 	b->wins.views[VIEW_CONFIG] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem36"));
+	b->wins.views[VIEW_STATUS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem46"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM

@@ -95,6 +95,10 @@ drawgrid(cairo_t *cr, double width, double height)
 	cairo_set_dash(cr, dash, 0, 0);
 }
 
+/*
+ * Draw axis labels.
+ * The choice of label depends on what we're looking at.
+ */
 static void
 drawlabels(const struct curwin *cur, cairo_t *cr, 
 	const char *fmt, double *widthp, double *heightp,
@@ -216,6 +220,7 @@ max_sim(const struct curwin *cur, const struct sim *s,
 
 	switch (cur->view) {
 	case (VIEW_CONFIG):
+	case (VIEW_STATUS):
 		return;
 	case (VIEW_EXTIMINCDF):
 	case (VIEW_EXTMMAXCDF):
@@ -367,9 +372,8 @@ drawlegendst(gchar *buf, size_t sz,
 {
 
 	(void)g_snprintf(buf, sz,
-		"%s: mode %g, mean %g (+-%g), "
-		"runs %" PRIu64, sim->name,
-		st->mode, st->mean, st->stddev, sim->cold.truns);
+		"%s: mode %g, mean %g +-%g", sim->name,
+		st->mode, st->mean, st->stddev);
 }
 
 static void
@@ -377,9 +381,8 @@ drawlegendmax(gchar *buf, size_t sz,
 	const struct sim *sim, size_t strat)
 {
 
-	(void)g_snprintf(buf, sz,
-		"%s: max %g, runs %" PRIu64, 
-		sim->name, GETS(sim, strat), sim->cold.truns);
+	(void)g_snprintf(buf, sz, "%s: max %g",
+		sim->name, GETS(sim, strat));
 }
 
 static void
@@ -387,9 +390,8 @@ drawlegendmin(gchar *buf, size_t sz,
 	const struct sim *sim, size_t strat)
 {
 
-	(void)g_snprintf(buf, sz,
-		"%s: min %g, runs %" PRIu64, 
-		sim->name, GETS(sim, strat), sim->cold.truns);
+	(void)g_snprintf(buf, sz, "%s: min %g",
+		sim->name, GETS(sim, strat));
 }
 
 static double
@@ -403,7 +405,7 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 	cairo_text_extents_t e;
 	double		 v;
 
-	if (VIEW_CONFIG == cur->view)
+	if (VIEW_CONFIG == cur->view || VIEW_STATUS == cur->view)
 		return(height);
 
 	/*
@@ -459,9 +461,7 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 				sim, &sim->cold.extmmaxst);
 			break;
 		case (VIEW_ISLANDMEAN):
-			(void)g_snprintf(buf, sizeof(buf),
-				"%s: runs %" PRIu64, 
-				sim->name, sim->cold.truns);
+			g_strlcpy(buf, sim->name, sizeof(buf));
 			break;
 		case (VIEW_MEAN):
 		case (VIEW_MEANMINQ):
@@ -710,6 +710,21 @@ draw_cqueue(const struct sim *sim, const struct bmigrate *b,
 	cairo_stroke(cr);
 }
 
+static void
+drawinfo(cairo_t *cr, double *y, 
+	const cairo_text_extents_t *e, const char *fmt, ...)
+{
+	va_list		 ap;
+	char		 buf[1024];
+
+	va_start(ap, fmt);
+	(void)g_vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+	cairo_move_to(cr, 0.0, *y);
+	cairo_show_text(cr, buf);
+	*y += e->height * 1.5;
+}
+
 /*
  * Main draw event.
  * There's lots we can do to make this more efficient, e.g., computing
@@ -781,6 +796,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	case (VIEW_MEANMINCDF):
 	case (VIEW_SMEANMINCDF):
 	case (VIEW_CONFIG):
+	case (VIEW_STATUS):
 		break;
 	default:
 		maxy += maxy * 0.1;
@@ -795,6 +811,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	memset(&e, 0, sizeof(cairo_text_extents_t));
 	switch (cur->view) {
 	case (VIEW_CONFIG):
+	case (VIEW_STATUS):
 		cairo_text_extents(cr, "lj", &e);
 		break;
 	case (VIEW_SMEANMINQ):
@@ -830,58 +847,59 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_rel_line_to(cr, 20.0, 0.0);
 			cairo_stroke(cr);
 			/* Write the simulation name next to it. */
-			cairo_move_to(cr, 25.0, v);
 			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
 			(void)g_snprintf(buf, sizeof(buf),
 				"Name: %s", sim->name);
+			cairo_move_to(cr, 25.0, v);
 			cairo_show_text(cr, buf);
-
 			v += e.height * 1.5;
-			(void)g_snprintf(buf, sizeof(buf),
-				"Function: %s, x = [%g, %g]", 
-				sim->func, sim->continuum.xmin,
+			drawinfo(cr, &v, &e, "Function: %s, "
+				"x = [%g, %g]", sim->func, 
+				sim->continuum.xmin,
 				sim->continuum.xmax);
-			cairo_move_to(cr, 0.0, v);
-			cairo_show_text(cr, buf);
-			v += e.height * 1.5;
-			(void)g_snprintf(buf, sizeof(buf),
-				"Population: %zu (%zu islands, "
-				"%s islanders), m=%g, T=%zu", 
+			drawinfo(cr, &v, &e, "Maximum "
+				"generation: %zu", sim->stop);
+			drawinfo(cr, &v, &e, "Migrate: %g (%suniform)",
+				sim->m, NULL != sim->ms ? "non-" : "");
+			drawinfo(cr, &v, &e, "Population: %zu (%zu "
+				"islands, %suniform islanders)", 
 				sim->totalpop, sim->islands, 
-				INPUT_VARIABLE == sim->input ?
-				"variable" : "uniform", 
-				sim->m, sim->stop);
-			cairo_move_to(cr, 0.0, v);
-			cairo_show_text(cr, buf);
-			v += e.height * 1.5;
-			(void)g_snprintf(buf, sizeof(buf),
-				"Transformation: %g(1 + %g * pi)",
+				NULL != sim->pops ? "non-" : "");
+			drawinfo(cr, &v, &e, "Normalise: "
+				"%g(1 + %g * pi)",
 				sim->alpha, sim->delta);
-			cairo_move_to(cr, 0.0, v);
-			cairo_show_text(cr, buf);
-			v += e.height * 1.5;
-			(void)g_snprintf(buf, sizeof(buf),
-				"Fitting: order %zu (%s)",
-				sim->fitpoly, 0 == sim->fitpoly ?
-				"disabled" : (sim->weighted ? 
-					"weighted" : "unweighted"));
-			cairo_move_to(cr, 0.0, v);
-			cairo_show_text(cr, buf);
-			v += e.height * 1.5;
 			if (MUTANTS_DISCRETE == sim->mutants)
-				(void)g_snprintf(buf, sizeof(buf),
-					"Mutants: discrete (%zu)",
-					sim->dims);
+				drawinfo(cr, &v, &e, "Mutants: "
+					"discrete (%zu)", sim->dims);
 			else
-				(void)g_snprintf(buf, sizeof(buf),
-					"Mutants: Gaussian "
-					"(sigma=%g, [%g, %g]",
-					sim->mutantsigma,
+				drawinfo(cr, &v, &e, "Mutants: "
+					"Gaussian (sigma=%g, "
+					"[%g, %g])", sim->mutantsigma,
 					sim->continuum.ymin,
 					sim->continuum.ymax);
-			cairo_move_to(cr, 0.0, v);
+			drawinfo(cr, &v, &e, "Fit: order %zu (%s)",
+				sim->fitpoly, 0 == sim->fitpoly ?
+				"disabled" : (sim->weighted ? 
+				"weighted" : "unweighted"));
+			break;
+		case (VIEW_STATUS):
+			v += e.height;
+			cairo_move_to(cr, 0.0, v - e.height * 0.5 - 1.0);
+			/* Draw a line with the simulation's colour. */
+			cairo_set_source_rgba(cr, GETC(1.0));
+			cairo_rel_line_to(cr, 20.0, 0.0);
+			cairo_stroke(cr);
+			/* Write the simulation name next to it. */
+			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
+			(void)g_snprintf(buf, sizeof(buf),
+				"Name: %s", sim->name);
+			cairo_move_to(cr, 25.0, v);
 			cairo_show_text(cr, buf);
 			v += e.height * 1.5;
+			drawinfo(cr, &v, &e, "Runs: %" 
+				PRIu64, sim->cold.truns);
+			drawinfo(cr, &v, &e, "Generations: %" 
+				PRIu64, sim->cold.tgens);
 			break;
 		case (VIEW_DEV):
 			draw_mean(sim, b, cr, width, 
@@ -1046,7 +1064,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	}
 
 	cairo_restore(cr);
-	if (VIEW_CONFIG != cur->view)
+	if (VIEW_CONFIG != cur->view && VIEW_STATUS != cur->view)
 		drawgrid(cr, width, height);
 }
 
