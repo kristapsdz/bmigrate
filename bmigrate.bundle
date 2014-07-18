@@ -102,6 +102,10 @@
     ${prefix}/share/themes
   </data>
 
+  <data>
+    ${prefix}/share/glib-2.0/schemas
+  </data>
+
   <!-- Copy icons. Note that the .icns file is an Apple format which
        contains up to 4 sizes of icon. You can use
        /Developer/Applications/Utilities/Icon Composer.app to import

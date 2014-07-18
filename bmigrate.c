@@ -672,7 +672,7 @@ on_sim_timer(gpointer dat)
 	if (0.0 == elapsed)
 		elapsed = DBL_MIN;
 	(void)g_snprintf(buf, sizeof(buf), 
-		"Running %.0f matches/second.", 
+		"Running %.0f generations/second.", 
 		(runs - b->lastmatches) / elapsed);
 	gtk_statusbar_pop(b->wins.status, 0);
 	gtk_statusbar_push(b->wins.status, 0, buf);
