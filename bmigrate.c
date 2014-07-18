@@ -181,8 +181,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "entry12"));
 	b->wins.islands = GTK_ADJUSTMENT
 		(gtk_builder_get_object(builder, "adjustment2"));
-	b->wins.curthreads = GTK_LABEL
+	b->wins.resprocs = GTK_LABEL
 		(gtk_builder_get_object(builder, "label3"));
+	b->wins.onprocs = GTK_LABEL
+		(gtk_builder_get_object(builder, "label36"));
 	b->wins.alpha = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry13"));
 	b->wins.delta = GTK_ENTRY
@@ -616,10 +618,10 @@ on_sim_timer(gpointer dat)
 	gchar		 buf[1024];
 	GList		*list;
 	uint64_t	 runs;
-	size_t		 i, nprocs;
+	size_t		 i, onprocs, resprocs;
 	double		 elapsed;
 
-	nprocs = runs = 0;
+	onprocs = resprocs = runs = 0;
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = (struct sim *)list->data;
 		runs += sim->cold.tgens;
@@ -640,8 +642,11 @@ on_sim_timer(gpointer dat)
 			}
 			sim->nprocs = 0;
 			assert(0 == sim->refs); 
+		} else if ( ! sim->terminate && ! sim->hot.pause) {
+			onprocs += sim->nprocs;
+			resprocs += sim->nprocs;
 		} else if ( ! sim->terminate)
-			nprocs += sim->nprocs;
+			resprocs += sim->nprocs;
 	}
 
 	/* 
@@ -649,8 +654,11 @@ on_sim_timer(gpointer dat)
 	 * FIXME: this shows the number of allocated threads, not
 	 * necessarily the number of running threads.
 	 */
-	(void)g_snprintf(buf, sizeof(buf), "%zu", nprocs);
-	gtk_label_set_text(b->wins.curthreads, buf);
+	(void)g_snprintf(buf, sizeof(buf), "%zu", resprocs);
+	gtk_label_set_text(b->wins.resprocs, buf);
+
+	(void)g_snprintf(buf, sizeof(buf), "%zu", onprocs);
+	gtk_label_set_text(b->wins.onprocs, buf);
 	
 	/* 
 	 * Tell us how many generations have transpired (if no time has

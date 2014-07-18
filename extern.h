@@ -346,7 +346,8 @@ struct	hwin {
 	GtkEntry	 *delta;
 	GtkEntry	 *migrate[INPUT__MAX];
 	GtkEntry	 *incumbents;
-	GtkLabel	 *curthreads;
+	GtkLabel	 *onprocs;
+	GtkLabel	 *resprocs;
 	GtkFileChooser	 *mapfile;
 #define	SIZE_COLOURS	  9 
 	GdkRGBA		  colours[SIZE_COLOURS];
