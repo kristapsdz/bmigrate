@@ -78,6 +78,16 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkMenuItem" id="menuitem47">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Save All View Data</property>
+                        <property name="use_underline">True</property>
+                        <signal name="activate" handler="onsaveall" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkSeparatorMenuItem" id="menuitem4">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -838,7 +848,6 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="title" translatable="yes">Select a KML File</property>
-                    <signal name="file-set" handler="onkml" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>

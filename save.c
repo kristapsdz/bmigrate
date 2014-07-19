@@ -123,6 +123,9 @@ save(FILE *f, struct bmigrate *b)
 		fprintf(f, "## fitdegree: %zu (%s)\n",
 			sim->fitpoly, sim->weighted ? 
 			"weighted" : "unweighted");
+		fprintf(f, "## runs: %" PRIu64 " (%" PRIu64 
+			" generations)\n", sim->cold.truns, 
+			sim->cold.tgens);
 	}
 
 	if (VIEW_CONFIG == cur->view || VIEW_STATUS == cur->view)

@@ -49,6 +49,37 @@ static	const char *const colours[SIZE_COLOURS] = {
 	"gray50"
 };
 
+static	const char *const views[VIEW__MAX] = {
+	"config", /* VIEW_CONFIG */
+	"raw-mean-stddev", /* VIEW_DEV */
+	"extinct-incumbent", /* VIEW_EXTI */
+	"extinct-incumbent-min-cdf", /* VIEW_EXTIMINCDF */
+	"extinct-incumbent-min-pdf", /* VIEW_EXTIMINPDF */
+	"extinct-incumbent-min-mean", /* VIEW_EXTIMINS */
+	"extinct-mutant", /* VIEW_EXTM */
+	"extinct-mutant-max-cdf", /* VIEW_EXTMMAXCDF */
+	"extinct-mutant-max-pdf", /* VIEW_EXTMMAXPDF */
+	"extinct-mutant-max-mean", /* VIEW_EXTMMAXS */
+	"island-mean", /* VIEW_ISLANDMEAN */
+	"raw-mean", /* VIEW_MEAN */
+	"raw-mean-min-cdf", /* VIEW_MEANMINCDF */
+	"raw-mean-min-pdf", /* VIEW_MEANMINPDF */
+	"raw-mean-min-history", /* VIEW_MEANMINQ */
+	"raw-mean-min-mean", /* VIEW_MEANMINS */
+	"fitted-mean", /* VIEW_POLY */
+	"fitted-mean-min-cdf", /* VIEW_POLYMINCDF */
+	"fitted-mean-min-pdf", /* VIEW_POLYMINPDF */
+	"fitted-mean-min-history", /* VIEW_POLYMINQ */
+	"fitted-mean-min-mean", /* VIEW_POLYMINS */
+	"extinct-mutant-smooth", /* VIEW_SEXTM */
+	"raw-mean-smooth", /* VIEW_SMEAN */
+	"raw-mean-smooth-min-cdf", /* VIEW_SMEANMINCDF */
+	"raw-mean-smooth-min-pdf", /* VIEW_SMEANMINPDF */
+	"raw-mean-smooth-min-history", /* VIEW_SMEANMINQ */
+	"raw-mean-smooth-min-mean", /* VIEW_SMEANMINS */
+	"status", /* VIEW_STATUS */
+};
+
 /*
  * Extract the widgets we want to know about from the builder.
  */
@@ -151,6 +182,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem34"));
 	b->wins.menusavekml = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem17"));
+	b->wins.menusaveall = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem47"));
 	b->wins.input = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry3"));
 	b->wins.mutantsigma = GTK_ENTRY
@@ -256,6 +289,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(b->wins.menus, b->wins.menusave);
 	b->wins.menus = g_list_append
 		(b->wins.menus, b->wins.menusavekml);
+	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.menusaveall);
 	b->wins.menus = g_list_append
 		(b->wins.menus, b->wins.menuclose);
 }
@@ -1178,6 +1213,7 @@ on_activate(GtkButton *button, gpointer dat)
 	struct sim	 *sim;
 	struct curwin	 *cur;
 	struct kmlplace	 *kmlp;
+	GError		 *er;
 
 	islandpops = NULL;
 	islandpop = 0;
@@ -1236,9 +1272,15 @@ on_activate(GtkButton *button, gpointer dat)
 				"Error: map file not specified.");
 			gtk_widget_show_all(GTK_WIDGET(err));
 			goto cleanup;
-		} else if (NULL == (kml = kml_parse(file, NULL))) {
-			gtk_label_set_text(err, 
-				"Error: map file didn't parse.");
+		} 
+		kml = kml_parse(file, &er);
+		g_free(file);
+		
+		if (NULL == kml) {
+			/* Re-use pointer. */
+			file = g_strdup_printf("Error: "
+				"bad map file: %s", er->message);
+			gtk_label_set_text(err, file);
 			gtk_widget_show_all(GTK_WIDGET(err));
 			g_free(file);
 			goto cleanup;
@@ -1598,7 +1640,7 @@ onsavekml(GtkMenuItem *menuitem, gpointer dat)
 	gint		 res;
 	GtkFileChooser	*chooser;
 	FILE		*f;
-	char 		*filename;
+	char 		*file;
 	GList		*sims;
 
 	g_assert(NULL != b->current);
@@ -1613,17 +1655,95 @@ onsavekml(GtkMenuItem *menuitem, gpointer dat)
 	gtk_file_chooser_set_current_name(chooser, "bmigrate.kml");
 	sims = g_object_get_data(G_OBJECT(b->current), "sims");
 	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_ACCEPT) {
-		filename = gtk_file_chooser_get_filename(chooser);
-		if (NULL != (f = fopen(filename, "w+"))) {
-			kml_save(f, sims);
+	if (res != GTK_RESPONSE_ACCEPT) {
+		gtk_widget_destroy(dialog);
+		return;
+	}
+	file = gtk_file_chooser_get_filename(chooser);
+	gtk_widget_destroy(dialog);
+	g_assert(NULL != file);
+	g_assert('\0' != *file);
+
+	if (NULL != (f = fopen(file, "w+"))) {
+		kml_save(f, sims);
+		fclose(f);
+		g_debug("Saved KML: %s", file);
+	} else {
+		dialog = gtk_message_dialog_new
+			(GTK_WINDOW(b->current),
+			 GTK_DIALOG_DESTROY_WITH_PARENT, 
+			 GTK_MESSAGE_ERROR, 
+			 GTK_BUTTONS_CLOSE, 
+			 "Error saving %s: %s", 
+			 file, strerror(errno));
+		gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+	}
+	g_free(file);
+}
+
+void
+onsaveall(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	GtkWidget	*dialog;
+	gint		 res;
+	GtkFileChooser	*chooser;
+	GList		*list;
+	char 		*dir, *file;
+	enum view	 view, sv;
+	FILE		*f;
+	struct curwin	*cur;
+
+	g_assert(NULL != b->current);
+	dialog = gtk_file_chooser_dialog_new
+		("Create View Data Folder", GTK_WINDOW(b->current),
+		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
+		 "_Cancel", GTK_RESPONSE_CANCEL,
+		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
+
+	chooser = GTK_FILE_CHOOSER(dialog);
+	gtk_file_chooser_set_current_name(chooser, "bmigrate");
+	res = gtk_dialog_run(GTK_DIALOG(dialog));
+	if (res != GTK_RESPONSE_ACCEPT) {
+		gtk_widget_destroy(dialog);
+		return;
+	}
+	dir = gtk_file_chooser_get_filename(chooser);
+	gtk_widget_destroy(dialog);
+	g_assert(NULL != dir);
+	g_assert('\0' != *dir);
+
+	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	sv = cur->view;
+	list = g_object_get_data(G_OBJECT(b->current), "sims");
+	for (view = 0; view < VIEW__MAX; view++) {
+		file = g_strdup_printf
+			("%s" G_DIR_SEPARATOR_S "%s",
+			 dir, views[view]);
+		cur->view = view;
+		if (NULL != (f = fopen(file, "w+"))) {
+			save(f, b);
+			g_debug("Saved View: %s", file);
 			fclose(f);
-			g_debug("Saved KML: %s", filename);
+		} else {
+			dialog = gtk_message_dialog_new
+				(GTK_WINDOW(b->current),
+				 GTK_DIALOG_DESTROY_WITH_PARENT, 
+				 GTK_MESSAGE_ERROR, 
+				 GTK_BUTTONS_CLOSE, 
+				 "Error saving %s: %s", 
+				 file, strerror(errno));
+			gtk_dialog_run(GTK_DIALOG(dialog));
+			gtk_widget_destroy(dialog);
+			g_free(file);
+			break;
 		}
-		g_free(filename);
+		g_free(file);
 	}
 
-	gtk_widget_destroy(dialog);
+	cur->view = sv;
+	g_free(dir);
 }
 
 /*
@@ -1637,9 +1757,7 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	gint		 res;
 	GtkFileChooser	*chooser;
 	FILE		*f;
-	char 		*filename;
-	const gchar	*viewname;
-	struct curwin	*cur;
+	char 		*file;
 
 	g_assert(NULL != b->current);
 	dialog = gtk_file_chooser_dialog_new
@@ -1647,27 +1765,35 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 		 GTK_FILE_CHOOSER_ACTION_SAVE,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Save", GTK_RESPONSE_ACCEPT, NULL);
-
 	chooser = GTK_FILE_CHOOSER(dialog);
 	gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
 	gtk_file_chooser_set_current_name(chooser, "bmigrate.dat");
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	viewname = gtk_menu_item_get_label
-		(GTK_MENU_ITEM(b->wins.views[cur->view]));
-
 	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res == GTK_RESPONSE_ACCEPT) {
-		filename = gtk_file_chooser_get_filename(chooser);
-		if (NULL != (f = fopen(filename, "w+"))) {
-			save(f, b);
-			fclose(f);
-			g_debug("Saved View: %s, %s", 
-				viewname, filename);
-		}
-		g_free(filename);
+	if (res != GTK_RESPONSE_ACCEPT) {
+		gtk_widget_destroy(dialog);
+		return;
 	}
-
+	file = gtk_file_chooser_get_filename(chooser);
 	gtk_widget_destroy(dialog);
+	g_assert(NULL != file);
+	g_assert('\0' != *file);
+
+	if (NULL != (f = fopen(file, "w+"))) {
+		save(f, b);
+		g_debug("Saved View: %s", file);
+		fclose(f);
+	} else {
+		dialog = gtk_message_dialog_new
+			(GTK_WINDOW(b->current),
+			 GTK_DIALOG_DESTROY_WITH_PARENT, 
+			 GTK_MESSAGE_ERROR, 
+			 GTK_BUTTONS_CLOSE, 
+			 "Error saving %s: %s", 
+			 file, strerror(errno));
+		gtk_dialog_run(GTK_DIALOG(dialog));
+		gtk_widget_destroy(dialog);
+	}
+	g_free(file);
 }
 
 /*
@@ -1728,49 +1854,6 @@ on_deactivate(GtkButton *button, gpointer dat)
 
 	bmigrate_free(dat);
 	gtk_main_quit();
-}
-
-/*
- * Just make sure that the KML file is sane by parsing it now instead of
- * later.
- * This just makes on_activate() a little simpler.
- */
-void
-onkml(GtkFileChooserButton *widget, gpointer dat)
-{
-	GError		*er;
-	gchar		*file;
-	GtkWidget	*dialog;
-	struct kml	*kml;
-
-	file = gtk_file_chooser_get_filename
-		(GTK_FILE_CHOOSER(widget));
-
-	if (NULL == file)
-		return;
-
-	g_debug("Trying KML file: %s", file);
-	er = NULL;
-	kml = kml_parse(file, &er);
-	if (NULL == kml) {
-		g_assert(NULL != er);
-		gtk_file_chooser_unselect_filename
-			(GTK_FILE_CHOOSER(widget), file);
-		dialog = gtk_message_dialog_new
-			(GTK_WINDOW(gtk_widget_get_toplevel
-			    (GTK_WIDGET(widget))),
-			 GTK_DIALOG_DESTROY_WITH_PARENT, 
-			 GTK_MESSAGE_ERROR, 
-			 GTK_BUTTONS_CLOSE, 
-			 "Error reading %s: %s", 
-			 file, er->message);
-		gtk_dialog_run(GTK_DIALOG(dialog));
-		gtk_widget_destroy(dialog);
-		g_error_free(er);
-	}
-
-	g_free(file);
-	kml_free(kml);
 }
 
 /*

@@ -315,6 +315,7 @@ struct	hwin {
 	GtkMenuItem	 *menuclose;
 	GtkMenuItem	 *menusave;
 	GtkMenuItem	 *menusavekml;
+	GtkMenuItem	 *menusaveall;
 	GtkMenuItem	 *menufile;
 	GtkMenuItem	 *menuview;
 	GtkMenuItem	 *menutools;
