@@ -1004,8 +1004,8 @@
 					distribution.
 				</para>
 			</sect3>
-			<sect3>
-				<title>Mutant Extinctions Minimum (PDF)</title>
+			<sect3 id="mutantextinctionminpdf">
+				<title id="mutantextinctionminpdf.title">Mutant Extinctions Minimum (PDF)</title>
 				<para>
 					Accumulate the minimum value of <link linkend="mutantextinctions" endterm="mutantextinctions.title" />
 					into an empirical probability distribution.
@@ -1024,8 +1024,8 @@
 					distribution.
 				</para>
 			</sect3>
-			<sect3>
-				<title>Incumbent Extinctions Minimum (PDF)</title>
+			<sect3 id="incumbentextinctionminpdf">
+				<title id="incumbentextinctionminpdf.title">Incumbent Extinctions Minimum (PDF)</title>
 				<para>
 					Accumulate the minimum value of <link linkend="incumbentextinctions"
 						endterm="incumbentextinctions.title" /> into an empirical probability distribution.
@@ -1044,8 +1044,8 @@
 					distribution.
 				</para>
 			</sect3>
-			<sect3 id="smoothedsamplemeanmin">
-				<title id="smoothedsamplemeanmin.title">Smoothed Sample Mean Minimum (PDF)</title>
+			<sect3 id="smoothedsamplemeanminpdf">
+				<title id="smoothedsamplemeanminpdf.title">Smoothed Sample Mean Minimum (PDF)</title>
 				<para>
 					Accumulate the minimum value of <link linkend="smoothedsamplemean" endterm="smoothedsamplemean.title" />
 					into an empirical probability distribution.
@@ -1084,56 +1084,73 @@
 				<title>Smoothed Sample Mean Minimum History</title>
 				<para>
 					Accumulate the last 256 instantaneous minimum values (approximately the last minute) of <link
-						linkend="smoothedsamplemeanmin" endterm="smoothedsamplemeanmin.title" />.
+						linkend="smoothedsamplemeanminpdf" endterm="smoothedsamplemeanminpdf.title" />.
 					The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Fitted Polynomial Minimum Mean</title>
 				<para>
-					TODO.
+					Plot the incumbent strategy distribution mean of <link linkend="fittedpolyminpdf"
+						endterm="fittedpolyminpdf.title" /> within the standard deviation error bars.
+					Each simulation is plotted as a separate point.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Sample Mean Minimum Mean</title>
 				<para>
-					TODO.
+					Plot the incumbent strategy distribution mean of <link linkend="samplemeanminpdf"
+						endterm="samplemeanminpdf.title" /> within the standard deviation error bars.
+					Each simulation is plotted as a separate point.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Mutant Extinctions Minimum Mean</title>
 				<para>
-					TODO.
+					Plot the incumbent strategy distribution mean of <link linkend="mutantextinctionminpdf"
+						endterm="mutantextinctionminpdf.title" /> within the standard deviation error bars.
+					Each simulation is plotted as a separate point.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Incumbent Extinctions Minimum Mean</title>
 				<para>
-					TODO.
+					Plot the incumbent strategy distribution mean of <link linkend="incumbentextinctionminpdf"
+						endterm="incumbentextinctionminpdf.title" /> within the standard deviation error bars.
+					Each simulation is plotted as a separate point.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Smoothed Sample Mean Minimum Mean</title>
 				<para>
-					TODO.
+					Plot the incumbent strategy distribution mean of <link linkend="smoothedsamplemeanminpdf"
+						endterm="smoothedsamplemeanminpdf.title" /> within the standard deviation error bars.
+					Each simulation is plotted as a separate point.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Island Sample Mean and Sigma</title>
 				<para>
-					TODO.
+					For each island where the mutant is assigned at the simulation run start, print the mean mutant fraction
+					after 
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
+					</inlineequation>
+					generations (or when one of the types goes extinct&mdash;whichever comes first) over all runs to date.
+					In other words, accumulate, given an island, how robustly a starting mutant behaves.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Configuration</title>
 				<para>
-					TODO.
+					Print the configuration of each simulation in a window as set during <link linkend="configuration"
+						endterm="configuration.title" />.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Status</title>
 				<para>
-					TODO.
+					Print the running status (number of simulation runs, generations, etc.) of each simulation.
 				</para>
 			</sect3>
 		</sect2>
@@ -1143,6 +1160,77 @@
 		<para>
 			TODO.
 		</para>
+	</sect1>
+	<sect1 id="notation">
+		<title id="notation.title">Notation</title>
+		<para>
+			The following notation is used consistently throughout this document and the system itself.
+		</para>
+		<variablelist>
+			<varlistentry>
+				<term>
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>m</mi></mrow></math>
+					</inlineequation>
+				</term>
+				<listitem>
+					For each offspring, the probability of migration.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>N</mi></mrow></math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The total number of islands
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>N</mi><mo>&ge;</mo><mn>2</mn></mrow></math>
+					</inlineequation>.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The maximum number of generations 
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi><mo>&ge;</mo><mn>1</mn></mrow></math>
+					</inlineequation>
+					for which a simulation run will run.
+					This is assigned per-simulation during <link linkend="configuration" endterm="configuration.title" />.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The number of individuals per island
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi><mo>&ge;</mo><mn>2</mn></mrow></math>
+					</inlineequation>.
+					If the islands have a uniform population size, then this number is constant; otherwise, it may be
+					non-uniform
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msup><mi>n</mi><mi>i</mi></msup></mrow></math>
+					</inlineequation>
+					where
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>i</mi></mrow></math>
+					</inlineequation>
+					is the fixed index of an island.
+					This is assigned per-simulation during <link linkend="configuration" endterm="configuration.title" />.
+				</listitem>
+
+			</varlistentry>
+		</variablelist>
 	</sect1>
 	<bibliography>
 		<title>Bibliography</title>
