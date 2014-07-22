@@ -820,7 +820,10 @@
 					window manager).
 					You can also <guimenuitem>Clone</guimenuitem> your view, which will duplicate the window (including all
 					simulations).
-					You can also save the current view as a data file (described below) or as a KML file.
+					You can also save a windows's current view of its simulations as a data file (described in each <link
+						linkend="views" endterm="views.title" />), all views of its simulations in a directory, or all
+					of its simulations as KML files in a directory (described in <link linkend="mapping"
+						endterm="mapping.title" />).
 				</para>
 			</sect3>
 			<sect3>
@@ -849,7 +852,7 @@
 			<sect3 id="samplemean">
 				<title id="samplemean.title">Sample Mean</title>
 				<para>
-					The sample mean graphs incumbents on the x-axis and the mean mutant fraction after
+					The sample mean graphs incumbent strategies on the x-axis and the mean mutant fraction after
 					<inlineequation>
 						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
 					</inlineequation>
@@ -869,6 +872,7 @@
 				<para>
 					This graph augments the <link linkend="samplemean" endterm="samplemean.title" /> graph with the standard
 					deviation above and below each incumbent's mean.
+					The standard deviation below is truncated to zero when negative.
 				</para>
 				<para>
 					The standard deviation is computed from the unbiased sample variance algorithm of
@@ -907,41 +911,67 @@
 					Both are described in the Statistics chapter of <citation>barnett96</citation>.
 				</para>
 			</sect3>
-			<sect3>
-				<title>Mutant Extinctions</title>
+			<sect3 id="mutantextinctions">
+				<title id="mutantextinctions.title">Mutant Extinctions</title>
 				<para>
-					TODO.
+					The percentage of simulation runs to date of each incumbent where the mutant population goes extinct
+					before the maximum simulation time
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
+					</inlineequation>.
+					The x-axis shows incumbent strategy.
+					The y-axis shows the fraction of mutant extinctions in the unit interval.
+					If the incumbent does not yet have any data (i.e., no runs yet), it shows zero.
 				</para>
 			</sect3>
-			<sect3>
-				<title>Incumbent Extinctions</title>
+			<sect3 id="incumbentextinctions">
+				<title id="incumbentextinctions.title">Incumbent Extinctions</title>
 				<para>
-					TODO.
+					The percentage of simulation runs to date of each incumbent where the incumbent population goes extinct
+					before the maximum simulation time
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
+					</inlineequation>.
+					The x-axis shows incumbent strategy.
+					The y-axis shows the fraction of incumbent extinctions in the unit interval.
+					If the incumbent does not yet have any data (i.e., no runs yet), it shows zero.
 				</para>
 			</sect3>
-			<sect3>
-				<title>Smoothed Sample Mean</title>
+			<sect3 id="smoothedsamplemean">
+				<title id="smoothedsamplemean.title">Smoothed Sample Mean</title>
 				<para>
-					TODO.
+					This is the same as <link linkend="samplemean" endterm="samplemean.title" /> except with the data points
+					(sample mean per incumbent strategy on the x-axis) smoothed by a moving average.
+				</para>
+				<para>
+					The moving average is computed for each interior point by replacing the current point with the average
+					of the prior and subsequent point.
+					The border points (first and last strategy) are not adjusted.
+					The moving average is not cascading: when replacing points, the prior and subsequent point used for
+					averaging are from the original data set, not the smoothed data set.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Smoothed Mutant Extinctions</title>
 				<para>
-					TODO.
+					This is the same as <link linkend="mutantextinctions" endterm="mutantextinctions.title" /> except with
+					the data points (extinction fraction per incumbent strategy on the x-axis) smoothed by a moving average.
+					See <link linkend="smoothedsamplemean" endterm="smoothedsamplemean.title" /> for the moving average
+					calculation.
 				</para>
 			</sect3>
-			<sect3>
-				<title>Fitted Polynomial Minimum (PDF)</title>
+			<sect3 id="fittedpolyminpdf">
+				<title id="fittedpolyminpdf.title">Fitted Polynomial Minimum (PDF)</title>
 				<para>
 					Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />
 					into an empirical probability distribution.
 					The mean, mode, and standard deviation (population, not sample) are also displayed.
 				</para>
 				<para>
-					The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are
+					The minimum value is the first minimum: if multiple subsequent minima are detected (a basin), they are
 					ignored.
-					Minima are accumulated four times per second.
+					This might skew values toward smaller minima.
+					Minima are accumulated four times per second, not for each simulation run.
 				</para>
 			</sect3>
 			<sect3>
@@ -950,79 +980,112 @@
 					Accumulate the minimum value of <link linkend="samplemeanfitted" endterm="samplemeanfitted.title" />
 					into an empirical cumulative distribution.
 					The mean, mode, and standard deviation (population, not sample) are also displayed.
-				</para>
-				<para>
-					The minimum value is the first minimum; if multiple subsequent minima are detected (a basin), they are
-					ignored.
-					Minima are accumulated four times per second.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
-			<sect3>
-				<title>Sample Mean Minimum (PDF)</title>
+			<sect3 id="samplemeanminpdf">
+				<title id="samplemeanminpdf.title">Sample Mean Minimum (PDF)</title>
 				<para>
-					TODO.
+					Accumulate the minimum value of <link linkend="samplemean" endterm="samplemean.title" /> into an
+					empirical probability distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Sample Mean Minimum (CDF)</title>
 				<para>
-					TODO.
+					Accumulate the minimum value of <link linkend="samplemean" endterm="samplemean.title" /> into an
+					empirical cumulative distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Mutant Extinctions Minimum (PDF)</title>
 				<para>
-					TODO.
+					Accumulate the minimum value of <link linkend="mutantextinctions" endterm="mutantextinctions.title" />
+					into an empirical probability distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Mutant Extinctions Minimum (CDF)</title>
 				<para>
-					TODO.
+					Accumulate the minimum value of <link linkend="mutantextinctions" endterm="mutantextinctions.title" />
+					into an empirical cumulative distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Incumbent Extinctions Minimum (PDF)</title>
 				<para>
-					TODO.
+					Accumulate the minimum value of <link linkend="incumbentextinctions"
+						endterm="incumbentextinctions.title" /> into an empirical probability distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Incumbent Extinctions Minimum (CDF)</title>
 				<para>
-					TODO.
+					Accumulate the minimum value of <link linkend="incumbentextinctions"
+						endterm="incumbentextinctions.title" /> into an empirical cumulative distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
-			<sect3>
-				<title>Smoothed Sample Mean Minimum (PDF)</title>
+			<sect3 id="smoothedsamplemeanmin">
+				<title id="smoothedsamplemeanmin.title">Smoothed Sample Mean Minimum (PDF)</title>
 				<para>
-					TODO.
+					Accumulate the minimum value of <link linkend="smoothedsamplemean" endterm="smoothedsamplemean.title" />
+					into an empirical probability distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Smoothed Sample Mean Minimum (CDF)</title>
 				<para>
-					TODO.
+					Accumulate the minimum value of <link linkend="smoothedsamplemean" endterm="smoothedsamplemean.title" />
+					into an empirical cumulative distribution.
+					The mean, mode, and standard deviation (population, not sample) are also displayed.
+					See <link linkend="fittedpolyminpdf" endterm="fittedpolyminpdf.title" /> for details on computing the
+					distribution.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Fitted Polynomial Minimum History</title>
 				<para>
-					Accumulate the last 256 minimum values of <link linkend="samplemeanfitted"
-						endterm="samplemeanfitted.title" />.
+					Accumulate the last 256 instantaneous minimum values (approximately the last minute) of <link
+						linkend="samplemeanfitted" endterm="samplemeanfitted.title" />.
 					The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Sample Mean Minimum History</title>
 				<para>
-					TODO.
+					Accumulate the last 256 instantaneous minimum values (approximately the last minute) of <link
+						linkend="samplemeanminpdf" endterm="samplemeanminpdf.title" />.
+					The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
 				</para>
 			</sect3>
 			<sect3>
 				<title>Smoothed Sample Mean Minimum History</title>
 				<para>
-					TODO.
+					Accumulate the last 256 instantaneous minimum values (approximately the last minute) of <link
+						linkend="smoothedsamplemeanmin" endterm="smoothedsamplemeanmin.title" />.
+					The mean and mode are also drawn as solid and dashed horizontal lines, respectively.
 				</para>
 			</sect3>
 			<sect3>
@@ -1074,6 +1137,12 @@
 				</para>
 			</sect3>
 		</sect2>
+	</sect1>
+	<sect1 id="mapping">
+		<title id="mapping.title">Mapping</title>
+		<para>
+			TODO.
+		</para>
 	</sect1>
 	<bibliography>
 		<title>Bibliography</title>
