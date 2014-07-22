@@ -413,7 +413,7 @@ double		  stats_extincti(const struct stats *p);
 
 struct kml	 *kml_parse(const gchar *file, GError **er);
 void		  kml_free(struct kml *kml);
-void		  kml_save(FILE *file, GList *kmls);
+void		  kml_save(FILE *file, struct sim *sim);
 double		**kml_migration_distance(GList *);
 
 __END_DECLS

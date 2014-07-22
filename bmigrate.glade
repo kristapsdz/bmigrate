@@ -73,7 +73,7 @@
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Save KML Data</property>
+                        <property name="label" translatable="yes">Save KML Data Folder</property>
                         <signal name="activate" handler="onsavekml" swapped="no"/>
                       </object>
                     </child>
@@ -82,7 +82,7 @@
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Save All View Data</property>
+                        <property name="label" translatable="yes">Save All View Data Folder</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onsaveall" swapped="no"/>
                       </object>

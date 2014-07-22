@@ -479,14 +479,16 @@ kml_error(GMarkupParseContext *ctx, GError *er, gpointer dat)
 }
 
 void
-kml_save(FILE *f, GList *sims)
+kml_save(FILE *f, struct sim *sim)
 {
 	GMarkupParseContext	*ctx;
 	GMarkupParser	  	 parse;
 	struct kmlsave		 data;
-	struct sim		*sim;
 	struct kml		*kml;
 	int			 rc;
+
+	if (NULL == (kml = sim->kml))
+		return;
 
 	memset(&parse, 0, sizeof(GMarkupParser));
 	memset(&data, 0, sizeof(struct kmlsave));
@@ -498,18 +500,12 @@ kml_save(FILE *f, GList *sims)
 	ctx = g_markup_parse_context_new(&parse, 0, &data, NULL);
 	g_assert(NULL != ctx);
 
-	for ( ; NULL != sims; sims = g_list_next(sims)) {
-		g_assert(NULL != sims->data);
-		sim = sims->data;
-		if (NULL == (kml = sim->kml))
-			continue;
-		data.cursim = sim;
-		data.curisland = 0;
-		rc = g_markup_parse_context_parse
-			(ctx, g_mapped_file_get_contents(kml->file),
-			 g_mapped_file_get_length(kml->file), NULL);
-		g_assert(0 != rc);
-	}
+	data.cursim = sim;
+	data.curisland = 0;
+	rc = g_markup_parse_context_parse
+		(ctx, g_mapped_file_get_contents(kml->file),
+		 g_mapped_file_get_length(kml->file), NULL);
+	g_assert(0 != rc);
 
 	g_markup_parse_context_free(ctx);
 	g_free(data.buf);
@@ -524,6 +520,8 @@ kml_parse(const gchar *file, GError **er)
 	int			 rc;
 	struct kmlparse		 data;
 	struct kml		*kml;
+
+	*er = NULL;
 
 	memset(&parse, 0, sizeof(GMarkupParser));
 	memset(&data, 0, sizeof(struct kmlparse));
@@ -558,6 +556,7 @@ kml_parse(const gchar *file, GError **er)
 		return(NULL);
 	}
 
+	g_assert(NULL != data.places);
 	kml = g_malloc0(sizeof(struct kml));
 	kml->file = f;
 	kml->kmls = data.places;

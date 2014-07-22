@@ -1158,7 +1158,23 @@
 	<sect1 id="mapping">
 		<title id="mapping.title">Mapping</title>
 		<para>
-			TODO.
+			<command>bmigrate</command> has extensive support for extracting population structures from maps, specifically from and
+			to <ulink url="http://www.opengeospatial.org/standards/kml/">KML</ulink> map files.
+		</para>
+		<para>
+			During <link linkend="configuration" endterm="configuration.title" />, one can provide a map file from which population
+			sizes and inter-island migration probabilities are computed.
+			Each island corresponds to a KML <code>Placemark</code>.
+			The coordinates of the island are extracted from its <code>coordinates</code> tuple.
+			Lastly, if the string <code>@@population=NNN@@</code> appears in any text segment within the <code>Placemark</code>, 
+			the <code>NNN</code> will be used as the island's population.
+			(If it isn't a valid number, it will raise an error.)
+			The default island population is 2.
+		</para>
+		<para>
+			One can also save map files (as a directory of KML files, accomodating for multiple simulations).
+			If a map was provided during configuration, the same map file is outputted, but certain key words will be replaced by
+			the simulation statistics:
 		</para>
 	</sect1>
 	<sect1 id="notation">

@@ -1273,16 +1273,20 @@ on_activate(GtkButton *button, gpointer dat)
 			gtk_widget_show_all(GTK_WIDGET(err));
 			goto cleanup;
 		} 
+		er = NULL;
 		kml = kml_parse(file, &er);
 		g_free(file);
 		
 		if (NULL == kml) {
 			/* Re-use pointer. */
 			file = g_strdup_printf("Error: "
-				"bad map file: %s", er->message);
+				"bad map file: %s", 
+				NULL != er ? er->message :
+				"cannot load file");
 			gtk_label_set_text(err, file);
 			gtk_widget_show_all(GTK_WIDGET(err));
 			g_free(file);
+			g_error_free(er);
 			goto cleanup;
 		}
 
@@ -1291,7 +1295,6 @@ on_activate(GtkButton *button, gpointer dat)
 		 * This will have a reasonable default, but make sure
 		 * anyway with some assertions.
 		 */
-		g_free(file);
 		islands = (size_t)g_list_length(kml->kmls);
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++) {
@@ -1640,46 +1643,55 @@ onsavekml(GtkMenuItem *menuitem, gpointer dat)
 	gint		 res;
 	GtkFileChooser	*chooser;
 	FILE		*f;
-	char 		*file;
+	struct sim	*sim;
+	char 		*file, *dir;
 	GList		*sims;
 
 	g_assert(NULL != b->current);
 	dialog = gtk_file_chooser_dialog_new
-		("Save KML Data", GTK_WINDOW(b->current),
-		 GTK_FILE_CHOOSER_ACTION_SAVE,
+		("Create KML Data Folder", GTK_WINDOW(b->current),
+		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
-		 "_Save", GTK_RESPONSE_ACCEPT, NULL);
+		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
 
 	chooser = GTK_FILE_CHOOSER(dialog);
-	gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
-	gtk_file_chooser_set_current_name(chooser, "bmigrate.kml");
-	sims = g_object_get_data(G_OBJECT(b->current), "sims");
+	gtk_file_chooser_set_current_name(chooser, "bmigrate");
 	res = gtk_dialog_run(GTK_DIALOG(dialog));
 	if (res != GTK_RESPONSE_ACCEPT) {
 		gtk_widget_destroy(dialog);
 		return;
 	}
-	file = gtk_file_chooser_get_filename(chooser);
+	dir = gtk_file_chooser_get_filename(chooser);
 	gtk_widget_destroy(dialog);
-	g_assert(NULL != file);
-	g_assert('\0' != *file);
+	g_assert(NULL != dir);
+	g_assert('\0' != *dir);
 
-	if (NULL != (f = fopen(file, "w+"))) {
-		kml_save(f, sims);
-		fclose(f);
-		g_debug("Saved KML: %s", file);
-	} else {
-		dialog = gtk_message_dialog_new
-			(GTK_WINDOW(b->current),
-			 GTK_DIALOG_DESTROY_WITH_PARENT, 
-			 GTK_MESSAGE_ERROR, 
-			 GTK_BUTTONS_CLOSE, 
-			 "Error saving %s: %s", 
-			 file, strerror(errno));
-		gtk_dialog_run(GTK_DIALOG(dialog));
-		gtk_widget_destroy(dialog);
+	sims = g_object_get_data(G_OBJECT(b->current), "sims");
+	for ( ; NULL != sims; sims = g_list_next(sims)) {
+		sim = sims->data;
+		file = g_strdup_printf
+			("%s" G_DIR_SEPARATOR_S "%s.kml",
+			 dir, sim->name);
+		if (NULL != (f = fopen(file, "w+"))) {
+			kml_save(f, sim);
+			g_debug("Saved KML: %s", file);
+			fclose(f);
+		} else {
+			dialog = gtk_message_dialog_new
+				(GTK_WINDOW(b->current),
+				 GTK_DIALOG_DESTROY_WITH_PARENT, 
+				 GTK_MESSAGE_ERROR, 
+				 GTK_BUTTONS_CLOSE, 
+				 "Error saving %s: %s", 
+				 file, strerror(errno));
+			gtk_dialog_run(GTK_DIALOG(dialog));
+			gtk_widget_destroy(dialog);
+			g_free(file);
+			break;
+		}
+		g_free(file);
 	}
-	g_free(file);
+	g_free(dir);
 }
 
 void
