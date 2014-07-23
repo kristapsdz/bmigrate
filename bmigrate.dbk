@@ -75,6 +75,9 @@
 				</orderedlist>
 			</listitem>
 		</orderedlist>
+		<para>
+			See <link linkend="notation" endterm="notation.title" /> for a review of the mathematical notation and variable names.
+		</para>
 		<sect2 id="generations">
 			<title id="generations.title">Generations</title>
 			<para>
@@ -618,12 +621,12 @@
 				<term>Mapped</term>
 				<listitem>
 					<para>
-						Non-uniform inter-island migration and non-uniform population sizes.
-						It accepts a <ulink url="http://www.opengeospatial.org/standards/kml/">KML</ulink> map file (as
-						created, e.g., with <ulink url="https://www.google.com/earth/">Google Earth</ulink>) populated
-						with two or more <code>Placemark</code> sections with appropriate <code>coordinates</code>.
+						Non-uniform inter-island migration and non-uniform population sizes.  It accepts a <ulink
+							url="http://www.opengeospatial.org/standards/kml/">KML</ulink> map file populated with
+						two or more <code>Placemark</code> sections with appropriate <code>coordinates</code>.
 						Inter-island migration is then computed as either the normalised inverse-square distance between
 						each island or uniform random (i.e., the same as that of the Variable or Uniform configuration).
+						See <link linkend="mapping" endterm="mapping.title" /> for details.
 					</para>
 					<para>
 						Normalised means that, for each island, the inverse-square distance is computed to all other
@@ -1160,15 +1163,17 @@
 		<para>
 			<command>bmigrate</command> has extensive support for extracting population structures from maps, specifically from and
 			to <ulink url="http://www.opengeospatial.org/standards/kml/">KML</ulink> map files.
+			A common way of creating and manipulating KML files is with <ulink url="https://www.google.com/earth/">Google
+				Earth</ulink>.
 		</para>
 		<para>
 			During <link linkend="configuration" endterm="configuration.title" />, one can provide a map file from which population
 			sizes and inter-island migration probabilities are computed.
 			Each island corresponds to a KML <code>Placemark</code>.
 			The coordinates of the island are extracted from its <code>coordinates</code> tuple.
-			Lastly, if the string <code>@@population=NNN@@</code> appears in any text segment within the <code>Placemark</code>, 
-			the <code>NNN</code> will be used as the island's population.
-			(If it isn't a valid number, it will raise an error.)
+			Lastly, if the string <code>@@population=NNN@@</code> appears in any text segment within the <code>Placemark</code>
+			(e.g., within the <code>Description</code>), the <code>NNN</code> will be used as the island's population.
+			If it isn't a valid number, it will raise an error.
 			The default island population is 2.
 		</para>
 		<para>
@@ -1176,6 +1181,28 @@
 			If a map was provided during configuration, the same map file is outputted, but certain key words will be replaced by
 			the simulation statistics:
 		</para>
+		<variablelist>
+			<varlistentry>
+				<term><code>@@mean@@</code></term>
+				<listitem>
+					The mean mutant fraction over all simulation runs when the mutant is initialised
+					on the given island.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><code>@@stddev@@</code></term>
+				<listitem>
+					The standard deviation of the mean mutant fraction over all simulation runs when the mutant is
+					initialised on the given island.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><code>@@population@@</code> or <code>@@population=NNN@@</code></term>
+				<listitem>
+					The island population.
+				</listitem>
+			</varlistentry>
+		</variablelist>
 	</sect1>
 	<sect1 id="notation">
 		<title id="notation.title">Notation</title>
@@ -1183,6 +1210,64 @@
 			The following notation is used consistently throughout this document and the system itself.
 		</para>
 		<variablelist>
+			<varlistentry>
+				<term>
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&alpha;</mi></mrow></math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The outer multiplier for the linear transform of the utility function,
+					<inlineequation>
+						<alt>&alpha;(1 + &delta;&InvisibleTimes;&pi;)</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mi>&alpha;</mi>
+							<mfenced>
+								<mrow>
+									<mn>1</mn>
+									<mo>+</mo>
+									<mi>&delta;</mi>
+									<mo>&InvisibleTimes;</mo>
+									<mi>&pi;</mi>
+									<mfenced>
+										<msub><mi>x</mi><mi>i</mi></msub>
+										<msub><mi>x</mi><mrow><mo>-</mo><mi>i</mi></mrow></msub>
+									</mfenced>
+								</mrow>
+							</mfenced>
+						</math>
+					</inlineequation>.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&delta;</mi></mrow></math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The inner multiplier for the linear transform of the utility function,
+					<inlineequation>
+						<alt>&alpha;(1 + &delta;&InvisibleTimes;&pi;)</alt>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mi>&alpha;</mi>
+							<mfenced>
+								<mrow>
+									<mn>1</mn>
+									<mo>+</mo>
+									<mi>&delta;</mi>
+									<mo>&InvisibleTimes;</mo>
+									<mi>&pi;</mi>
+									<mfenced>
+										<msub><mi>x</mi><mi>i</mi></msub>
+										<msub><mi>x</mi><mrow><mo>-</mo><mi>i</mi></mrow></msub>
+									</mfenced>
+								</mrow>
+							</mfenced>
+						</math>
+					</inlineequation>.
+				</listitem>
+			</varlistentry>
 			<varlistentry>
 				<term>
 					<inlineequation>
@@ -1209,6 +1294,56 @@
 			<varlistentry>
 				<term>
 					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>&pi;</mi></mrow></math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The payoff function.
+					This accepts three variables:
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>x</mi></mrow></math>
+					</inlineequation>,
+					the strategy of the current individual;
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
+					</inlineequation>,
+					the sum of all individuals' strategies; and
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+					</inlineequation>,
+					the number of individuals.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
+					</inlineequation>,
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>x</mi></mrow></math>
+					</inlineequation>,
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mrow><msub><mi>x</mi><mi>i</mi></msub></mrow>
+						</math>
+					</inlineequation>,
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mrow><msub><mi>x</mi><mrow><mo>-</mo><mi>i</mi></mrow></msub></mrow>
+						</math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The real-valued strategy domain, a single strategy in that domain, an individual 
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>i</mi></mrow></math>
+					</inlineequation>'s 
+					strategy, and all other individuals' strategies.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>
+					<inlineequation>
 						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
 					</inlineequation>
 				</term>
@@ -1218,13 +1353,17 @@
 						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi><mo>&ge;</mo><mn>1</mn></mrow></math>
 					</inlineequation>
 					for which a simulation run will run.
-					This is assigned per-simulation during <link linkend="configuration" endterm="configuration.title" />.
 				</listitem>
 			</varlistentry>
 			<varlistentry>
 				<term>
 					<inlineequation>
 						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+					</inlineequation>,
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mrow><msub><mi>n</mi><mi>i</mi></msub></mrow>
+						</math>
 					</inlineequation>
 				</term>
 				<listitem>
@@ -1235,16 +1374,14 @@
 					If the islands have a uniform population size, then this number is constant; otherwise, it may be
 					non-uniform
 					<inlineequation>
-						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msup><mi>n</mi><mi>i</mi></msup></mrow></math>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>n</mi><mi>i</mi></msub></mrow></math>
 					</inlineequation>
 					where
 					<inlineequation>
 						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>i</mi></mrow></math>
 					</inlineequation>
 					is the fixed index of an island.
-					This is assigned per-simulation during <link linkend="configuration" endterm="configuration.title" />.
 				</listitem>
-
 			</varlistentry>
 		</variablelist>
 	</sect1>

@@ -11,9 +11,10 @@
 			<h1>Simulating the Island Model of Evolutionary Algorithms</h1>
 		</header>
 		<nav>
-			Download version <span class="version">@VERSION@</span>:
+			Download version @VERSION@:
 			<ul>
-				<li><a href="snapshots/bmigrate.tgz">Source Code</a> (<a href="snapshots">Archives</a>)</li>
+				<li><a href="snapshots/bmigrate.tgz">Source Code</a></li>
+				<li><a href="snapshots">Source Archives</a></li>
 				<li><a href="snapshots/bmigrate.app.zip">Mac OS X Application</a></li>
 			</ul>
 		</nav>
@@ -21,13 +22,22 @@
 			<p>
 				The <span class="nm">bmigrate</span> utility simulates the island model of evolutionary algorithms, allowing
 				for real-time visualisation, analysis, and control.
-				It is <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> and runs on UNIX systems (GNU/Linux,
-				Mac OS X Snow Leopard and later, and BSD) systems, <a href="http://www.gtk.org">GTK+3</a>, <a
-					href="https://www.gnu.org/software/gsl/">GSL</a>, <a href="https://www.gnu.org/software/make/">GNU
-					make</a>, and <a href="http://www.docbook.org">DocBook</a> to build.
-				It's heavily multi-threaded and built for repeated-run analysis, so the larger your machine, the more robust
-				your simulations.
+				It is <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> and runs on UNIX systems.
+				At its simplest, <span class="nm">bmigrate</span> orchestrates simultaneous simulations consisting of repeated
+				simulation runs.
+				Each run is a sequence of generations over a finite set of islands.
 			</p>
+			<figure>
+				<img src="evolve.png" alt="Single Generation of Process"/>
+				<figcaption>
+					In (1), each island's individuals reproduce with a Poisson process with a mean of the individual's
+					utility function.
+					The offspring then (2) either migrate or remain on their island.
+					On each island, a single individual (3) is selected.
+					From each island's immigration queue, another single individual (4) is selected.
+					Finally, the old individual is then (5) replaced by the new.
+				</figcaption>
+			</figure>
 			<p>
 				The system has an extensive <a href="bmigrate.html">manual</a>.
 				Beyond how to deploy and operate the system, the manual describes topics like parallelism, data-flow,
@@ -36,13 +46,13 @@
 			<p>
 				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv">Kristaps
 					Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who originally wrote <span
-					class="name">bmigrate</span> for <a href="http://pzp.hhs.se/jorgen-weibull">J&#246;rgen Weibull</a>, <a
+					class="nm">bmigrate</span> for <a href="http://pzp.hhs.se/jorgen-weibull">J&#246;rgen Weibull</a>, <a
 					href="http://www.hhs.se">Stockholm School of Economics</a>, with financial support from the <a
 					href="http://www.wallenberg.com/kaw/en">Knut and Alice Wallenberg Research Foundation</a>.
 			</p>
 		</article>
 		<footer>
-			&copy; <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 2014
+			&copy; 2014 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
 		</footer>
 	</body>
 </html>

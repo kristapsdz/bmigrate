@@ -1,6 +1,6 @@
 .SUFFIXES: .xml .html .dbk
 
-VERSION = 0.0.12
+VERSION = 0.0.14
 PREFIX = /usr/local
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
@@ -57,7 +57,7 @@ www: bmigrate.app.zip index.html
 installwww: www
 	mkdir -p $(PREFIX)
 	install -m 0644 bmigrate.app.zip $(PREFIX)
-	install -m 0644 $(IMAGES) index.html index.css bmigrate.html bmigrate.css $(PREFIX)
+	install -m 0644 $(IMAGES) index.html evolve.png index.css bmigrate.html bmigrate.css $(PREFIX)
 endif
 
 $(GTK_OBJS): extern.h
@@ -69,7 +69,7 @@ bmigrate: $(GTK_OBJS)
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -c -o $@ $<
 
 .dbk.xml:
-	xsltproc --stringparam html.stylesheet bmigrate.css -o $@ $(DOCBOOK) $<
+	xsltproc --stringparam section.autolabel 1 --stringparam html.stylesheet bmigrate.css -o $@ $(DOCBOOK) $<
 
 .xml.html: 
 	sed "s!@VERSION@!$(VERSION)!g" $< >$@
