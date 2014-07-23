@@ -1701,7 +1701,6 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 	GtkWidget	*dialog;
 	gint		 res;
 	GtkFileChooser	*chooser;
-	GList		*list;
 	char 		*dir, *file;
 	enum view	 view, sv;
 	FILE		*f;
@@ -1728,7 +1727,6 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 
 	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
 	sv = cur->view;
-	list = g_object_get_data(G_OBJECT(b->current), "sims");
 	for (view = 0; view < VIEW__MAX; view++) {
 		file = g_strdup_printf
 			("%s" G_DIR_SEPARATOR_S "%s",
