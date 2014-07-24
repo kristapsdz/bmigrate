@@ -85,18 +85,12 @@ write_pdf(FILE *f, size_t simnum,
 }
 
 void
-save(FILE *f, struct bmigrate *b)
+savewin(FILE *f, const GList *sims, const struct curwin *cur)
 {
-	struct curwin	*cur;
 	double		 v;
-	struct sim	*sim;
+	const struct sim *sim;
 	size_t		 i, j;
-	GList		*sims, *l;
-
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	g_assert(NULL != cur);
-	sims = g_object_get_data(G_OBJECT(b->current), "sims");
-	g_assert(NULL != sims);
+	const GList	*l;
 
 	for (i = 1, l = sims; NULL != l; l = l->next, i++) {
 		sim = l->data;
@@ -284,3 +278,15 @@ save(FILE *f, struct bmigrate *b)
 	}
 }
 
+void
+save(FILE *f, struct bmigrate *b)
+{
+	struct curwin	*cur;
+	GList		*sims;
+
+	sims = g_object_get_data(G_OBJECT(b->current), "sims");
+	g_assert(NULL != sims);
+	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	g_assert(NULL != cur);
+	savewin(f, sims, cur);
+}

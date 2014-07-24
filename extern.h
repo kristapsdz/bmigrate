@@ -312,6 +312,8 @@ struct	hwin {
 #endif
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
+	GtkMenuItem	 *menuautoexport;
+	GtkMenuItem	 *menuunautoexport;
 	GtkMenuItem	 *menuclose;
 	GtkMenuItem	 *menusave;
 	GtkMenuItem	 *menusavekml;
@@ -363,6 +365,7 @@ struct	hwin {
 struct	curwin {
 	enum view	  view; /* what view are we seeing? */
 	int		  redraw; /* window is stale? */
+	gchar		 *autosave;
 };
 
 /*
@@ -401,6 +404,7 @@ void		  hnode_test(void);
 void		  draw(GtkWidget *w, cairo_t *cr,
 			struct bmigrate *b);
 void		  save(FILE *f, struct bmigrate *b);
+void		  savewin(FILE *f, const GList *sims, const struct curwin *cur);
 void		 *simulation(void *arg);
 
 struct stats	 *stats_alloc0(size_t sz);

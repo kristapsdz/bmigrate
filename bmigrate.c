@@ -176,6 +176,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem5"));
+	b->wins.menuautoexport = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem49"));
+	b->wins.menuunautoexport = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem50"));
 	b->wins.menuclose = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem24"));
 	b->wins.menusave = GTK_MENU_ITEM
@@ -293,6 +297,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(b->wins.menus, b->wins.menusaveall);
 	b->wins.menus = g_list_append
 		(b->wins.menus, b->wins.menuclose);
+	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.menuautoexport);
+	b->wins.menus = g_list_append
+		(b->wins.menus, b->wins.menuunautoexport);
 }
 
 /*
@@ -636,6 +644,60 @@ on_sim_copyout(gpointer dat)
 		g_assert(0 == sim->hot.copyout);
 		sim->hot.copyout = 1;
 		g_mutex_unlock(&sim->hot.mux);
+	}
+
+	return(TRUE);
+}
+
+static gboolean
+on_sim_autosave(gpointer dat)
+{
+	GList		*list, *sims;
+	struct bmigrate	*b = dat;
+	GtkWidget	*dialog;
+	struct curwin	*cur;
+	enum view	 sv, view;
+	gchar		*file;
+	FILE		*f;
+
+	list = gtk_window_list_toplevels();
+	for ( ; NULL != list; list = g_list_next(list)) {
+		cur = g_object_get_data(G_OBJECT(list->data), "cfg");
+		if (NULL == cur || NULL == cur->autosave)
+			continue;
+		sims = g_object_get_data(G_OBJECT(list->data), "sims");
+		g_assert(NULL != sims);
+		for (view = 0; view < VIEW__MAX; view++) {
+			file = g_strdup_printf
+				("%s" G_DIR_SEPARATOR_S "%s",
+				 cur->autosave, views[view]);
+			if (NULL != (f = fopen(file, "w+"))) {
+				sv = cur->view;
+				cur->view = view;
+				savewin(f, sims, cur);
+				cur->view = sv;
+				fclose(f);
+				g_free(file);
+				continue;
+			} 
+			dialog = gtk_message_dialog_new
+				(GTK_WINDOW(b->current),
+				 GTK_DIALOG_DESTROY_WITH_PARENT, 
+				 GTK_MESSAGE_ERROR, 
+				 GTK_BUTTONS_CLOSE, 
+				 "Error auto-saving %s: %s", 
+				 file, strerror(errno));
+			gtk_dialog_run(GTK_DIALOG(dialog));
+			gtk_widget_destroy(dialog);
+			g_free(file);
+			g_free(cur->autosave);
+			cur->autosave = NULL;
+			gtk_widget_hide(GTK_WIDGET
+				(b->wins.menuunautoexport));
+			gtk_widget_show(GTK_WIDGET
+				(b->wins.menuautoexport));
+			break;
+		}
 	}
 
 	return(TRUE);
@@ -1042,6 +1104,15 @@ ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 	return(TRUE);
 }
 
+static void
+curwin_free(gpointer dat)
+{
+	struct curwin	*cur = dat;
+
+	g_free(cur->autosave);
+	g_free(cur);
+}
+
 /*
  * Initialise a simulation (or simulations) window.
  * This is either called when we've just made a new simulation 
@@ -1081,7 +1152,7 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	gtk_container_add(GTK_CONTAINER(w), draw);
 	gtk_widget_show_all(w);
 	g_object_set_data_full(G_OBJECT(w), 
-		"cfg", cur, g_free);
+		"cfg", cur, curwin_free);
 	g_object_set_data_full(G_OBJECT(w), 
 		"sims", sims, on_sims_deref);
 
@@ -1104,6 +1175,51 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	gtk_window_set_title(GTK_WINDOW(w),
 		gtk_menu_item_get_label
 		(GTK_MENU_ITEM(b->wins.views[cur->view])));
+}
+
+void
+onunautoexport(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct curwin	*cur;
+	struct bmigrate	*b = dat;
+
+	g_assert(NULL != b->current);
+	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	g_assert(NULL != cur->autosave);
+	g_free(cur->autosave);
+	cur->autosave = NULL;
+	gtk_widget_hide(GTK_WIDGET(b->wins.menuunautoexport));
+	gtk_widget_show(GTK_WIDGET(b->wins.menuautoexport));
+}
+
+void
+onautoexport(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	GtkWidget	*dialog;
+	gint		 res;
+	struct curwin	*cur;
+	GtkFileChooser	*chooser;
+
+	g_assert(NULL != b->current);
+	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	g_assert(NULL == cur->autosave);
+	dialog = gtk_file_chooser_dialog_new
+		("Create Data Folder", GTK_WINDOW(b->current),
+		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
+		 "_Cancel", GTK_RESPONSE_CANCEL,
+		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
+	chooser = GTK_FILE_CHOOSER(dialog);
+	gtk_file_chooser_set_current_name(chooser, "bmigrate");
+	res = gtk_dialog_run(GTK_DIALOG(dialog));
+	if (res != GTK_RESPONSE_ACCEPT) {
+		gtk_widget_destroy(dialog);
+		return;
+	}
+	cur->autosave = gtk_file_chooser_get_filename(chooser);
+	gtk_widget_destroy(dialog);
+	gtk_widget_hide(GTK_WIDGET(b->wins.menuautoexport));
+	gtk_widget_show(GTK_WIDGET(b->wins.menuunautoexport));
 }
 
 /*
@@ -2006,6 +2122,7 @@ main(int argc, char *argv[])
 	g_object_unref(G_OBJECT(builder));
 	gtk_widget_show_all(GTK_WIDGET(b.wins.config));
 	gtk_widget_hide(GTK_WIDGET(b.wins.error));
+	gtk_widget_hide(GTK_WIDGET(b.wins.menuunautoexport));
 
 #ifdef	MAC_INTEGRATION
 	/*
@@ -2066,7 +2183,8 @@ main(int argc, char *argv[])
 	 * the window system.
 	 * Four times per second, update our cold statistics.
 	 */
-	g_timeout_add(1000, (GSourceFunc)on_sim_timer, &b);
+	g_timeout_add_seconds(1, (GSourceFunc)on_sim_timer, &b);
+	g_timeout_add_seconds(60, (GSourceFunc)on_sim_autosave, &b);
 	g_timeout_add(250, (GSourceFunc)on_sim_copyout, &b);
 	gtk_statusbar_push(b.wins.status, 0, "No simulations.");
 	gtk_main();

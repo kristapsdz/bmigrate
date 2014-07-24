@@ -478,7 +478,7 @@
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Pause Simulation</property>
+                        <property name="label" translatable="yes">Pause Simulations</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onpause" swapped="no"/>
                       </object>
@@ -491,6 +491,30 @@
                         <property name="label" translatable="yes">Unpause Simulations</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onunpause" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem48">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="menuitem49">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Set Auto-Export Views</property>
+                        <signal name="activate" handler="onautoexport" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="menuitem50">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Unset Auto-Export Views</property>
+                        <signal name="activate" handler="onunautoexport" swapped="no"/>
                       </object>
                     </child>
                   </object>
