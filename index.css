@@ -1,7 +1,7 @@
 body, html			{ border: 0; 
 			   	  margin: 0;
 				  font-family: serif;
-		 	  	  font-size: 12pt; }
+		 	  	  font-size: 13pt; }
 header, nav, article, footer	{ padding-left: 5%; 
 				  padding-right: 5%; }
 header				{ background: #ccc;
@@ -10,20 +10,27 @@ header				{ background: #ccc;
 				  padding-top: 2ex;
 				  box-shadow: 1px 1px 1px #ccc; }
 header h1			{ margin: 0; }
+#cite > span			{ background-color: #ddd;
+				  border: thin solid #eee; 
+				  border-radius: 1ex;
+				  padding: 0.75ex 1ex; }
 a				{ text-decoration: none; }
 figure				{ margin: 0;
 				  padding: 0;
 				  width: 100%;
 				  text-align: center; }
-figcaption			{ font-style: italic; }
+figcaption			{ font-style: italic; 
+				  color: #9a3334; }
 footer				{ color: #666;
-				  margin-top: 3em;
-				  font-size: smaller; }
+				  margin-top: 3em; }
 footer a			{ color: #444; 
 		 		 font-weight: bold; }
 footer a:hover			{ color: #000; }
 nav				{ color: #9A3334; }
+a				{ color: #FF6600; }
+a:hover				{ color: red; }
 nav ul				{ padding: 0; 
+				  margin-top: 1ex;
 				  margin-bottom: 0em;
 				  display: inline-block; }
 nav li				{ list-style-type: none; 
@@ -43,10 +50,15 @@ p				{ line-height: 150%; }
 	header, nav, article, footer { padding-left: 1%; padding-right: 1%; }
 	h1			{ font-size: larger; }
 	footer			{ margin-top: 1em; }
-	nav			{ margin-top: 1em; }
+	nav			{ margin-top: 1ex; }
 	nav ul			{ display: block; 
 				  margin-top: 0; }
 	nav li			{ list-style-type: circle; 
 				  border: 0;
 				  display: block; }
+	#cite > span		{ background-color: inherit;
+				  border: 0;
+				  border-radius: 0;
+				  padding: 0; }
+
 }

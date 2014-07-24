@@ -1,7 +1,10 @@
-.SUFFIXES: .xml .html .dbk
+.SUFFIXES: .xml .html .dbk .in.bib .bib
 
-VERSION = 0.0.14
+VERSION = 0.1.1
+VDATE = 2014-07-25
 PREFIX = /usr/local
+VYEAR = 2014
+VMONTH = July
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 GTK_OBJS = bmigrate.o parser.o stats.o simulation.o draw.o save.o kml.o
@@ -52,12 +55,12 @@ bmigrate.app: all Info.plist
 	rm -rf bmigrate.app
 	gtk-mac-bundler bmigrate.bundle
 
-www: bmigrate.app.zip index.html
+www: bmigrate.app.zip index.html bmigrate.bib
 
 installwww: www
 	mkdir -p $(PREFIX)
 	install -m 0644 bmigrate.app.zip $(PREFIX)
-	install -m 0644 $(IMAGES) index.html evolve.png index.css bmigrate.html bmigrate.css $(PREFIX)
+	install -m 0644 $(IMAGES) index.html evolve.png index.css bmigrate.html bmigrate.css bmigrate.bib $(PREFIX)
 endif
 
 $(GTK_OBJS): extern.h
@@ -72,9 +75,12 @@ bmigrate: $(GTK_OBJS)
 	xsltproc --stringparam section.autolabel 1 --stringparam html.stylesheet bmigrate.css -o $@ $(DOCBOOK) $<
 
 .xml.html: 
-	sed "s!@VERSION@!$(VERSION)!g" $< >$@
+	sed -e "s!@VERSION@!$(VERSION)!g" -e "s!@VDATE@!$(VDATE)!g" -e "s!@VMONTH@!$(VMONTH)!g" -e "s!@VYEAR@!$(VYEAR)!g" $< >$@
+
+.in.bib.bib:
+	sed -e "s!@VERSION@!$(VERSION)!g" -e "s!@VDATE@!$(VDATE)!g" -e "s!@VMONTH@!$(VMONTH)!g" -e "s!@VYEAR@!$(VYEAR)!g" $< >$@
 
 clean:
-	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.xml index.html
+	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.xml index.html bmigrate.bib
 	rm -rf bmigrate.app *.dSYM
 	rm -f bmigrate.app.zip Info.plist

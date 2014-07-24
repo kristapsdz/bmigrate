@@ -6,36 +6,46 @@
 		<link rel="stylesheet" href="index.css" type="text/css" />
 		<title>bmigrate</title>
 	</head>
-	<body>
+	<body itemscope itemtype="http://schema.org/SoftwareApplication">
 		<header>
-			<h1>Simulating the Island Model of Evolutionary Algorithms</h1>
+			<h1 itemprop="description">Simulating the Island Model of Evolutionary Algorithms</h1>
 		</header>
 		<nav>
-			Download version @VERSION@:
+			Version <span itemprop="softwareVersion">@VERSION@</span>, <span itemprop="dateUpdated" datetime="@VDATE@">@VDATE@</span>:
 			<ul>
-				<li><a href="snapshots/bmigrate.tgz">Source Code</a></li>
-				<li><a href="snapshots">Source Archives</a></li>
-				<li><a href="snapshots/bmigrate.app.zip">Mac OS X Application</a></li>
+				<li><a href="bmigrate.bib">BibTeX</a></li>
+				<li><a itemprop="downloadUrl" href="snapshots/bmigrate.tgz">Source</a></li>
+				<li><a href="snapshots/bmigrate.app.zip">Mac OSX App</a></li>
+				<li><a href="snapshots">Archives</a></li>
 			</ul>
 		</nav>
 		<article>
 			<p>
-				The <span class="nm">bmigrate</span> utility simulates the island model of evolutionary algorithms, allowing
+				The <span class="nm" itemprop="name">bmigrate</span> utility simulates the island model of evolutionary algorithms, allowing
 				for real-time visualisation, analysis, and control.
-				It is <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> and runs on UNIX systems.
+				It is <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> and runs on <span
+					itemprop="operatingSystem">UNIX</a> systems.
 				At its simplest, <span class="nm">bmigrate</span> orchestrates simultaneous simulations consisting of repeated
 				simulation runs.
 				Each run is a sequence of generations over a finite set of islands.
 			</p>
+			<!-- p id="cite">
+				<span>
+					<a href="bmigrate.bib">BibTeX</a>:
+					Kristaps Dzonsons and J&#246;rgen Weibull.
+					Simulating the Island Model of Evolutionary Algorithms, version @VERSION@:
+					<a itemprop="url" href="http://www.kcons.eu/bmigrate">kcons.eu/bmigrate</a>; @VDATE@.
+				</span>
+			</p -->
 			<figure>
 				<img src="evolve.png" alt="Single Generation of Process"/>
 				<figcaption>
 					In (1), each island's individuals reproduce with a Poisson process with a mean of the individual's
 					utility function.
-					The offspring then (2) either migrate or remain on their island.
-					On each island, a single individual (3) is selected.
-					From each island's immigration queue, another single individual (4) is selected.
-					Finally, the old individual is then (5) replaced by the new.
+					The offspring then (2) migrate to another island or remain on the birth island as immigrants.
+					On each island, a native individual (3) and immigrant individual (4) are selected.
+					Finally, the native individual is then (5) replaced by the immigrant.
+					The remaining immigrants are disregarded.
 				</figcaption>
 			</figure>
 			<p>
@@ -44,11 +54,12 @@
 				randomness, precision, and so forth.
 			</p>
 			<p>
-				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv">Kristaps
-					Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who originally wrote <span
-					class="nm">bmigrate</span> for <a href="http://pzp.hhs.se/jorgen-weibull">J&#246;rgen Weibull</a>, <a
-					href="http://www.hhs.se">Stockholm School of Economics</a>, with financial support from the <a
-					href="http://www.wallenberg.com/kaw/en">Knut and Alice Wallenberg Research Foundation</a>.
+				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv"
+					rel="author">Kristaps Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who
+				originally wrote <span class="nm">bmigrate</span> for <a href="http://pzp.hhs.se/jorgen-weibull"
+					rel="author">J&#246;rgen Weibull</a>, <a href="http://www.hhs.se">Stockholm School of Economics</a>,
+				with financial support from the <a href="http://www.wallenberg.com/kaw/en">Knut and Alice Wallenberg Research
+					Foundation</a>.
 			</p>
 		</article>
 		<footer>
