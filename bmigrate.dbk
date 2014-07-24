@@ -721,7 +721,7 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
-				<term>Simulation Runs</term>
+				<term>Max Generations</term>
 				<listitem>
 					<para>
 						The maximum number of generations per simulation run.
@@ -824,9 +824,10 @@
 					You can also <guimenuitem>Clone</guimenuitem> your view, which will duplicate the window (including all
 					simulations).
 					You can also save a windows's current view of its simulations as a data file (described in each <link
-						linkend="views" endterm="views.title" />), all views of its simulations in a directory, or all
-					of its simulations as KML files in a directory (described in <link linkend="mapping"
-						endterm="mapping.title" />).
+						linkend="views" endterm="views.title" />).
+					You can export all views of all simulations into a folder as well, or (for the time being, only if
+					provided a map on configuration) the KML representation of each simulation into a folder (described in
+					<link linkend="mapping" endterm="mapping.title" />).
 				</para>
 			</sect3>
 			<sect3>

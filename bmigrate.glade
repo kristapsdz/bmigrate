@@ -63,9 +63,24 @@
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">_Save View Data</property>
+                        <property name="label" translatable="yes">_Save View</property>
                         <property name="use_underline">True</property>
                         <signal name="activate" handler="onsave" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkMenuItem" id="menuitem15">
+                        <property name="visible">True</property>
+                        <property name="sensitive">False</property>
+                        <property name="can_focus">False</property>
+                        <property name="label">Clone View</property>
+                        <signal name="activate" handler="onclone" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkSeparatorMenuItem" id="menuitem18">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                       </object>
                     </child>
                     <child>
@@ -73,7 +88,7 @@
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Save KML Data Folder</property>
+                        <property name="label" translatable="yes">Export KMLs</property>
                         <signal name="activate" handler="onsavekml" swapped="no"/>
                       </object>
                     </child>
@@ -82,8 +97,7 @@
                         <property name="visible">True</property>
                         <property name="sensitive">False</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Save All View Data Folder</property>
-                        <property name="use_underline">True</property>
+                        <property name="label" translatable="yes">Export Views</property>
                         <signal name="activate" handler="onsaveall" swapped="no"/>
                       </object>
                     </child>
@@ -91,15 +105,6 @@
                       <object class="GtkSeparatorMenuItem" id="menuitem4">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="menuitem15">
-                        <property name="visible">True</property>
-                        <property name="sensitive">False</property>
-                        <property name="can_focus">False</property>
-                        <property name="label">Clone Window</property>
-                        <signal name="activate" handler="onclone" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -1183,7 +1188,7 @@
                     <property name="can_focus">False</property>
                     <property name="xalign">1</property>
                     <property name="label" translatable="yes">Configuration:</property>
-                    <property name="width_chars">13</property>
+                    <property name="width_chars">14</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1223,7 +1228,7 @@
                     <property name="can_focus">False</property>
                     <property name="xalign">1</property>
                     <property name="label" translatable="yes">Threads:</property>
-                    <property name="width_chars">13</property>
+                    <property name="width_chars">14</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1346,8 +1351,8 @@
                     <property name="visible">True</property>
                     <property name="can_focus">False</property>
                     <property name="xalign">1</property>
-                    <property name="label" translatable="yes">Simulation runs:</property>
-                    <property name="width_chars">13</property>
+                    <property name="label" translatable="yes">Max Generations:</property>
+                    <property name="width_chars">14</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1386,7 +1391,7 @@
                     <property name="can_focus">False</property>
                     <property name="xalign">1</property>
                     <property name="label" translatable="yes">Parameters:</property>
-                    <property name="width_chars">13</property>
+                    <property name="width_chars">14</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1464,7 +1469,7 @@
                     <property name="can_focus">False</property>
                     <property name="xalign">1</property>
                     <property name="label" translatable="yes">Incumbents:</property>
-                    <property name="width_chars">13</property>
+                    <property name="width_chars">14</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1503,7 +1508,7 @@
                     <property name="xalign">1</property>
                     <property name="yalign">0.079999998211860657</property>
                     <property name="label" translatable="yes">Mutants:</property>
-                    <property name="width_chars">13</property>
+                    <property name="width_chars">14</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1661,7 +1666,7 @@
                     <property name="can_focus">False</property>
                     <property name="xalign">1</property>
                     <property name="label" translatable="yes">Fit polynomial:</property>
-                    <property name="width_chars">13</property>
+                    <property name="width_chars">14</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
@@ -1716,7 +1721,7 @@
                     <property name="can_focus">False</property>
                     <property name="xalign">1</property>
                     <property name="label" translatable="yes">Name:</property>
-                    <property name="width_chars">13</property>
+                    <property name="width_chars">14</property>
                   </object>
                   <packing>
                     <property name="expand">False</property>
