@@ -40,7 +40,6 @@ install: all
 	install -m 0755 bmigrate $(PREFIX)/bin
 	install -m 0444 $(SHARE) $(PREFIX)/share/bmigrate
 
-ifeq ($(shell uname),Darwin)
 bmigrate.app.zip: bmigrate.app
 	zip -r -q bmigrate.app.zip bmigrate.app
 
@@ -55,18 +54,27 @@ bmigrate.app: all Info.plist
 	rm -rf bmigrate.app
 	gtk-mac-bundler bmigrate.bundle
 
-www: bmigrate.app.zip index.html bmigrate.bib
+www: bmigrate.app.zip index.html bmigrate.bib bmigrate-$(VERSION).tgz
 
 installwww: www
-	mkdir -p $(PREFIX)
-	install -m 0644 bmigrate.app.zip $(PREFIX)
+	mkdir -p $(PREFIX)/snapshots
+	install -m 0644 bmigrate.app.zip $(PREFIX)/snapshots
+	install -m 0644 bmigrate-$(VERSION).tgz $(PREFIX)/snapshots
+	install -m 0644 bmigrate-$(VERSION).tgz $(PREFIX)/snapshots/bmigrate.tgz
 	install -m 0644 $(IMAGES) index.html evolve.png index.css bmigrate.html bmigrate.css bmigrate.bib $(PREFIX)
-endif
 
 $(GTK_OBJS): extern.h
 
 bmigrate: $(GTK_OBJS)
 	$(CC) -o $@ $(GTK_OBJS) $(GTK_LIBS) $(BSDLIB)
+
+bmigrate-$(VERSION).tgz:
+	mkdir -p .dist/bmigrate-$(VERSION)
+	cp GNUmakefile .dist/bmigrate-$(VERSION)
+	cp bmigrate.c draw.c extern.h kml.c parser.c save.c simulation.c stats.c .dist/bmigrate-$(VERSION)
+	cp bmigrate.dbk screen-config.png bmigrate.glade bmigrate.css .dist/bmigrate-$(VERSION)
+	(cd .dist && tar zcf ../$@ bmigrate-$(VERSION))
+	rm -rf .dist
 
 .c.o:
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -c -o $@ $<
@@ -81,6 +89,6 @@ bmigrate: $(GTK_OBJS)
 	sed -e "s!@VERSION@!$(VERSION)!g" -e "s!@VDATE@!$(VDATE)!g" -e "s!@VMONTH@!$(VMONTH)!g" -e "s!@VYEAR@!$(VYEAR)!g" $< >$@
 
 clean:
-	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.xml index.html bmigrate.bib
+	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.xml index.html bmigrate.bib bmigrate-$(VERSION).tgz
 	rm -rf bmigrate.app *.dSYM
 	rm -f bmigrate.app.zip Info.plist
