@@ -8,7 +8,7 @@ VMONTH = July
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 GTK_OBJS = bmigrate.o parser.o stats.o simulation.o draw.o save.o kml.o
-IMAGES = screen-config.png
+IMAGES = screen-config.png screen1.png screen2.png screen3.png screen4.png screen5.png
 SHARE = $(IMAGES) bmigrate.css bmigrate.glade bmigrate.html
 ifeq ($(shell uname),Darwin)
 GTK_CFLAGS := $(shell pkg-config --cflags gsl gtk-mac-integration)
