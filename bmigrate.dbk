@@ -842,6 +842,8 @@
 				<para>
 					From here you can pause or unpause simulations.
 					These apply to all simulations in the current window.
+					You can also register a directory into which all views will be auto-exported once per minute.
+					(This is handy when running extensive simulations over an iffy network.)
 				</para>
 			</sect3>
 		</sect2>

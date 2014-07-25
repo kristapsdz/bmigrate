@@ -1186,6 +1186,7 @@ onunautoexport(GtkMenuItem *menuitem, gpointer dat)
 	g_assert(NULL != b->current);
 	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
 	g_assert(NULL != cur->autosave);
+	g_debug("Disabling auto-exporting: %s", cur->autosave);
 	g_free(cur->autosave);
 	cur->autosave = NULL;
 	gtk_widget_hide(GTK_WIDGET(b->wins.menuunautoexport));
@@ -1220,6 +1221,7 @@ onautoexport(GtkMenuItem *menuitem, gpointer dat)
 	gtk_widget_destroy(dialog);
 	gtk_widget_hide(GTK_WIDGET(b->wins.menuautoexport));
 	gtk_widget_show(GTK_WIDGET(b->wins.menuunautoexport));
+	g_debug("Auto-exporting: %s", cur->autosave);
 }
 
 /*

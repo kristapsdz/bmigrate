@@ -19,9 +19,16 @@ figure				{ margin: 0;
 				  padding: 0;
 				  width: 100%;
 				  text-align: center; }
+figure.guide img		{ width: 100%; 
+				  max-width: 744px; }
+figure.screens 			{ display: table; }
+figure.screens div		{ display: table-cell; }
+figure.screens img		{ width: 100%; }
 figcaption			{ font-style: italic; 
-				  color: #9a3334; }
+				  color: #9a3334;
+			  	  text-align: left; }
 footer				{ color: #666;
+				  margin-bottom: 1em; 
 				  margin-top: 3em; }
 footer a			{ color: #444; 
 		 		 font-weight: bold; }
@@ -41,10 +48,6 @@ nav li				{ list-style-type: none;
 nav li:last-child		{ border: 0; }
 .nm				{ font-style: italic; }
 h1				{ font-size: 18pt; }
-figure				{ text-align: center; 
-				  margin: 0; }
-figure img			{ width: 100%; 
-				  max-width: 744px; }
 p				{ line-height: 150%; }
 @media only screen and (max-width: 600px), only screen and (max-device-width: 600px) {
 	header, nav, article, footer { padding-left: 1%; padding-right: 1%; }

@@ -11,20 +11,22 @@
 			<h1 itemprop="description">Simulating the Island Model of Evolutionary Algorithms</h1>
 		</header>
 		<nav>
-			Version <span itemprop="softwareVersion">@VERSION@</span>, <span itemprop="dateUpdated" datetime="@VDATE@">@VDATE@</span>:
+			Version <span itemprop="softwareVersion">@VERSION@</span>, <time itemprop="dateUpdated" datetime="@VDATE@">@VDATE@</time>: 
 			<ul>
 				<li><a href="bmigrate.bib">BibTeX</a></li>
 				<li><a itemprop="downloadUrl" href="snapshots/bmigrate.tgz">Source</a></li>
-				<li><a href="snapshots/bmigrate.app.zip">Mac OSX App</a></li>
 				<li><a href="snapshots">Archives</a></li>
+				<li><a href="snapshots/bmigrate.app.zip">OS X Binary</a></li>
+				<li><a href="bmigrate.html">Manual</a></li>
 			</ul>
 		</nav>
 		<article>
 			<p>
 				The <span class="nm" itemprop="name">bmigrate</span> utility simulates the island model of evolutionary algorithms, allowing
 				for real-time visualisation, analysis, and control.
-				It is <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> and runs on <span
-					itemprop="operatingSystem">UNIX</a> systems.
+				It is an <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> <a
+					href="http://www.gtk.org">GTK</a> application running on <span itemprop="operatingSystem">UNIX</a>
+				systems.
 				At its simplest, <span class="nm">bmigrate</span> orchestrates simultaneous simulations consisting of repeated
 				simulation runs.
 				Each run is a sequence of generations over a finite set of islands.
@@ -37,22 +39,32 @@
 					<a itemprop="url" href="http://www.kcons.eu/bmigrate">kcons.eu/bmigrate</a>; @VDATE@.
 				</span>
 			</p -->
-			<figure>
-				<img src="evolve.png" alt="Single Generation of Process"/>
+			<figure class="guide">
 				<figcaption>
-					In (1), each island's individuals reproduce with a Poisson process with a mean of the individual's
-					utility function.
-					The offspring then (2) migrate to another island or remain on the birth island as immigrants.
-					On each island, a native individual (3) and immigrant individual (4) are selected.
-					Finally, the native individual is then (5) replaced by the immigrant.
-					The remaining immigrants are disregarded.
+					In each generation, (1) each island's individuals reproduce with a Poisson process with a mean of the
+					individual's utility function.
+					The offspring then (2) migrate to an island (which may be the birth island).
+					On each island, (3) a single native individual and (4) single immigrant individual are selected, then
+					the native individual is (5) replaced by the immigrant.
+					The remaining immigrants are discarded, keeping islands' populations constant.
 				</figcaption>
+				<img src="evolve.png" alt="Single Generation of Process"/>
 			</figure>
 			<p>
 				The system has an extensive <a href="bmigrate.html">manual</a>.
 				Beyond how to deploy and operate the system, the manual describes topics like parallelism, data-flow,
 				randomness, precision, and so forth.
+				The following are a set of screenshots of the system in motion.
+				Each view is documented in the <a href="bmigrate.html#views">Views</a> section of the <a
+					href="bmigrate.html">manual</a>.
 			</p>
+			<figure class="screens">
+				<div><a href="screen1.png"><img src="screen1.png" /></a></div>
+				<div><a href="screen2.png"><img src="screen2.png" /></a></div>
+				<div><a href="screen3.png"><img src="screen3.png" /></a></div>
+				<div><a href="screen4.png"><img src="screen4.png" /></a></div>
+				<div><a href="screen5.png"><img src="screen5.png" /></a></div>
+			</figure>
 			<p>
 				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv"
 					rel="author">Kristaps Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who
