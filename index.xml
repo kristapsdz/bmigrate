@@ -31,6 +31,9 @@
 				simulation runs.
 				Each run is a sequence of generations over a finite set of islands.
 			</p>
+			<!-- p>
+			     	Version notes: adding autosave capability.
+			</p -->
 			<!-- p id="cite">
 				<span>
 					<a href="bmigrate.bib">BibTeX</a>:
