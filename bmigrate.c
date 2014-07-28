@@ -1041,6 +1041,35 @@ set_sensitive(gpointer dat, gpointer arg)
 }
 
 /*
+ * Either from focus or being clicked, we've entered a new window.
+ * Update the drop-down (or menubar) menu to reflect this.
+ */
+static void
+win_update(struct bmigrate *b)
+{
+	struct curwin	*cur;
+
+	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
+	g_assert(NULL != cur);
+
+	/* Remember the window's current view. */
+	gtk_check_menu_item_set_active(b->wins.views[cur->view], TRUE);
+
+	/* Remember the window's autosave status.  */
+	if (NULL == cur->autosave) {
+		gtk_widget_show_all
+			(GTK_WIDGET(b->wins.menuautoexport));
+		gtk_widget_hide
+			(GTK_WIDGET(b->wins.menuunautoexport));
+	} else {
+		gtk_widget_hide
+			(GTK_WIDGET(b->wins.menuautoexport));
+		gtk_widget_show_all
+			(GTK_WIDGET(b->wins.menuunautoexport));
+	}
+}
+
+/*
  * One of our windows has received focus.
  * If we're on a simulation window, check the currently-active view in
  * the menu bar.
@@ -1051,7 +1080,6 @@ gboolean
 onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	struct curwin	*cur;
 	gboolean	 v;
 
 	if (w == GTK_WIDGET(b->wins.config)) {
@@ -1060,10 +1088,7 @@ onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
 	} else {
 		b->current = w;
 		v = TRUE;
-		cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-		g_assert(NULL != cur);
-		gtk_check_menu_item_set_active
-			(b->wins.views[cur->view], v);
+		win_update(b);
 	}
 
 	g_list_foreach(b->wins.menus, set_sensitive, &v);
@@ -1084,6 +1109,8 @@ onpress(GtkWidget *widget, GdkEvent *event, gpointer dat)
 
 	if (b->current != gtk_widget_get_toplevel(widget))
 		b->current = gtk_widget_get_toplevel(widget);
+
+	win_update(b);
 
 	if (((GdkEventButton *)event)->button != 3)
 		return(FALSE);
@@ -1131,6 +1158,11 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	gtk_widget_override_background_color
 		(w, GTK_STATE_FLAG_NORMAL, &color);
 	draw = gtk_drawing_area_new();
+	/*
+	 * Enable the right-click menu.
+	 * This is different from Mac OSX, which always has a menu
+	 * whilst the program is running.
+	 */
 #ifndef	MAC_INTEGRATION
 	gtk_widget_set_events(draw,
 		gtk_widget_get_events(draw) |
@@ -1156,7 +1188,11 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	g_object_set_data_full(G_OBJECT(w), 
 		"sims", sims, on_sims_deref);
 
-	/* Coordinate drag-and-drop. */
+	/* 
+	 * Coordinate drag-and-drop. 
+	 * We only allow drag-and-drop between us and other windows of
+	 * this same simulation.
+	 */
 	target.target = g_strdup("integer");
 	target.flags = GTK_TARGET_SAME_APP|GTK_TARGET_OTHER_WIDGET;
 	target.info = 0;
@@ -1172,9 +1208,14 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	g_signal_connect(draw, "drag-data-get",
                 G_CALLBACK(on_drag_get), b);
 
+	/*
+	 * Set the window's title and zero autosave.
+	 */
 	gtk_window_set_title(GTK_WINDOW(w),
 		gtk_menu_item_get_label
 		(GTK_MENU_ITEM(b->wins.views[cur->view])));
+	gtk_widget_show_all(GTK_WIDGET(b->wins.menuautoexport));
+	gtk_widget_hide(GTK_WIDGET(b->wins.menuunautoexport));
 }
 
 void
@@ -1258,14 +1299,26 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 	g_assert(NULL != b->current);
 	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
 	g_assert(NULL != cur);
+
+	/*
+	 * First, set the "view" indicator to be the current view as
+	 * found in the drop-down menu.
+	 */
 	for (cur->view = 0; cur->view < VIEW__MAX; cur->view++) 
 		if (gtk_check_menu_item_get_active
 			(b->wins.views[cur->view]))
 			break;
-	gtk_widget_queue_draw(b->current);
+	/*
+	 * Next, set the window name to be the label associated with the
+	 * respective menu check item.
+	 */
+	g_assert(cur->view < VIEW__MAX);
 	gtk_window_set_title(GTK_WINDOW(b->current),
 		gtk_menu_item_get_label
 		(GTK_MENU_ITEM(b->wins.views[cur->view])));
+
+	/* Redraw the window. */
+	gtk_widget_queue_draw(b->current);
 }
 
 /*
@@ -2124,7 +2177,6 @@ main(int argc, char *argv[])
 	g_object_unref(G_OBJECT(builder));
 	gtk_widget_show_all(GTK_WIDGET(b.wins.config));
 	gtk_widget_hide(GTK_WIDGET(b.wins.error));
-	gtk_widget_hide(GTK_WIDGET(b.wins.menuunautoexport));
 
 #ifdef	MAC_INTEGRATION
 	/*
@@ -2180,6 +2232,8 @@ main(int argc, char *argv[])
 
 	gtk_widget_show_all(GTK_WIDGET(b.wins.allmenus));
 #endif
+	gtk_widget_hide(GTK_WIDGET(b.wins.menuunautoexport));
+
 	/*
 	 * Have two running timers: once per second, force a refresh of
 	 * the window system.
