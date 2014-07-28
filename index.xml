@@ -32,7 +32,7 @@
 				Each run is a sequence of generations over a finite set of islands.
 			</p>
 			<!-- p>
-			     	Version notes: adding autosave capability.
+			     	Version notes: adding autosave capability, fix window-switching (updating menu checked).
 			</p -->
 			<!-- p id="cite">
 				<span>
