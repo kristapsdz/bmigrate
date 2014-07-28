@@ -41,6 +41,7 @@ enum	kmltype {
 
 enum	kmlkey {
 	KMLKEY_MEAN,
+	KMLKEY_MEAN_PERCENT,
 	KMLKEY_STDDEV,
 	KMLKEY_POPULATION,
 	KMLKEY__MAX
@@ -75,6 +76,7 @@ struct	kmlparse {
 
 static	const char *const kmlkeys[KMLKEY__MAX] = {
 	"mean", /* KMLKEY_MEAN */
+	"meanpct", /* KMLKEY_MEAN_PERCENT */
 	"stddev", /* KMLKEY_STDDEV */
 	"population", /* KMLKEY_POPULATION */
 };
@@ -177,6 +179,37 @@ kml_placemark(const gchar *buf, struct kmlplace *place)
 }
 
 static void
+kml_replacekey(FILE *f, enum kmlkey key, 
+	const struct sim *sim, size_t island)
+{
+	double	 v, sum;
+	size_t	 i;
+
+	switch (key) {
+	case (KMLKEY_MEAN):
+		fprintf(f, "%g", stats_mean
+			(&sim->cold.islands[island]));
+		break;
+	case (KMLKEY_MEAN_PERCENT):
+		v = stats_mean(&sim->cold.islands[island]);
+		for (sum = 0.0, i = 0; i < sim->islands; i++)
+			sum += stats_mean(&sim->cold.islands[i]);
+		fprintf(f, "%.2f", v / sum * 100.0);
+		break;
+	case (KMLKEY_STDDEV):
+		fprintf(f, "%g", stats_stddev
+			(&sim->cold.islands[island]));
+		break;
+	case (KMLKEY_POPULATION):
+		assert(NULL != sim->pops);
+		fprintf(f, "%zu", sim->pops[island]);
+		break;
+	default:
+		break;
+	}
+}
+
+static void
 kml_replace(const gchar *buf, gsize sz, struct kmlsave *p)
 {
 	gsize		 i, len, start, end, vend;
@@ -216,25 +249,8 @@ kml_replace(const gchar *buf, gsize sz, struct kmlsave *p)
 				continue;
 			else if (memcmp(&buf[start], kmlkeys[j], len))
 				continue;
-
-			switch (j) {
-			case (KMLKEY_MEAN):
-				fprintf(p->f, "%g", stats_mean
-					(&p->cursim->cold.islands
-					 [p->curisland]));
-				break;
-			case (KMLKEY_STDDEV):
-				fprintf(p->f, "%g", stats_stddev
-					(&p->cursim->cold.islands
-					 [p->curisland]));
-			case (KMLKEY_POPULATION):
-				assert(NULL != p->cursim->pops);
-				fprintf(p->f, "%zu", 
-					p->cursim->pops[p->curisland]);
-			default:
-				break;
-			}
-
+			kml_replacekey(p->f, j, 
+				p->cursim, p->curisland);
 			break;
 		}
 

@@ -31,9 +31,6 @@
 				simulation runs.
 				Each run is a sequence of generations over a finite set of islands.
 			</p>
-			<!-- p>
-			     	Version notes: adding autosave capability, fix window-switching (updating menu checked).
-			</p -->
 			<!-- p id="cite">
 				<span>
 					<a href="bmigrate.bib">BibTeX</a>:
@@ -68,6 +65,11 @@
 				<div><a href="screen4.png"><img src="screen4.png" /></a></div>
 				<div><a href="screen5.png"><img src="screen5.png" /></a></div>
 			</figure>
+			<p>
+				Version @VERSION@ notes: added auto-export capability (which exports all graphs into a directory once per
+				minute&mdash;an absolute must for long simulations over bad networks) and fixed updating of menu item checkbox
+				on UNIX.
+			</p>
 			<p>
 				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv"
 					rel="author">Kristaps Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who

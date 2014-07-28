@@ -1193,16 +1193,22 @@
 				</listitem>
 			</varlistentry>
 			<varlistentry>
-				<term><code>@@stddev@@</code></term>
+				<term><code>@@meanpct@@</code></term>
 				<listitem>
-					The standard deviation of the mean mutant fraction over all simulation runs when the mutant is
-					initialised on the given island.
+					Like <code>@@mean@@</code>, but normalised as a percentage of all islands' accumulated fraction.
 				</listitem>
 			</varlistentry>
 			<varlistentry>
 				<term><code>@@population@@</code> or <code>@@population=NNN@@</code></term>
 				<listitem>
 					The island population.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term><code>@@stddev@@</code></term>
+				<listitem>
+					The standard deviation of the mean mutant fraction over all simulation runs when the mutant is
+					initialised on the given island.
 				</listitem>
 			</varlistentry>
 		</variablelist>
@@ -1284,6 +1290,34 @@
 			<varlistentry>
 				<term>
 					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
+					</inlineequation>,
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML">
+							<mrow><msub><mi>n</mi><mi>i</mi></msub></mrow>
+						</math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The number of individuals per island
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi><mo>&ge;</mo><mn>2</mn></mrow></math>
+					</inlineequation>.
+					If the islands have a uniform population size, then this number is constant; otherwise, it may be
+					non-uniform
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>n</mi><mi>i</mi></msub></mrow></math>
+					</inlineequation>
+					where
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>i</mi></mrow></math>
+					</inlineequation>
+					is the fixed index of an island.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>
+					<inlineequation>
 						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>N</mi></mrow></math>
 					</inlineequation>
 				</term>
@@ -1320,6 +1354,20 @@
 			<varlistentry>
 				<term>
 					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
+					</inlineequation>
+				</term>
+				<listitem>
+					The maximum number of generations 
+					<inlineequation>
+						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi><mo>&ge;</mo><mn>1</mn></mrow></math>
+					</inlineequation>
+					for which a simulation run will run.
+				</listitem>
+			</varlistentry>
+			<varlistentry>
+				<term>
+					<inlineequation>
 						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>X</mi></mrow></math>
 					</inlineequation>,
 					<inlineequation>
@@ -1342,48 +1390,6 @@
 						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>i</mi></mrow></math>
 					</inlineequation>'s 
 					strategy, and all other individuals' strategies.
-				</listitem>
-			</varlistentry>
-			<varlistentry>
-				<term>
-					<inlineequation>
-						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi></mrow></math>
-					</inlineequation>
-				</term>
-				<listitem>
-					The maximum number of generations 
-					<inlineequation>
-						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>T</mi><mo>&ge;</mo><mn>1</mn></mrow></math>
-					</inlineequation>
-					for which a simulation run will run.
-				</listitem>
-			</varlistentry>
-			<varlistentry>
-				<term>
-					<inlineequation>
-						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi></mrow></math>
-					</inlineequation>,
-					<inlineequation>
-						<math xmlns="http://www.w3.org/1998/Math/MathML">
-							<mrow><msub><mi>n</mi><mi>i</mi></msub></mrow>
-						</math>
-					</inlineequation>
-				</term>
-				<listitem>
-					The number of individuals per island
-					<inlineequation>
-						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>n</mi><mo>&ge;</mo><mn>2</mn></mrow></math>
-					</inlineequation>.
-					If the islands have a uniform population size, then this number is constant; otherwise, it may be
-					non-uniform
-					<inlineequation>
-						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><msub><mi>n</mi><mi>i</mi></msub></mrow></math>
-					</inlineequation>
-					where
-					<inlineequation>
-						<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mi>i</mi></mrow></math>
-					</inlineequation>
-					is the fixed index of an island.
 				</listitem>
 			</varlistentry>
 		</variablelist>
