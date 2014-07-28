@@ -231,6 +231,12 @@ savewin(FILE *f, const GList *sims, const struct curwin *cur)
 		case (VIEW_EXTMMAXPDF):
 			write_pdf(f, i, sim, sim->cold.extmmaxs);
 			break;
+		case (VIEW_SEXTMMAXCDF):
+			write_cdf(f, i, sim, sim->cold.sextmmaxs);
+			break;
+		case (VIEW_SEXTMMAXPDF):
+			write_pdf(f, i, sim, sim->cold.sextmmaxs);
+			break;
 		case (VIEW_SMEANMINCDF):
 			write_cdf(f, i, sim, sim->cold.smeanmins);
 			break;

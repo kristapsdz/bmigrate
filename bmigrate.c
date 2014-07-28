@@ -72,6 +72,8 @@ static	const char *const views[VIEW__MAX] = {
 	"fitted-mean-min-history", /* VIEW_POLYMINQ */
 	"fitted-mean-min-mean", /* VIEW_POLYMINS */
 	"extinct-mutant-smooth", /* VIEW_SEXTM */
+	"extinct-mutant-smooth-max-cdf", /* VIEW_SEXTMMAXCDF */
+	"extinct-mutant-smooth-max-pdf", /* VIEW_SEXTMMAXPDF */
 	"raw-mean-smooth", /* VIEW_SMEAN */
 	"raw-mean-smooth-min-cdf", /* VIEW_SMEANMINCDF */
 	"raw-mean-smooth-min-pdf", /* VIEW_SMEANMINPDF */
@@ -140,6 +142,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem38"));
 	b->wins.views[VIEW_SMEANMINCDF] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem39"));
+	b->wins.views[VIEW_SEXTMMAXPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem52"));
+	b->wins.views[VIEW_SEXTMMAXCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem51"));
 	b->wins.views[VIEW_SMEANMINQ] = GTK_CHECK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem41"));
 	b->wins.views[VIEW_SMEANMINS] = GTK_CHECK_MENU_ITEM
@@ -358,6 +364,7 @@ sim_free(gpointer arg)
 	g_free(p->pops);
 	kml_free(p->kml);
 	gsl_histogram_free(p->cold.smeanmins);
+	gsl_histogram_free(p->cold.sextmmaxs);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
 	gsl_histogram_free(p->cold.extmmaxs);
@@ -632,6 +639,8 @@ on_sim_copyout(gpointer dat)
 			&sim->cold.fitminst, sim->cold.fitmin);
 		hist_update(sim, sim->cold.smeanmins, 
 			&sim->cold.smeanminst, sim->cold.smeanmin);
+		hist_update(sim, sim->cold.sextmmaxs, 
+			&sim->cold.sextmmaxst, sim->cold.sextmmax);
 		hist_update(sim, sim->cold.meanmins, 
 			&sim->cold.meanminst, sim->cold.meanmin);
 		hist_update(sim, sim->cold.extmmaxs, 
@@ -1637,6 +1646,8 @@ on_activate(GtkButton *button, gpointer dat)
 	g_assert(NULL != sim->cold.fitmins);
 	sim->cold.smeanmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.smeanmins);
+	sim->cold.sextmmaxs = gsl_histogram_alloc(sim->dims);
+	g_assert(NULL != sim->cold.sextmmaxs);
 	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.meanmins);
 	sim->cold.extmmaxs = gsl_histogram_alloc(sim->dims);
@@ -1647,6 +1658,8 @@ on_activate(GtkButton *button, gpointer dat)
 		(sim->cold.fitmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.smeanmins, xmin, xmax);
+	gsl_histogram_set_ranges_uniform
+		(sim->cold.sextmmaxs, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.meanmins, xmin, xmax);
 	gsl_histogram_set_ranges_uniform

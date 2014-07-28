@@ -164,6 +164,7 @@ struct	simcold {
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
 	gsl_histogram	*smeanmins; /* smoothed mean minimum dist */
+	gsl_histogram	*sextmmaxs; /* smoothed mutant ext. dist */
 	gsl_histogram	*meanmins; /* mean minimum dist */
 	gsl_histogram	*extmmaxs; /* mutant extinction dist */
 	gsl_histogram	*extimins; /* incumbent extinction dist */
@@ -178,6 +179,7 @@ struct	simcold {
 	struct hstats	 extmmaxst; /* extmmaxs statistics */
 	struct hstats	 extiminst; /* extimins statistics */
 	struct hstats	 smeanminst; /* smeanmins statistics */
+	struct hstats	 sextmmaxst; /* sextmmaxs statistics */
 	uint64_t	 truns; /* total runs */
 	uint64_t	 tgens; /* total generations */
 	struct cqueue	 meanminq; /* circleq of raw minima */
@@ -293,6 +295,8 @@ enum	view {
 	VIEW_POLYMINQ,
 	VIEW_POLYMINS,
 	VIEW_SEXTM,
+	VIEW_SEXTMMAXCDF,
+	VIEW_SEXTMMAXPDF,
 	VIEW_SMEAN,
 	VIEW_SMEANMINCDF,
 	VIEW_SMEANMINPDF,

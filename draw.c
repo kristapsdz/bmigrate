@@ -226,6 +226,7 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_EXTMMAXCDF):
 	case (VIEW_POLYMINCDF):
 	case (VIEW_SMEANMINCDF):
+	case (VIEW_SEXTMMAXCDF):
 	case (VIEW_MEANMINCDF):
 		*maxy = 1.0;
 		break;
@@ -262,6 +263,10 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_POLYMINPDF):
 		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.fitmins);
+		break;
+	case (VIEW_SEXTMMAXPDF):
+		if (gsl_histogram_max_val(s->cold.sextmmaxs) > *maxy)
+			*maxy = gsl_histogram_max_val(s->cold.sextmmaxs);
 		break;
 	case (VIEW_SMEANMINPDF):
 		if (gsl_histogram_max_val(s->cold.smeanmins) > *maxy)
@@ -488,6 +493,11 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		case (VIEW_SEXTM):
 			drawlegendmax(buf, sizeof(buf),
 				sim, sim->cold.sextmmax);
+			break;
+		case (VIEW_SEXTMMAXPDF):
+		case (VIEW_SEXTMMAXCDF):
+			drawlegendst(buf, sizeof(buf), 
+				sim, &sim->cold.sextmmaxst);
 			break;
 		case (VIEW_SMEAN):
 		case (VIEW_SMEANMINQ):
@@ -795,6 +805,7 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	case (VIEW_POLYMINCDF):
 	case (VIEW_MEANMINCDF):
 	case (VIEW_SMEANMINCDF):
+	case (VIEW_SEXTMMAXCDF):
 	case (VIEW_CONFIG):
 	case (VIEW_STATUS):
 		break;
@@ -1006,6 +1017,14 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 		case (VIEW_EXTMMAXPDF):
 			draw_pdf(sim, b, cr, width, height, 
 				maxy, sim->cold.extmmaxs, minx, maxx);
+			break;
+		case (VIEW_SEXTMMAXCDF):
+			draw_cdf(sim, b, cr, width, height, 
+				maxy, sim->cold.sextmmaxs, minx, maxx);
+			break;
+		case (VIEW_SEXTMMAXPDF):
+			draw_pdf(sim, b, cr, width, height, 
+				maxy, sim->cold.sextmmaxs, minx, maxx);
 			break;
 		case (VIEW_SMEANMINCDF):
 			draw_cdf(sim, b, cr, width, height, 
