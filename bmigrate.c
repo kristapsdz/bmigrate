@@ -83,6 +83,80 @@ static	const char *const views[VIEW__MAX] = {
 };
 
 /*
+ * We have various ways of auto-setting the name of the simulation.
+ * Perform all of them here.
+ * (By default, it's set to the current date-time.)
+ */
+static void
+donamefill(struct bmigrate *b)
+{
+	enum namefill	 v;
+	GTimeVal	 gt;
+	enum input	 input;
+	gchar		 buf[1024];
+	const gchar	*bufp;
+	enum mutants	 mutants;
+
+	/*
+	 * We need some context information for filling in these values.
+	 *  (1) which input tab (for m)
+	 *  (2) which mutants (for mutants)
+	 */
+	input = gtk_notebook_get_current_page(b->wins.inputs);
+	g_assert(input < INPUT__MAX);
+
+	for (mutants = 0; mutants < MUTANTS__MAX; mutants++)
+		if (gtk_toggle_button_get_active
+			(GTK_TOGGLE_BUTTON(b->wins.mutants[mutants])))
+			break;
+
+	for (v = 0; v < NAMEFILL__MAX; v++)
+		if (gtk_toggle_button_get_active
+			(b->wins.namefill[v]))
+			break;
+
+	/*
+	 * Now fill in the name.
+	 */
+	switch (v) {
+	case (NAMEFILL_M):
+		g_snprintf(buf, sizeof(buf), "M=%s", 
+			gtk_entry_get_text(b->wins.migrate[input]));
+		bufp = buf;
+		break;
+	case (NAMEFILL_T):
+		g_snprintf(buf, sizeof(buf), "T=%s", 
+			gtk_entry_get_text(b->wins.stop));
+		bufp = buf;
+		break;
+	case (NAMEFILL_MUTANTS):
+		if (MUTANTS_DISCRETE == mutants)
+			g_snprintf(buf, sizeof(buf), 
+				"discrete [%s,%s)", 
+				gtk_entry_get_text(b->wins.xmin),
+				gtk_entry_get_text(b->wins.xmax));
+		else
+			g_snprintf(buf, sizeof(buf), 
+				"Gaussian s=%s, [%s,%s)", 
+				gtk_entry_get_text(b->wins.mutantsigma),
+				gtk_entry_get_text(b->wins.ymin),
+				gtk_entry_get_text(b->wins.ymax));
+		bufp = buf;
+		break;
+	case (NAMEFILL_DATE):
+		g_get_current_time(&gt);
+		bufp = g_time_val_to_iso8601(&gt);
+		break;
+	case (NAMEFILL_NONE):
+		return;
+	default:
+		abort();
+	}
+
+	gtk_entry_set_text(b->wins.name, bufp);
+}
+
+/*
  * Extract the widgets we want to know about from the builder.
  */
 static void
@@ -90,10 +164,19 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 {
 	GObject		*w;
 	gchar		 buf[1024];
-	GTimeVal	 gt;
 	gboolean	 val;
 	size_t		 i;
 
+	b->wins.namefill[NAMEFILL_DATE] = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton3"));
+	b->wins.namefill[NAMEFILL_M] = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton4"));
+	b->wins.namefill[NAMEFILL_T] = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton7"));
+	b->wins.namefill[NAMEFILL_MUTANTS] = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton8"));
+	b->wins.namefill[NAMEFILL_NONE] = GTK_TOGGLE_BUTTON
+		(gtk_builder_get_object(builder, "radiobutton9"));
 	b->wins.mapbox = GTK_BOX
 		(gtk_builder_get_object(builder, "box31"));
 	b->wins.config = GTK_WINDOW
@@ -269,9 +352,7 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		gtk_adjustment_get_value(b->wins.islands));
 	gtk_entry_set_text(b->wins.totalpop, buf);
 
-	/* Initialise the name of our simulation. */
-	g_get_current_time(&gt);
-	gtk_entry_set_text(b->wins.name, g_time_val_to_iso8601(&gt));
+	donamefill(b);
 
 	/* Initialise our colour matrix. */
 	for (i = 0; i < SIZE_COLOURS; i++) {
@@ -1376,7 +1457,6 @@ on_activate(GtkButton *button, gpointer dat)
 	struct bmigrate	 *b = dat;
 	struct hnode	**exp;
 	enum mapmigrant	  migrants;
-	GTimeVal	  gt;
 	GtkWidget	 *w;
 	struct kml	 *kml;
 	GList		 *list;
@@ -1741,8 +1821,7 @@ on_activate(GtkButton *button, gpointer dat)
 	/* 
 	 * Initialise the name of our simulation. 
 	 */
-	g_get_current_time(&gt);
-	gtk_entry_set_text(b->wins.name, g_time_val_to_iso8601(&gt));
+	donamefill(b);
 	return;
 cleanup:
 	if (NULL != ms)
@@ -2116,6 +2195,20 @@ onislandspin(GtkSpinButton *spinbutton, gpointer dat)
 			mapbox_rem(b);
 	}
 
+}
+
+void
+onnametoggle(GtkToggleButton *editable, gpointer dat)
+{
+
+	donamefill(dat);
+}
+
+void
+onnameupdate(GtkEditable *editable, gpointer dat)
+{
+
+	donamefill(dat);
 }
 
 int 

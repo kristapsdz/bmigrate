@@ -786,6 +786,11 @@
 						A free-form name for the simulation.
 						Defaults to the current time.
 					</para>
+					<para>
+						You can set the name to auto-fill by tying it to a number of inputs.
+						When these inputs change, the auto-fill name will change as well.
+						Setting it to <quote>None</quote> will disable this feature.
+					</para>
 				</listitem>
 			</varlistentry>
 		</variablelist>

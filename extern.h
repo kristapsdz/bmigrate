@@ -307,6 +307,19 @@ enum	view {
 };
 
 /*
+ * These govern how we auto-fill the name of the next/current
+ * simulation during configuration.
+ */
+enum	namefill {
+	NAMEFILL_DATE,
+	NAMEFILL_M,
+	NAMEFILL_T,
+	NAMEFILL_MUTANTS,
+	NAMEFILL_NONE,
+	NAMEFILL__MAX
+};
+
+/*
  * These are all widgets that may be or are visible.
  */
 struct	hwin {
@@ -329,6 +342,7 @@ struct	hwin {
 	GtkCheckMenuItem *views[VIEW__MAX];
 	GtkEntry	 *mutantsigma;
 	GtkRadioButton   *mutants[MUTANTS__MAX];
+	GtkToggleButton	 *namefill[NAMEFILL__MAX];
 	GtkToggleButton	 *mapmigrants[MAPMIGRANT__MAX];
 	GtkMenuItem	 *viewclone;
 	GtkMenuItem	 *viewpause;

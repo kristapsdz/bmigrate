@@ -5,6 +5,7 @@ VDATE = 2014-07-28
 PREFIX = /usr/local
 VYEAR = 2014
 VMONTH = July
+VERSIONXML = version_0_1_3.xml version_0_1_4.xml
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 GTK_OBJS = bmigrate.o parser.o stats.o simulation.o draw.o save.o kml.o
@@ -85,10 +86,13 @@ bmigrate-$(VERSION).tgz:
 .xml.html: 
 	sed -e "s!@VERSION@!$(VERSION)!g" -e "s!@VDATE@!$(VDATE)!g" -e "s!@VMONTH@!$(VMONTH)!g" -e "s!@VYEAR@!$(VYEAR)!g" $< >$@
 
+index.xml: index-template.xml $(VERSIONXML)
+	sblg -o $@ -t index-template.xml $(VERSIONXML)
+
 .in.bib.bib:
 	sed -e "s!@VERSION@!$(VERSION)!g" -e "s!@VDATE@!$(VDATE)!g" -e "s!@VMONTH@!$(VMONTH)!g" -e "s!@VYEAR@!$(VYEAR)!g" $< >$@
 
 clean:
-	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.xml index.html bmigrate.bib bmigrate-$(VERSION).tgz
+	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.xml index.html bmigrate.bib bmigrate-$(VERSION).tgz index.xml
 	rm -rf bmigrate.app *.dSYM
 	rm -f bmigrate.app.zip Info.plist

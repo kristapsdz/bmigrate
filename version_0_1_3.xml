@@ -1,0 +1,11 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.1.3</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2014-07-28">2014-07-28</time>
+	</header>
+	<aside>
+		Added auto-export capability (which exports all graphs into a directory once per minute&#8212;an absolute must for long
+		simulations over bad networks) and fixed updating of menu item checkbox on UNIX.
+	</aside>
+</article>

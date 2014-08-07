@@ -1,0 +1,11 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.1.4</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2014-08-06">2014-08-06</time>
+	</header>
+	<aside>
+		Allow simulation names to be set from configuration parameters.
+		This makes setting up multiple runs with varying parameters much easier.
+	</aside>
+</article>
