@@ -1,10 +1,10 @@
 .SUFFIXES: .xml .html .dbk .in.bib .bib
 
-VERSION = 0.1.3
-VDATE = 2014-07-28
+VERSION = 0.1.4
+VDATE = 2014-08-07
 PREFIX = /usr/local
 VYEAR = 2014
-VMONTH = July
+VMONTH = August
 VERSIONXML = version_0_1_3.xml version_0_1_4.xml
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"

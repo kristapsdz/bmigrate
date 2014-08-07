@@ -7,5 +7,6 @@
 	<aside>
 		Allow simulation names to be set from configuration parameters.
 		This makes setting up multiple runs with varying parameters much easier.
+		Also make sure that Gaussian mutant parameters are only checked in Gaussian mutant mode.
 	</aside>
 </article>

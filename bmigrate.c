@@ -120,7 +120,7 @@ donamefill(struct bmigrate *b)
 	 */
 	switch (v) {
 	case (NAMEFILL_M):
-		g_snprintf(buf, sizeof(buf), "M=%s", 
+		g_snprintf(buf, sizeof(buf), "m=%s", 
 			gtk_entry_get_text(b->wins.migrate[input]));
 		bufp = buf;
 		break;
@@ -1632,24 +1632,34 @@ on_activate(GtkButton *button, gpointer dat)
 	} else if (NULL == islandpops)
 		totalpop = islands * islandpop;
 
+	for (mutants = 0; mutants < MUTANTS__MAX; mutants++)
+		if (gtk_toggle_button_get_active
+			(GTK_TOGGLE_BUTTON(b->wins.mutants[mutants])))
+			break;
+
 	if ( ! entry2double(b->wins.xmin, &xmin, err))
 		goto cleanup;
 	if ( ! entry2double(b->wins.xmax, &xmax, err))
 		goto cleanup;
-	if ( ! entry2double(b->wins.ymin, &ymin, err))
-		goto cleanup;
-	if ( ! entry2double(b->wins.ymax, &ymax, err))
-		goto cleanup;
 	if ( ! entryworder(b->wins.xmin, b->wins.xmax, xmin, xmax, err))
 		goto cleanup;
-	if ( ! entryworder(b->wins.ymin, b->wins.ymax, ymin, ymax, err))
-		goto cleanup;
-	if ( ! entryorder(b->wins.ymin, b->wins.xmin, ymin, xmin, err))
-		goto cleanup;
-	if ( ! entryorder(b->wins.xmax, b->wins.ymax, xmax, ymax, err))
-		goto cleanup;
-	if ( ! entry2double(b->wins.mutantsigma, &sigma, err))
-		goto cleanup;
+	if (MUTANTS_GAUSSIAN == mutants) {
+		if ( ! entry2double(b->wins.ymin, &ymin, err))
+			goto cleanup;
+		if ( ! entry2double(b->wins.ymax, &ymax, err))
+			goto cleanup;
+		if ( ! entryorder(b->wins.ymin, 
+				b->wins.xmin, ymin, xmin, err))
+			goto cleanup;
+		if ( ! entryorder(b->wins.xmax, 
+				b->wins.ymax, xmax, ymax, err))
+			goto cleanup;
+		if ( ! entryworder(b->wins.ymin, 
+				b->wins.ymax, ymin, ymax, err))
+			goto cleanup;
+		if ( ! entry2double(b->wins.mutantsigma, &sigma, err))
+			goto cleanup;
+	}
 	if ( ! entry2double(b->wins.alpha, &alpha, err))
 		goto cleanup;
 	if ( ! entry2double(b->wins.delta, &delta, err))
@@ -1666,11 +1676,6 @@ on_activate(GtkButton *button, gpointer dat)
 
 	if ('\0' == *name)
 		name = "unnamed";
-
-	for (mutants = 0; mutants < MUTANTS__MAX; mutants++)
-		if (gtk_toggle_button_get_active
-			(GTK_TOGGLE_BUTTON(b->wins.mutants[mutants])))
-			break;
 
 	/* 
 	 * All parameters check out!
