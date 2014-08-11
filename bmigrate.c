@@ -167,6 +167,12 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gboolean	 val;
 	size_t		 i;
 
+	b->wins.rangeminlambda = GTK_LABEL
+		(gtk_builder_get_object(builder, "label55"));
+	b->wins.rangemaxlambda = GTK_LABEL
+		(gtk_builder_get_object(builder, "label52"));
+	b->wins.rangemeanlambda = GTK_LABEL
+		(gtk_builder_get_object(builder, "label58"));
 	b->wins.rangeerrorbox = GTK_BOX
 		(gtk_builder_get_object(builder, "box39"));
 	b->wins.rangeerror = GTK_LABEL
@@ -634,6 +640,10 @@ cqueue_push(struct cqueue *q, size_t val)
 	q->pos = (q->pos + 1) % CQUEUESZ;
 }
 
+/*
+ * Brute-force scan all possible pi values (and Poisson means) by
+ * scanning through the strategy space.
+ */
 static gboolean
 on_rangefind_idle(gpointer dat)
 {
@@ -702,6 +712,11 @@ on_rangefind_idle(gpointer dat)
 		}
 	}
 
+	/*
+	 * We might have hit a discontinuous number.
+	 * If we did, then print out an error and don't continue.
+	 * If not, update to the next mutant and incumbent.
+	 */
 	if (mutants <= b->range.n) {
 		g_snprintf(buf, sizeof(buf), 
 			"%zu mutants, mutant=%g, incumbent=%g",
@@ -721,16 +736,30 @@ on_rangefind_idle(gpointer dat)
 		}
 	}
 
-	v = (b->range.slicex * b->range.slices + b->range.slicey) /
-		(double)(b->range.slices * b->range.slices);
-
+	/*
+	 * Set our current extrema.
+	 */
 	g_snprintf(buf, sizeof(buf), "%g", b->range.pimin);
 	gtk_label_set_text(b->wins.rangemin, buf);
+	g_snprintf(buf, sizeof(buf), "%g", b->range.alpha * 
+		(1.0 + b->range.delta * b->range.pimin));
+	gtk_label_set_text(b->wins.rangeminlambda, buf);
+
 	g_snprintf(buf, sizeof(buf), "%g", b->range.pimax);
 	gtk_label_set_text(b->wins.rangemax, buf);
-	g_snprintf(buf, sizeof(buf), "%g", 
-		b->range.piaggr / (double)b->range.picount);
+	g_snprintf(buf, sizeof(buf), "%g", b->range.alpha * 
+		(1.0 + b->range.delta * b->range.pimax));
+	gtk_label_set_text(b->wins.rangemaxlambda, buf);
+
+	v = b->range.piaggr / (double)b->range.picount;
+	g_snprintf(buf, sizeof(buf), "%g", v);
 	gtk_label_set_text(b->wins.rangemean, buf);
+	g_snprintf(buf, sizeof(buf), "%g", b->range.alpha * 
+		(1.0 + b->range.delta * v));
+	gtk_label_set_text(b->wins.rangemeanlambda, buf);
+
+	v = (b->range.slicex * b->range.slices + b->range.slicey) /
+		(double)(b->range.slices * b->range.slices);
 	g_snprintf(buf, sizeof(buf), "%.1f%%", v * 100.0);
 	gtk_label_set_text(b->wins.rangestatus, buf);
 
@@ -1847,6 +1876,8 @@ onactivate(GtkButton *button, gpointer dat)
 		} else
 			b->range.n = islandpop;
 		b->range.exp = exp;
+		b->range.alpha = alpha;
+		b->range.delta = delta;
 		b->range.slices = slices;
 		b->range.slicex = b->range.slicey = 0;
 		b->range.piaggr = 0.0;
@@ -1866,9 +1897,6 @@ onactivate(GtkButton *button, gpointer dat)
 			b->range.ymin, b->range.ymax,
 			b->range.n);
 		gtk_label_set_text(b->wins.rangefunc, file);
-		gtk_label_set_text(b->wins.rangemin, "starting...");
-		gtk_label_set_text(b->wins.rangemax, "starting...");
-		gtk_label_set_text(b->wins.rangemean, "starting...");
 		gtk_widget_hide(GTK_WIDGET(b->wins.rangeerrorbox));
 		g_free(file);
 		gtk_widget_set_visible

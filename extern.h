@@ -355,6 +355,9 @@ struct	hwin {
 	GtkLabel	 *rangemax;
 	GtkLabel	 *rangemin;
 	GtkLabel	 *rangemean;
+	GtkLabel	 *rangemaxlambda;
+	GtkLabel	 *rangeminlambda;
+	GtkLabel	 *rangemeanlambda;
 	GtkLabel	 *rangestatus;
 	GtkBox		 *rangeerrorbox;
 	GtkLabel	 *rangeerror;
@@ -401,6 +404,8 @@ struct	curwin {
  */
 struct	range {
 	struct hnode	**exp;
+	double		  alpha; /* norm outer multiplier */
+	double		  delta; /* norm inner multiplier */
 	double		  xmin; /* incumbent minimum */
 	double		  xmax; /* incumbent maximum */
 	double		  ymin; /* mutant minimum */
