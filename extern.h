@@ -324,6 +324,7 @@ enum	namefill {
  */
 struct	hwin {
 	GtkWindow	 *config;
+	GtkWindow	 *rangefind;
 #ifndef	MAC_INTEGRATION
 	GtkMenu		 *allmenus;
 #endif
@@ -350,6 +351,11 @@ struct	hwin {
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
+	GtkButton	 *buttonrange;
+	GtkLabel	 *rangemax;
+	GtkLabel	 *rangemin;
+	GtkLabel	 *rangemean;
+	GtkLabel	 *rangestatus;
 	GtkBox		 *mapbox;
 	GtkEntry	 *name;
 	GtkEntry	 *xmin;
@@ -387,6 +393,24 @@ struct	curwin {
 };
 
 /*
+ * Data used to range-find the Pi function.
+ * (I.e., we want to see the maxima and minima.)
+ */
+struct	range {
+	struct hnode	**exp;
+	double		  xmin; /* incumbent minimum */
+	double		  xmax; /* incumbent maximum */
+	double		  ymin; /* mutant minimum */
+	double		  ymax; /* mutant maximum */
+	size_t		  n; /* number of players */
+	size_t		  slices; /* number of slices */
+	size_t		  slicex; /* current x-slice */
+	size_t		  slicey; /* current y-slice */
+	double		  pimin;
+	double		  pimax;
+};
+
+/*
  * Main structure governing general state of the system.
  */
 struct	bmigrate {
@@ -397,6 +421,8 @@ struct	bmigrate {
 	uint64_t	  lastmatches; /* last seen no. matches */
 	GtkWidget	 *current; /* the current window or NULL */
 	size_t		  nprocs; /* total number processors */
+	guint		  rangeid; /* range-finding process */
+	struct range	  range; /* range-finding data */
 };
 
 struct	kmlplace {

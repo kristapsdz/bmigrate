@@ -167,6 +167,16 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gboolean	 val;
 	size_t		 i;
 
+	b->wins.rangemin = GTK_LABEL
+		(gtk_builder_get_object(builder, "label42"));
+	b->wins.rangemax = GTK_LABEL
+		(gtk_builder_get_object(builder, "label40"));
+	b->wins.rangemean = GTK_LABEL
+		(gtk_builder_get_object(builder, "label44"));
+	b->wins.rangestatus = GTK_LABEL
+		(gtk_builder_get_object(builder, "label46"));
+	b->wins.buttonrange = GTK_BUTTON
+		(gtk_builder_get_object(builder, "button4"));
 	b->wins.namefill[NAMEFILL_DATE] = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton3"));
 	b->wins.namefill[NAMEFILL_M] = GTK_TOGGLE_BUTTON
@@ -181,6 +191,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "box31"));
 	b->wins.config = GTK_WINDOW
 		(gtk_builder_get_object(builder, "window1"));
+	b->wins.rangefind = GTK_WINDOW
+		(gtk_builder_get_object(builder, "window2"));
 	b->wins.status = GTK_STATUSBAR
 		(gtk_builder_get_object(builder, "statusbar1"));
 	b->wins.menu = GTK_MENU_BAR
@@ -507,6 +519,8 @@ bmigrate_free(struct bmigrate *p)
 	g_list_foreach(p->sims, sim_stop, NULL);
 	g_list_free_full(p->sims, sim_free);
 	p->sims = NULL;
+	hnode_free(p->range.exp);
+	p->range.exp = NULL;
 	if (NULL != p->status_elapsed)
 		g_timer_destroy(p->status_elapsed);
 	p->status_elapsed = NULL;
@@ -607,6 +621,60 @@ cqueue_push(struct cqueue *q, size_t val)
 	if (val > q->vals[q->maxpos])
 		q->maxpos = q->pos;
 	q->pos = (q->pos + 1) % CQUEUESZ;
+}
+
+static gboolean
+on_rangefind_idle(gpointer dat)
+{
+	struct bmigrate	*b = dat;
+	size_t		 mutants;
+	double		 mstrat, istrat, v;
+	gchar		 buf[22];
+
+	if ( ! gtk_widget_get_visible(GTK_WIDGET(b->wins.rangefind))) {
+		g_debug("Range-finder idle event terminating");
+		b->rangeid = 0;
+		return(FALSE);
+	}
+
+	for (mutants = 0; mutants <= b->range.n; mutants++) {
+		mstrat = b->range.ymin + 
+			(b->range.slicey / (double)b->range.slices) * 
+			(b->range.ymax - b->range.ymin);
+		istrat = b->range.xmin + 
+			(b->range.slicex / (double)b->range.slices) * 
+			(b->range.xmax - b->range.xmin);
+		v = hnode_exec
+			((const struct hnode *const *) b->range.exp, 
+			 mstrat, mstrat * mutants + istrat * 
+			 (b->range.n - mutants), b->range.n);
+		if (v < b->range.pimin)
+			b->range.pimin = v;
+		if (v > b->range.pimax)
+			b->range.pimax = v;
+		v = hnode_exec
+			((const struct hnode *const *) b->range.exp, 
+			 istrat, mstrat * mutants + istrat * 
+			 (b->range.n - mutants), b->range.n);
+	}
+
+	if (++b->range.slicey == b->range.slices) {
+		b->range.slicey = 0;
+		b->range.slicex++;
+	}
+
+	if (b->range.slicex == b->range.slices) {
+		g_debug("Range-finder idle event complete");
+		b->rangeid = 0;
+	}
+
+
+	g_snprintf(buf, sizeof(buf), "%g", b->range.pimin);
+	gtk_label_set_text(b->wins.rangemin, buf);
+	g_snprintf(buf, sizeof(buf), "%g", b->range.pimax);
+	gtk_label_set_text(b->wins.rangemax, buf);
+
+	return(b->range.slicex < b->range.slices);
 }
 
 /*
@@ -1445,13 +1513,37 @@ onunpause(GtkMenuItem *menuitem, gpointer dat)
 		on_sim_pause(list->data, 0);
 }
 
+void
+onrangedelete(GtkWidget *widget, GdkEvent *event, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	g_assert(gtk_widget_get_visible
+		(GTK_WIDGET(b->wins.rangefind)));
+	gtk_widget_set_visible
+		(GTK_WIDGET(b->wins.rangefind), FALSE);
+	g_debug("Disabling rangefinder (user request)");
+}
+
+void
+onrangeclose(GtkButton *button, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	g_assert(gtk_widget_get_visible
+		(GTK_WIDGET(b->wins.rangefind)));
+	gtk_widget_set_visible
+		(GTK_WIDGET(b->wins.rangefind), FALSE);
+	g_debug("Disabling rangefinder (user request)");
+}
+
 /*
  * We want to run the given simulation.
  * First, verify all data; then, start the simulation; lastly, open a
  * window assigned specifically to that simulation.
  */
 void
-on_activate(GtkButton *button, gpointer dat)
+onactivate(GtkButton *button, gpointer dat)
 {
 	gint	 	  input;
 	struct bmigrate	 *b = dat;
@@ -1480,9 +1572,6 @@ on_activate(GtkButton *button, gpointer dat)
 	ms = NULL;
 	kml = NULL;
 
-	/* 
-	 * Validation.
-	 */
 	if ( ! entry2size(b->wins.stop, &stop, err, 1))
 		goto cleanup;
 
@@ -1681,6 +1770,40 @@ on_activate(GtkButton *button, gpointer dat)
 	 * All parameters check out!
 	 * Allocate the simulation now.
 	 */
+	if (button == b->wins.buttonrange) {
+		if (0 == b->rangeid) {
+			g_debug("Starting rangefinder");
+			b->rangeid = g_idle_add
+				((GSourceFunc)on_rangefind_idle, b);
+		} else 
+			g_debug("Re-using rangefinder");
+
+		hnode_free(b->range.exp);
+		if (NULL != islandpops) {
+			b->range.n = 0;
+			for (i = 0; i < islands; i++)
+				b->range.n = islandpops[i] > b->range.n ? 
+					islandpops[i] : b->range.n;
+		} else
+			b->range.n = islandpop;
+		b->range.exp = exp;
+		b->range.slices = slices;
+		b->range.slicex = b->range.slicey = 0;
+		b->range.pimin = DBL_MAX;
+		b->range.pimax = -DBL_MAX;
+		b->range.xmin = b->range.ymin = xmin;
+		b->range.xmax = b->range.ymax = xmax;
+		if (MUTANTS_GAUSSIAN == mutants) {
+			b->range.ymin = ymin;
+			b->range.ymax = ymax;
+		}
+		exp = NULL;
+		gtk_window_set_title(b->wins.rangefind, func);
+		gtk_widget_set_visible
+			(GTK_WIDGET(b->wins.rangefind), TRUE);
+		goto cleanup;
+	}
+
 	gtk_widget_hide(GTK_WIDGET(err));
 
 	sim = g_malloc0(sizeof(struct sim));
@@ -1834,6 +1957,7 @@ cleanup:
 			g_free(ms[i]);
 	g_free(islandpops);
 	g_free(ms);
+	hnode_free(exp);
 	kml_free(kml);
 }
 
