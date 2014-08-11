@@ -556,6 +556,12 @@
 			To start a simulation (after entering configuration data), press <guibutton>Simulate</guibutton>.
 			The configuration screen will remain open so that you can start subsequent simulations.
 		</para>
+		<para>
+			If you want to see the effects of your parameters on reproduction (i.e., given your utility function, number of
+			individuals per island, strategy space, and normalisation parameters), then click <guibutton>Range-Find</guibutton>.
+			This will start a process that scans the strategy-space and produces the minimum, maximum, and mean values given as the
+			Poisson random number mean.
+		</para>
 		<screenshot>
 			<graphic fileref="screen-config.png" />
 		</screenshot>
@@ -716,7 +722,7 @@
 					</para>
 					<para>
 						The number of reserved threads is the sum of all threads for simulations, regardless of state;
-						running threads show only the count of non-paused simulations.
+						running threads show only the count of non-paused (i.e., active) simulations.
 					</para>
 				</listitem>
 			</varlistentry>
