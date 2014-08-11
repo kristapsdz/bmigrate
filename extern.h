@@ -356,6 +356,9 @@ struct	hwin {
 	GtkLabel	 *rangemin;
 	GtkLabel	 *rangemean;
 	GtkLabel	 *rangestatus;
+	GtkBox		 *rangeerrorbox;
+	GtkLabel	 *rangeerror;
+	GtkLabel	 *rangefunc;
 	GtkBox		 *mapbox;
 	GtkEntry	 *name;
 	GtkEntry	 *xmin;
@@ -406,8 +409,10 @@ struct	range {
 	size_t		  slices; /* number of slices */
 	size_t		  slicex; /* current x-slice */
 	size_t		  slicey; /* current y-slice */
-	double		  pimin;
-	double		  pimax;
+	double		  pimin; /* minimum result */
+	double		  pimax; /* maximum result */
+	double		  piaggr; /* aggregate result */
+	size_t		  picount; /* aggregate count */
 };
 
 /*

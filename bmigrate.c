@@ -167,6 +167,10 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 	gboolean	 val;
 	size_t		 i;
 
+	b->wins.rangeerrorbox = GTK_BOX
+		(gtk_builder_get_object(builder, "box39"));
+	b->wins.rangeerror = GTK_LABEL
+		(gtk_builder_get_object(builder, "label48"));
 	b->wins.rangemin = GTK_LABEL
 		(gtk_builder_get_object(builder, "label42"));
 	b->wins.rangemax = GTK_LABEL
@@ -175,6 +179,8 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "label44"));
 	b->wins.rangestatus = GTK_LABEL
 		(gtk_builder_get_object(builder, "label46"));
+	b->wins.rangefunc = GTK_LABEL
+		(gtk_builder_get_object(builder, "label50"));
 	b->wins.buttonrange = GTK_BUTTON
 		(gtk_builder_get_object(builder, "button4"));
 	b->wins.namefill[NAMEFILL_DATE] = GTK_TOGGLE_BUTTON
@@ -400,6 +406,11 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(b->wins.menus, b->wins.menuautoexport);
 	b->wins.menus = g_list_append
 		(b->wins.menus, b->wins.menuunautoexport);
+
+	/*
+	 * Hide the rangefinder when we start up.
+	 */
+	gtk_widget_set_visible(GTK_WIDGET(b->wins.rangefind), FALSE);
 }
 
 /*
@@ -631,12 +642,22 @@ on_rangefind_idle(gpointer dat)
 	double		 mstrat, istrat, v;
 	gchar		 buf[22];
 
+	/*
+	 * We're no longer running this.
+	 */
 	if ( ! gtk_widget_get_visible(GTK_WIDGET(b->wins.rangefind))) {
 		g_debug("Range-finder idle event terminating");
 		b->rangeid = 0;
 		return(FALSE);
 	}
 
+	/*
+	 * Set the number of mutants on a given island, then see what
+	 * the utility function would yield given that number of mutants
+	 * and incumbents, setting the current player to be one or the
+	 * other..
+	 */
+	mstrat = istrat = 0.0;
 	for (mutants = 0; mutants <= b->range.n; mutants++) {
 		mstrat = b->range.ymin + 
 			(b->range.slicey / (double)b->range.slices) * 
@@ -644,37 +665,76 @@ on_rangefind_idle(gpointer dat)
 		istrat = b->range.xmin + 
 			(b->range.slicex / (double)b->range.slices) * 
 			(b->range.xmax - b->range.xmin);
-		v = hnode_exec
-			((const struct hnode *const *) b->range.exp, 
-			 mstrat, mstrat * mutants + istrat * 
-			 (b->range.n - mutants), b->range.n);
-		if (v < b->range.pimin)
-			b->range.pimin = v;
-		if (v > b->range.pimax)
-			b->range.pimax = v;
-		v = hnode_exec
-			((const struct hnode *const *) b->range.exp, 
-			 istrat, mstrat * mutants + istrat * 
-			 (b->range.n - mutants), b->range.n);
+		/*
+		 * Only check for a given mutant/incumbent individual's
+		 * strategy if the population is going to support the
+		 * existence of that individual.
+		 */
+		if (mutants > 0) {
+			v = hnode_exec
+				((const struct hnode *const *) 
+				 b->range.exp, 
+				 istrat, mstrat * mutants + istrat * 
+				 (b->range.n - mutants), b->range.n);
+			if (0.0 != v && ! isnormal(v))
+				break;
+			if (v < b->range.pimin)
+				b->range.pimin = v;
+			if (v > b->range.pimax)
+				b->range.pimax = v;
+			b->range.piaggr += v;
+			b->range.picount++;
+		}
+		if (mutants != b->range.n) {
+			v = hnode_exec
+				((const struct hnode *const *) 
+				 b->range.exp, 
+				 mstrat, mstrat * mutants + istrat * 
+				 (b->range.n - mutants), b->range.n);
+			if (0.0 != v && ! isnormal(v))
+				break;
+			if (v < b->range.pimin)
+				b->range.pimin = v;
+			if (v > b->range.pimax)
+				b->range.pimax = v;
+			b->range.piaggr += v;
+			b->range.picount++;
+		}
 	}
 
-	if (++b->range.slicey == b->range.slices) {
-		b->range.slicey = 0;
-		b->range.slicex++;
-	}
-
-	if (b->range.slicex == b->range.slices) {
-		g_debug("Range-finder idle event complete");
+	if (mutants <= b->range.n) {
+		g_snprintf(buf, sizeof(buf), 
+			"%zu mutants, mutant=%g, incumbent=%g",
+			mutants, mstrat, istrat);
+		gtk_label_set_text(b->wins.rangeerror, buf);
+		gtk_widget_show_all(GTK_WIDGET(b->wins.rangeerrorbox));
+		g_debug("Range-finder idle event complete (error)");
 		b->rangeid = 0;
+	} else {
+		if (++b->range.slicey == b->range.slices) {
+			b->range.slicey = 0;
+			b->range.slicex++;
+		}
+		if (b->range.slicex == b->range.slices) {
+			g_debug("Range-finder idle event complete");
+			b->rangeid = 0;
+		}
 	}
 
+	v = (b->range.slicex * b->range.slices + b->range.slicey) /
+		(double)(b->range.slices * b->range.slices);
 
 	g_snprintf(buf, sizeof(buf), "%g", b->range.pimin);
 	gtk_label_set_text(b->wins.rangemin, buf);
 	g_snprintf(buf, sizeof(buf), "%g", b->range.pimax);
 	gtk_label_set_text(b->wins.rangemax, buf);
+	g_snprintf(buf, sizeof(buf), "%g", 
+		b->range.piaggr / (double)b->range.picount);
+	gtk_label_set_text(b->wins.rangemean, buf);
+	g_snprintf(buf, sizeof(buf), "%.1f%%", v * 100.0);
+	gtk_label_set_text(b->wins.rangestatus, buf);
 
-	return(b->range.slicex < b->range.slices);
+	return(0 != b->rangeid);
 }
 
 /*
@@ -1789,6 +1849,8 @@ onactivate(GtkButton *button, gpointer dat)
 		b->range.exp = exp;
 		b->range.slices = slices;
 		b->range.slicex = b->range.slicey = 0;
+		b->range.piaggr = 0.0;
+		b->range.picount = 0;
 		b->range.pimin = DBL_MAX;
 		b->range.pimax = -DBL_MAX;
 		b->range.xmin = b->range.ymin = xmin;
@@ -1798,7 +1860,17 @@ onactivate(GtkButton *button, gpointer dat)
 			b->range.ymax = ymax;
 		}
 		exp = NULL;
-		gtk_window_set_title(b->wins.rangefind, func);
+		file = g_strdup_printf
+			("%s, X=[%g, %g), Y=[%g, %g), n=%zu",
+			func, b->range.xmin, b->range.xmax, 
+			b->range.ymin, b->range.ymax,
+			b->range.n);
+		gtk_label_set_text(b->wins.rangefunc, file);
+		gtk_label_set_text(b->wins.rangemin, "starting...");
+		gtk_label_set_text(b->wins.rangemax, "starting...");
+		gtk_label_set_text(b->wins.rangemean, "starting...");
+		gtk_widget_hide(GTK_WIDGET(b->wins.rangeerrorbox));
+		g_free(file);
 		gtk_widget_set_visible
 			(GTK_WIDGET(b->wins.rangefind), TRUE);
 		goto cleanup;
