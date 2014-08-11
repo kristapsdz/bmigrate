@@ -865,20 +865,16 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 			cairo_show_text(cr, buf);
 			v += e.height * 1.5;
 			drawinfo(cr, &v, &e, "Function: %s, "
-				"x = [%g, %g]", sim->func, 
+				"x = [%g, %g], T=%zu, lambda=%g(1 + %g * pi)", 
+				sim->func, 
 				sim->continuum.xmin,
-				sim->continuum.xmax);
-			drawinfo(cr, &v, &e, "Maximum "
-				"generation: %zu", sim->stop);
-			drawinfo(cr, &v, &e, "Migrate: %g (%suniform)",
-				sim->m, NULL != sim->ms ? "non-" : "");
-			drawinfo(cr, &v, &e, "Population: %zu (%zu "
-				"islands, %suniform islanders)", 
-				sim->totalpop, sim->islands, 
-				NULL != sim->pops ? "non-" : "");
-			drawinfo(cr, &v, &e, "Normalise: "
-				"%g(1 + %g * pi)",
+				sim->continuum.xmax, sim->stop,
 				sim->alpha, sim->delta);
+			drawinfo(cr, &v, &e, "Population: %zu (%zu "
+				"islands, %suniform), m=%g (%suniform)", 
+				sim->totalpop, sim->islands, 
+				NULL != sim->pops ? "non-" : "", 
+				sim->m, NULL != sim->ms ? "non-" : "");
 			if (MUTANTS_DISCRETE == sim->mutants)
 				drawinfo(cr, &v, &e, "Mutants: "
 					"discrete (%zu)", sim->dims);
