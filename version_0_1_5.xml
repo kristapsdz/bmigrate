@@ -1,0 +1,12 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.1.5</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2014-08-10">2014-08-10</time>
+	</header>
+	<aside>
+		Add a range-finder to the configuration panel.
+		This allows the operator to check the minimum, maximum, and mean value provided to the Poisson generator (fertility) by scanning
+		all possible mutant and incumbent pairs.
+	</aside>
+</article>
