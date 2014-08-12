@@ -652,14 +652,7 @@ on_rangefind_idle(gpointer dat)
 	double		 mstrat, istrat, v;
 	gchar		 buf[22];
 
-	/*
-	 * We're no longer running this.
-	 */
-	if ( ! gtk_widget_get_visible(GTK_WIDGET(b->wins.rangefind))) {
-		g_debug("Range-finder idle event terminating");
-		b->rangeid = 0;
-		return(FALSE);
-	}
+	g_assert(b->rangeid);
 
 	/*
 	 * Set the number of mutants on a given island, then see what
@@ -1607,11 +1600,11 @@ onrangedelete(GtkWidget *widget, GdkEvent *event, gpointer dat)
 {
 	struct bmigrate	*b = dat;
 
-	g_assert(gtk_widget_get_visible
-		(GTK_WIDGET(b->wins.rangefind)));
 	gtk_widget_set_visible
 		(GTK_WIDGET(b->wins.rangefind), FALSE);
 	g_debug("Disabling rangefinder (user request)");
+	g_source_remove(b->rangeid);
+	b->rangeid = 0;
 }
 
 void
@@ -1619,11 +1612,11 @@ onrangeclose(GtkButton *button, gpointer dat)
 {
 	struct bmigrate	*b = dat;
 
-	g_assert(gtk_widget_get_visible
-		(GTK_WIDGET(b->wins.rangefind)));
 	gtk_widget_set_visible
 		(GTK_WIDGET(b->wins.rangefind), FALSE);
 	g_debug("Disabling rangefinder (user request)");
+	g_source_remove(b->rangeid);
+	b->rangeid = 0;
 }
 
 /*
@@ -1875,6 +1868,7 @@ onactivate(GtkButton *button, gpointer dat)
 					islandpops[i] : b->range.n;
 		} else
 			b->range.n = islandpop;
+
 		b->range.exp = exp;
 		b->range.alpha = alpha;
 		b->range.delta = delta;
