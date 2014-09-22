@@ -1595,7 +1595,7 @@ onunpause(GtkMenuItem *menuitem, gpointer dat)
 		on_sim_pause(list->data, 0);
 }
 
-void
+gboolean
 onrangedelete(GtkWidget *widget, GdkEvent *event, gpointer dat)
 {
 	struct bmigrate	*b = dat;
@@ -1605,6 +1605,7 @@ onrangedelete(GtkWidget *widget, GdkEvent *event, gpointer dat)
 	g_debug("Disabling rangefinder (user request)");
 	g_source_remove(b->rangeid);
 	b->rangeid = 0;
+	return(TRUE);
 }
 
 void
