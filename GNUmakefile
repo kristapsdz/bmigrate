@@ -36,7 +36,7 @@ else
 DOCBOOK = /usr/local/share/xsl/docbook/xhtml/docbook.xsl
 endif
 
-all: bmigrate bmigrate.html
+all: bmigrate 
 
 install: all
 	mkdir -p $(PREFIX)/bin
@@ -50,7 +50,7 @@ bmigrate.app.zip: bmigrate.app
 Info.plist: Info.plist.xml
 	sed "s!@VERSION@!$(VERSION)!g" Info.plist.xml >$@
 
-bmigrate.app: all Info.plist
+bmigrate.app: all bmigrate.html Info.plist
 	mkdir -p $(GTK_PREFIX)/bin
 	mkdir -p $(GTK_PREFIX)/share/bmigrate
 	install -m 0755 bmigrate $(GTK_PREFIX)/bin
@@ -58,7 +58,7 @@ bmigrate.app: all Info.plist
 	rm -rf bmigrate.app
 	gtk-mac-bundler bmigrate.bundle
 
-www: bmigrate.app.zip index.html bmigrate.bib bmigrate-$(VERSION).tgz
+www: bmigrate.app.zip index.html bmigrate.bib bmigrate-$(VERSION).tgz 
 
 installwww: www
 	mkdir -p $(PREFIX)/snapshots

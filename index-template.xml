@@ -66,8 +66,8 @@
 				<div><a href="screen5.png"><img src="screen5.png" /></a></div>
 			</figure>
 			<nav data-sblg-nav="1" data-sblg-navcontent="1">
-				<time datetime="${date}">${date}</time>: version ${title}
-				<aside>${aside}</aside>
+				<time datetime="${sblg-date}">${sblg-date}</time>: version ${sblg-title}
+				<aside>${sblg-aside}</aside>
 			</nav>
 			<p>
 				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv"
