@@ -1,0 +1,10 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.1.6</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2014-09-22">2014-09-22</time>
+	</header>
+	<aside>
+		Minor fix in the range-finder, where clicking the window-manager exit would delete the window (sometimes) instead of hiding it for later re-use.
+	</aside>
+</article>
