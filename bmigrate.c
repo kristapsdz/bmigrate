@@ -264,7 +264,6 @@ swin_init(struct curwin *cur, GtkBuilder *builder)
 #ifdef MAC_INTEGRATION
 	gtk_widget_hide(GTK_WIDGET(cur->wins.menu));
 	gtk_widget_hide(GTK_WIDGET(cur->wins.menuquit));
-	g_debug("cwins.menu = %p", cur->wins.menu);
 	gtkosx_application_set_menu_bar
 		(gtkosx_application_get(), 
 		 GTK_MENU_SHELL(cur->wins.menu));
@@ -1292,7 +1291,6 @@ onfocussim(GtkWidget *w, GdkEvent *event, gpointer dat)
 #ifdef MAC_INTEGRATION
 	struct curwin	  *c = dat;
 
-	g_debug("cwins.menu = %p", c->wins.menu);
 	gtkosx_application_set_menu_bar
 		(gtkosx_application_get(), 
 		 GTK_MENU_SHELL(c->wins.menu));
@@ -1307,15 +1305,12 @@ onfocusmain(GtkWidget *w, GdkEvent *event, gpointer dat)
 {
 #ifdef MAC_INTEGRATION
 	struct bmigrate	  *b = dat;
-	GtkosxApplication *theApp;
 
-	theApp = gtkosx_application_get();
-	g_debug("wins.menu = %p (%s)", b->wins.menu, gtk_widget_get_name(GTK_WIDGET(b->wins.menu)));
 	gtkosx_application_set_menu_bar
-		(theApp,
+		(gtkosx_application_get(),
 		 GTK_MENU_SHELL(b->wins.menu));
 	gtkosx_application_sync_menubar
-		(theApp);
+		(gtkosx_application_get());
 #endif
 	return(TRUE);
 }
@@ -1338,27 +1333,23 @@ curwin_free(gpointer dat)
 	g_free(cur);
 }
 
-/*
- * Initialise a simulation (or simulations) window.
- * This is either called when we've just made a new simulation 
- */
-static void
-window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
+static GtkBuilder *
+builder_get(const gchar *name)
 {
-#ifdef	MAC_INTEGRATION
-	GtkApplication	*theApp;
+	gchar		*file = NULL;
+#ifdef MAC_INTEGRATION
 	gchar		*dir;
 #endif
-	GError		*err;
 	GtkBuilder	*builder;
-	GtkTargetEntry   target;
-	gchar		*file;
 
-	/* Set us to redraw. */
-	cur->redraw = 1;
-
-#ifdef	MAC_INTEGRATION
-	theApp = g_object_new(GTKOSX_TYPE_APPLICATION, NULL);
+	/*
+	 * Look up our `glade' file as follows.
+	 * If we're in MAC_INTEGRATION, then intuit whether we're in a
+	 * bundle and, if so, look up within the bundle.
+	 * If we're not in a bundle, look in DATADIR.
+	 */
+#ifdef MAC_INTEGRATION
+	g_object_new(GTKOSX_TYPE_APPLICATION, NULL);
 	if (NULL != (dir = gtkosx_application_get_bundle_id())) {
 		g_free(dir);
 		dir = gtkosx_application_get_resource_path();
@@ -1366,13 +1357,13 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 			("%s" G_DIR_SEPARATOR_S
 			 "share" G_DIR_SEPARATOR_S
 			 "bmigrate" G_DIR_SEPARATOR_S
-			 "simulation.glade", dir);
+			 "%s", dir, name);
 		g_free(dir);
 	}
 #endif
 	if (NULL == file)
 		file = g_strdup_printf(DATADIR 
-			G_DIR_SEPARATOR_S "%s", "simulation.glade");
+			G_DIR_SEPARATOR_S "%s", name);
 
 	builder = gtk_builder_new();
 	assert(NULL != builder);
@@ -1381,25 +1372,38 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	 * This should be gtk_builder_new_from_file(), but we don't
 	 * support that on older versions of GTK, so do it like this.
 	 */
-	err = NULL;
-	if ( ! gtk_builder_add_from_file(builder, file, &err)) {
-		g_error("%s: %s", file, 
-			NULL == err ? "(no error)" : err->message);
-		if (NULL != err)
-			g_error_free(err);
+	if ( ! gtk_builder_add_from_file(builder, file, NULL)) {
 		g_free(file);
 		g_object_unref(G_OBJECT(builder));
-		return;
+		return(NULL);
 	}
 
+	g_free(file);
+	return(builder);
+}
+
+/*
+ * Initialise a simulation (or simulations) window.
+ * This is either called when we've just made a new simulation 
+ */
+static void
+window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
+{
+	GtkBuilder	*builder;
+	GtkTargetEntry   target;
+
+	builder = builder_get("simulation.glade");
+	g_assert(NULL != builder);
 	swin_init(cur, builder);
 	gtk_builder_connect_signals(builder, cur);
 	g_object_unref(G_OBJECT(builder));
+
+	cur->redraw = 1;
 	cur->sims = sims;
 	cur->b = b;
 
-	g_object_set_data_full(G_OBJECT(cur->wins.window), 
-		"cfg", cur, curwin_free);
+	g_object_set_data_full(G_OBJECT
+		(cur->wins.window), "cfg", cur, curwin_free);
 
 	/* 
 	 * Coordinate drag-and-drop. 
@@ -2232,9 +2236,6 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	g_free(file);
 }
 
-/*
- * Like onquit() but from the Mac quit menu.
- */
 #ifdef MAC_INTEGRATION
 gboolean
 onterminate(GtkosxApplication *action, gpointer dat)
@@ -2390,11 +2391,7 @@ main(int argc, char *argv[])
 {
 	GtkBuilder	  *builder;
 	struct bmigrate	   b;
-	gchar	 	  *file;
-#ifdef	MAC_INTEGRATION
-	gchar	 	  *dir;
-#endif
-	file = NULL;
+
 	memset(&b, 0, sizeof(struct bmigrate));
 	gtk_init(&argc, &argv);
 
@@ -2416,37 +2413,8 @@ main(int argc, char *argv[])
 	 */
 	hnode_test();
 
-	/*
-	 * Look up our `glade' file as follows.
-	 * If we're in MAC_INTEGRATION, then intuit whether we're in a
-	 * bundle and, if so, look up within the bundle.
-	 * If we're not in a bundle, look in DATADIR.
-	 */
-#ifdef	MAC_INTEGRATION
-	g_object_new(GTKOSX_TYPE_APPLICATION, NULL);
-	if (NULL != (dir = gtkosx_application_get_bundle_id())) {
-		g_free(dir);
-		dir = gtkosx_application_get_resource_path();
-		file = g_strdup_printf
-			("%s" G_DIR_SEPARATOR_S
-			 "share" G_DIR_SEPARATOR_S
-			 "bmigrate" G_DIR_SEPARATOR_S
-			 "bmigrate.glade", dir);
-		g_free(dir);
-	}
-#endif
-	if (NULL == file)
-		file = g_strdup_printf(DATADIR 
-			G_DIR_SEPARATOR_S "%s", "bmigrate.glade");
-
-	builder = gtk_builder_new();
-	assert(NULL != builder);
-
-	/*
-	 * This should be gtk_builder_new_from_file(), but we don't
-	 * support that on older versions of GTK, so do it like this.
-	 */
-	if ( ! gtk_builder_add_from_file(builder, file, NULL))
+	builder = builder_get("bmigrate.glade");
+	if (NULL == builder) 
 		return(EXIT_FAILURE);
 
 	hwin_init(&b, builder);
@@ -2454,9 +2422,9 @@ main(int argc, char *argv[])
 	g_object_unref(G_OBJECT(builder));
 
 	/*
-	 * Have two running timers: once per second, force a refresh of
-	 * the window system.
-	 * Four times per second, update our cold statistics.
+	 * Have two running timers: once per second, forcing a refresh of
+	 * the window system; then another at four times per second
+	 * updating our cold statistics.
 	 */
 	b.status_elapsed = g_timer_new();
 	g_timeout_add_seconds(1, (GSourceFunc)on_sim_timer, &b);
@@ -2470,6 +2438,7 @@ main(int argc, char *argv[])
 		G_CALLBACK(onterminate), &b);
 	gtkosx_application_ready(gtkosx_application_get());
 #endif
+
 	gtk_main();
 	bmigrate_free(&b);
 	return(EXIT_SUCCESS);
