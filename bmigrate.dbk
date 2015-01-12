@@ -822,7 +822,7 @@
 		<sect2>
 			<title>Control</title>
 			<para>
-				Simulation and analyses are controlled from the menu bar in Mac OS X or in a pop-up menu on other UNIX machines.
+				Simulation and analyses are controlled from the menu bar.
 				Simulations are controlled with the <guimenu>Tools</guimenu> and <guimenu>File</guimenu> menu.
 				Analysis is controlled with the <guimenu>View</guimenu> menu.
 			</para>

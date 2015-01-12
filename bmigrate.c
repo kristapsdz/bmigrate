@@ -272,9 +272,6 @@ swin_init(struct curwin *cur, GtkBuilder *builder)
 #endif
 }
 
-/*
- * Extract the widgets we want to know about from the builder.
- */
 static void
 hwin_init(struct bmigrate *b, GtkBuilder *builder)
 {
@@ -786,7 +783,7 @@ static gboolean
 on_sim_copyout(gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	GList		*list, *wins, *sims;
+	GList		*list, *w, *sims;
 	struct sim	*sim;
 	struct curwin	*cur;
 	int		 copy;
@@ -827,12 +824,8 @@ on_sim_copyout(gpointer dat)
 		 * sure that all windows tied to this simulation are
 		 * also going to be redrawn when the redrawer is called.
 		 */
-		wins = gtk_window_list_toplevels();
-		for ( ; wins != NULL; wins = wins->next) {
-			cur = g_object_get_data
-				(G_OBJECT(wins->data), "cfg");
-			if (NULL == cur)
-				continue;
+		for (w = b->windows ; w != NULL; w = w->next) {
+			cur = w->data;
 			sims = cur->sims;
 			g_assert(NULL != sims);
 			for ( ; NULL != sims; sims = sims->next)
@@ -908,19 +901,15 @@ static gboolean
 on_sim_autosave(gpointer dat)
 {
 	struct curwin	*cur;
+	struct bmigrate	*b = dat;
 	GList		*list;
 	GtkWidget	*dialog;
 	enum view	 sv, view;
 	gchar		*file;
 	FILE		*f;
 
-	list = gtk_window_list_toplevels();
-
-	for ( ; list != NULL; list = list->next) {
-		cur = g_object_get_data
-			(G_OBJECT(list->data), "cfg");
-		if (NULL == cur)
-			continue;
+	for (list = b->windows; list != NULL; list = list->next) {
+		cur = list->data;
 		for (view = 0; view < VIEW__MAX; view++) {
 			file = g_strdup_printf
 				("%s" G_DIR_SEPARATOR_S "%s",
@@ -1034,13 +1023,11 @@ on_sim_timer(gpointer dat)
 	 * We do this by iterating through all simulation windows and
 	 * seeing if they have the "update" flag set to true.
 	 */
-	list = gtk_window_list_toplevels();
-	for ( ; list != NULL; list = list->next) {
-		cur = g_object_get_data
-			(G_OBJECT(list->data), "cfg");
-		if (NULL == cur || 0 == cur->redraw)
+	for (list = b->windows; list != NULL; list = list->next) {
+		cur = list->data;
+		if (0 == cur->redraw)
 			continue;
-		gtk_widget_queue_draw(GTK_WIDGET(list->data));
+		gtk_widget_queue_draw(GTK_WIDGET(cur->wins.window));
 	}
 
 	return(TRUE);
@@ -1328,6 +1315,8 @@ curwin_free(gpointer dat)
 {
 	struct curwin	*cur = dat;
 
+	g_debug("Freeing window: %p", cur);
+	cur->b->windows = g_list_remove(cur->b->windows, cur);
 	on_sims_deref(cur->sims);
 	g_free(cur->autosave);
 	g_free(cur);
@@ -1404,6 +1393,7 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 
 	g_object_set_data_full(G_OBJECT
 		(cur->wins.window), "cfg", cur, curwin_free);
+	b->windows = g_list_append(b->windows, cur);
 
 	/* 
 	 * Coordinate drag-and-drop. 
@@ -1419,10 +1409,6 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	gtk_drag_source_set(GTK_WIDGET(cur->wins.notebook),
 		GDK_BUTTON1_MASK, &target, 1, GDK_ACTION_COPY);
 	g_free(target.target);
-
-	/* Reset our auto-save status. */
-	g_free(cur->autosave);
-	cur->autosave = NULL;
 }
 
 void

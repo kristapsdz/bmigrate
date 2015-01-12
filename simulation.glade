@@ -3,6 +3,8 @@
   <!-- interface-requires gtk+ 3.0 -->
   <object class="GtkWindow" id="window1">
     <property name="can_focus">False</property>
+    <property name="default_width">640</property>
+    <property name="default_height">660</property>
     <signal name="focus-in-event" handler="onfocussim" swapped="no"/>
     <child>
       <object class="GtkBox" id="box1">

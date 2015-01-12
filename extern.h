@@ -433,6 +433,7 @@ struct	bmigrate {
 	struct hwin	  wins; /* GUI components */
 	size_t		  nextcolour; /* next colour to assign */
 	GList		 *sims; /* active simulations */
+	GList		 *windows; /* active curwin windows */
 	GTimer		 *status_elapsed; /* elapsed since update */
 	uint64_t	  lastmatches; /* last seen no. matches */
 	GtkWidget	 *current; /* the current window or NULL */
