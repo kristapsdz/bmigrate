@@ -285,14 +285,8 @@ savewin(FILE *f, const GList *sims, const struct curwin *cur)
 }
 
 void
-save(FILE *f, struct bmigrate *b)
+save(FILE *f, struct curwin *cur)
 {
-	struct curwin	*cur;
-	GList		*sims;
 
-	sims = g_object_get_data(G_OBJECT(b->current), "sims");
-	g_assert(NULL != sims);
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	g_assert(NULL != cur);
-	savewin(f, sims, cur);
+	savewin(f, cur->sims, cur);
 }

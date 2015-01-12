@@ -156,11 +156,109 @@ donamefill(struct bmigrate *b)
 	gtk_entry_set_text(b->wins.name, bufp);
 }
 
+static void
+swin_init(struct curwin *cur, GtkBuilder *builder)
+{
+
+	cur->wins.window = GTK_WINDOW
+		(gtk_builder_get_object(builder, "window1"));
+	cur->wins.menu = GTK_MENU_BAR
+		(gtk_builder_get_object(builder, "menubar1"));
+	cur->wins.notebook = GTK_NOTEBOOK
+		(gtk_builder_get_object(builder, "notebook1"));
+	cur->wins.menufile = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem1"));
+	cur->wins.menuview = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem2"));
+	cur->wins.menutools = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem3"));
+	cur->wins.viewclone = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem15"));
+	cur->wins.viewpause = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem20"));
+	cur->wins.viewunpause = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem21"));
+	cur->wins.views[VIEW_ISLANDMEAN] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem45"));
+	cur->wins.views[VIEW_MEAN] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem8"));
+	cur->wins.views[VIEW_SMEAN] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem37"));
+	cur->wins.views[VIEW_SEXTM] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem43"));
+	cur->wins.views[VIEW_EXTM] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem25"));
+	cur->wins.views[VIEW_EXTMMAXPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem28"));
+	cur->wins.views[VIEW_EXTMMAXCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem29"));
+	cur->wins.views[VIEW_EXTI] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem26"));
+	cur->wins.views[VIEW_EXTIMINPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem27"));
+	cur->wins.views[VIEW_EXTIMINCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem30"));
+	cur->wins.views[VIEW_SMEANMINPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem38"));
+	cur->wins.views[VIEW_SMEANMINCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem39"));
+	cur->wins.views[VIEW_SEXTMMAXPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem52"));
+	cur->wins.views[VIEW_SEXTMMAXCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem51"));
+	cur->wins.views[VIEW_SMEANMINQ] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem41"));
+	cur->wins.views[VIEW_SMEANMINS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem40"));
+	cur->wins.views[VIEW_EXTIMINS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem35"));
+	cur->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem6"));
+	cur->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem7"));
+	cur->wins.views[VIEW_POLYMINPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem9"));
+	cur->wins.views[VIEW_POLYMINCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem11"));
+	cur->wins.views[VIEW_MEANMINPDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem10"));
+	cur->wins.views[VIEW_MEANMINCDF] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem12"));
+	cur->wins.views[VIEW_MEANMINQ] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem13"));
+	cur->wins.views[VIEW_MEANMINS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem22"));
+	cur->wins.views[VIEW_POLYMINS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem31"));
+	cur->wins.views[VIEW_EXTMMAXS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem33"));
+	cur->wins.views[VIEW_POLYMINQ] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem14"));
+	cur->wins.views[VIEW_CONFIG] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem36"));
+	cur->wins.views[VIEW_STATUS] = GTK_CHECK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem46"));
+	cur->wins.menuquit = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem5"));
+	cur->wins.menuautoexport = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem49"));
+	cur->wins.menuunautoexport = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem50"));
+	cur->wins.menuclose = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem24"));
+	cur->wins.menusave = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem34"));
+	cur->wins.menusavekml = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem17"));
+	cur->wins.menusaveall = GTK_MENU_ITEM
+		(gtk_builder_get_object(builder, "menuitem47"));
+}
+
 /*
  * Extract the widgets we want to know about from the builder.
  */
 static void
-windows_init(struct bmigrate *b, GtkBuilder *builder)
+hwin_init(struct bmigrate *b, GtkBuilder *builder)
 {
 	GObject		*w;
 	gchar		 buf[1024];
@@ -209,98 +307,14 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "statusbar1"));
 	b->wins.menu = GTK_MENU_BAR
 		(gtk_builder_get_object(builder, "menubar1"));
-	b->wins.menufile = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem1"));
-	b->wins.menuview = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem2"));
-	b->wins.menutools = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem3"));
-	b->wins.viewclone = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem15"));
-	b->wins.viewpause = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem20"));
-	b->wins.viewunpause = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem21"));
 	b->wins.mutants[MUTANTS_DISCRETE] = GTK_RADIO_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton1"));
 	b->wins.mutants[MUTANTS_GAUSSIAN] = GTK_RADIO_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton2"));
-	b->wins.views[VIEW_ISLANDMEAN] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem45"));
-	b->wins.views[VIEW_MEAN] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem8"));
-	b->wins.views[VIEW_SMEAN] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem37"));
-	b->wins.views[VIEW_SEXTM] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem43"));
-	b->wins.views[VIEW_EXTM] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem25"));
-	b->wins.views[VIEW_EXTMMAXPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem28"));
-	b->wins.views[VIEW_EXTMMAXCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem29"));
-	b->wins.views[VIEW_EXTI] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem26"));
-	b->wins.views[VIEW_EXTIMINPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem27"));
-	b->wins.views[VIEW_EXTIMINCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem30"));
-	b->wins.views[VIEW_SMEANMINPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem38"));
-	b->wins.views[VIEW_SMEANMINCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem39"));
-	b->wins.views[VIEW_SEXTMMAXPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem52"));
-	b->wins.views[VIEW_SEXTMMAXCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem51"));
-	b->wins.views[VIEW_SMEANMINQ] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem41"));
-	b->wins.views[VIEW_SMEANMINS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem40"));
-	b->wins.views[VIEW_EXTIMINS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem35"));
-	b->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem6"));
-	b->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem7"));
-	b->wins.views[VIEW_POLYMINPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem9"));
-	b->wins.views[VIEW_POLYMINCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem11"));
-	b->wins.views[VIEW_MEANMINPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem10"));
-	b->wins.views[VIEW_MEANMINCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem12"));
-	b->wins.views[VIEW_MEANMINQ] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem13"));
-	b->wins.views[VIEW_MEANMINS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem22"));
-	b->wins.views[VIEW_POLYMINS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem31"));
-	b->wins.views[VIEW_EXTMMAXS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem33"));
-	b->wins.views[VIEW_POLYMINQ] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem14"));
-	b->wins.views[VIEW_CONFIG] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem36"));
-	b->wins.views[VIEW_STATUS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem46"));
 	b->wins.weighted = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "checkbutton1"));
 	b->wins.menuquit = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem5"));
-	b->wins.menuautoexport = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem49"));
-	b->wins.menuunautoexport = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem50"));
-	b->wins.menuclose = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem24"));
-	b->wins.menusave = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem34"));
-	b->wins.menusavekml = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem17"));
-	b->wins.menusaveall = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem47"));
 	b->wins.input = GTK_ENTRY
 		(gtk_builder_get_object(builder, "entry3"));
 	b->wins.mutantsigma = GTK_ENTRY
@@ -383,35 +397,6 @@ windows_init(struct bmigrate *b, GtkBuilder *builder)
 		val = gdk_rgba_parse(&b->wins.colours[i], colours[i]);
 		g_assert(val);
 	}
-
-	/*
-	 * Add all menus whose sensitivity will be set when we enter a
-	 * simulation window and unset otherwise.
-	 * This only applies to Mac OS X; on a regular UNIX machine, the
-	 * menu is only visible from a simulation window.
-	 */
-	for (i = 0; i < VIEW__MAX; i++)
-		b->wins.menus = g_list_append
-			(b->wins.menus, b->wins.views[i]);
-
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.viewclone);
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.viewpause);
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.viewunpause);
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.menusave);
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.menusavekml);
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.menusaveall);
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.menuclose);
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.menuautoexport);
-	b->wins.menus = g_list_append
-		(b->wins.menus, b->wins.menuunautoexport);
 
 	/*
 	 * Hide the rangefinder when we start up.
@@ -817,8 +802,7 @@ on_sim_copyout(gpointer dat)
 				(G_OBJECT(wins->data), "cfg");
 			if (NULL == cur)
 				continue;
-			sims = g_object_get_data
-				(G_OBJECT(wins->data), "sims");
+			sims = cur->sims;
 			g_assert(NULL != sims);
 			for ( ; NULL != sims; sims = sims->next)
 				if (sim == sims->data) {
@@ -892,21 +876,19 @@ on_sim_copyout(gpointer dat)
 static gboolean
 on_sim_autosave(gpointer dat)
 {
-	GList		*list, *sims;
-	struct bmigrate	*b = dat;
-	GtkWidget	*dialog;
 	struct curwin	*cur;
+	GList		*list;
+	GtkWidget	*dialog;
 	enum view	 sv, view;
 	gchar		*file;
 	FILE		*f;
 
 	list = gtk_window_list_toplevels();
-	for ( ; NULL != list; list = g_list_next(list)) {
-		cur = g_object_get_data(G_OBJECT(list->data), "cfg");
-		if (NULL == cur || NULL == cur->autosave)
-			continue;
-		sims = g_object_get_data(G_OBJECT(list->data), "sims");
-		g_assert(NULL != sims);
+
+	for ( ; list != NULL; list = list->next) {
+		cur = g_object_get_data
+			(G_OBJECT(list->data), "cfg");
+		g_assert(NULL != cur);
 		for (view = 0; view < VIEW__MAX; view++) {
 			file = g_strdup_printf
 				("%s" G_DIR_SEPARATOR_S "%s",
@@ -914,14 +896,14 @@ on_sim_autosave(gpointer dat)
 			if (NULL != (f = fopen(file, "w+"))) {
 				sv = cur->view;
 				cur->view = view;
-				savewin(f, sims, cur);
+				savewin(f, cur->sims, cur);
 				cur->view = sv;
 				fclose(f);
 				g_free(file);
 				continue;
 			} 
 			dialog = gtk_message_dialog_new
-				(GTK_WINDOW(b->current),
+				(GTK_WINDOW(cur->wins.window),
 				 GTK_DIALOG_DESTROY_WITH_PARENT, 
 				 GTK_MESSAGE_ERROR, 
 				 GTK_BUTTONS_CLOSE, 
@@ -933,13 +915,12 @@ on_sim_autosave(gpointer dat)
 			g_free(cur->autosave);
 			cur->autosave = NULL;
 			gtk_widget_hide(GTK_WIDGET
-				(b->wins.menuunautoexport));
+				(cur->wins.menuunautoexport));
 			gtk_widget_show(GTK_WIDGET
-				(b->wins.menuautoexport));
+				(cur->wins.menuautoexport));
 			break;
 		}
 	}
-
 	return(TRUE);
 }
 
@@ -1196,13 +1177,14 @@ mapbox2pair(GtkLabel *err, GtkWidget *w, size_t *n)
 /*
  * Transfer the other widget's data into our own.
  */
-static void
+void
 on_drag_recv(GtkWidget *widget, GdkDragContext *ctx, 
 	gint x, gint y, GtkSelectionData *sel, 
 	guint target, guint time, gpointer dat)
 {
 	GObject		*srcptr, *dstptr;
-	GList		*srcsims, *dstsims, *l, *ll;
+	struct curwin	*cur;
+	GList		*srcsims, *l, *ll;
 
 	/* Get pointers to our and the other's window. */
 	assert(NULL != sel);
@@ -1217,29 +1199,27 @@ on_drag_recv(GtkWidget *widget, GdkDragContext *ctx,
 		return;
 
 	/* Get the simulation lists. */
-	srcsims = g_object_get_data(srcptr, "sims");
-	dstsims = g_object_get_data(dstptr, "sims");
+	cur = g_object_get_data(srcptr, "cfg");
+	srcsims = cur->sims;
 	assert(NULL != srcsims);
+	cur = g_object_get_data(dstptr, "cfg");
 
 	/* Concatenate the simulation lists. */
 	/* XXX: use g_list_concat? */
 	for (l = srcsims; NULL != l; l = l->next) {
 		g_debug("Copying simulation %p", l->data);
-		for (ll = dstsims; NULL != ll; ll = ll->next)
+		for (ll = cur->sims; NULL != ll; ll = ll->next)
 			if (ll->data == l->data)
 				break;
+
 		if (NULL != ll) {
 			g_debug("Simulation %p duplicate", l->data);
 			continue;
 		}
 
 		sim_ref(l->data, NULL);
-		dstsims = g_list_append(dstsims, l->data);
+		cur->sims = g_list_append(cur->sims, l->data);
 	}
-
-	/* Old-version friendly instead of replace function. */
-	(void)g_object_steal_data(dstptr, "sims");
-	g_object_set_data_full(dstptr, "sims", dstsims, on_sims_deref);
 }
 
 /*
@@ -1247,8 +1227,8 @@ on_drag_recv(GtkWidget *widget, GdkDragContext *ctx,
  * We're only using DnD for one particular thing, so there's no need for
  * elaborate security measures.
  */
-static gboolean
-on_dragdrop(GtkWidget *widget, GdkDragContext *ctx, 
+gboolean
+on_drag_drop(GtkWidget *widget, GdkDragContext *ctx, 
 	gint x, gint y, guint time, gpointer dat)
 {
 
@@ -1260,7 +1240,7 @@ on_dragdrop(GtkWidget *widget, GdkDragContext *ctx,
  * Send our identifier to the destination of the DnD.
  * They'll query our data separately.
  */
-static void
+void
 on_drag_get(GtkWidget *widget, GdkDragContext *ctx, 
 	GtkSelectionData *sel, guint targ, guint time, gpointer dat)
 {
@@ -1273,97 +1253,41 @@ on_drag_get(GtkWidget *widget, GdkDragContext *ctx,
 		(const guchar *)&ptr, sizeof(intptr_t));
 }
 
-static void
-set_sensitive(gpointer dat, gpointer arg)
-{
-
-	gtk_widget_set_sensitive(GTK_WIDGET(dat), *(gboolean *)arg);
-}
-
-/*
- * Either from focus or being clicked, we've entered a new window.
- * Update the drop-down (or menubar) menu to reflect this.
- */
-static void
-win_update(struct bmigrate *b)
-{
-	struct curwin	*cur;
-
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	g_assert(NULL != cur);
-
-	/* Remember the window's current view. */
-	gtk_check_menu_item_set_active(b->wins.views[cur->view], TRUE);
-
-	/* Remember the window's autosave status.  */
-	if (NULL == cur->autosave) {
-		gtk_widget_show_all
-			(GTK_WIDGET(b->wins.menuautoexport));
-		gtk_widget_hide
-			(GTK_WIDGET(b->wins.menuunautoexport));
-	} else {
-		gtk_widget_hide
-			(GTK_WIDGET(b->wins.menuautoexport));
-		gtk_widget_show_all
-			(GTK_WIDGET(b->wins.menuunautoexport));
-	}
-}
-
-/*
- * One of our windows has received focus.
- * If we're on a simulation window, check the currently-active view in
- * the menu bar.
- * If we're in the main window, then desensitise all menu options (this
- * is only useful for Mac OS X).
- */
 gboolean
-onfocus(GtkWidget *w, GdkEvent *event, gpointer dat)
+onfocussim(GtkWidget *w, GdkEvent *event, gpointer dat)
 {
-	struct bmigrate	*b = dat;
-	gboolean	 v;
+#ifdef MAC_INTEGRATION
+	struct curwin	  *c = dat;
 
-	if (w == GTK_WIDGET(b->wins.config)) {
-		b->current = NULL;
-		v = FALSE;
-	} else {
-		b->current = w;
-		v = TRUE;
-		win_update(b);
-	}
-
-	g_list_foreach(b->wins.menus, set_sensitive, &v);
-	return(TRUE);
-}
-
-/*
- * If we're running on a regular UNIX machine, we've unlinked the menu
- * bar and keep it handy in the background.
- * When people want the menu bar, they right-click on the simulation
- * window and it pops up with this code.
- */
-#ifndef MAC_INTEGRATION
-static gboolean
-onpress(GtkWidget *widget, GdkEvent *event, gpointer dat)
-{
-	struct bmigrate	*b = dat;
-
-	if (b->current != gtk_widget_get_toplevel(widget))
-		b->current = gtk_widget_get_toplevel(widget);
-
-	win_update(b);
-
-	if (((GdkEventButton *)event)->button != 3)
-		return(FALSE);
-
-	gtk_menu_popup(GTK_MENU(b->wins.allmenus), 
-		NULL, NULL, NULL, NULL, 0, 
-		gtk_get_current_event_time());
-
-	return(TRUE);
-}
+	g_debug("cwins.menu = %p", c->wins.menu);
+	gtkosx_application_set_menu_bar
+		(gtkosx_application_get(), 
+		 GTK_MENU_SHELL(c->wins.menu));
+	gtkosx_application_sync_menubar
+		(gtkosx_application_get());
 #endif
+	return(TRUE);
+}
 
-static gboolean
+gboolean
+onfocusmain(GtkWidget *w, GdkEvent *event, gpointer dat)
+{
+#ifdef MAC_INTEGRATION
+	struct bmigrate	  *b = dat;
+	GtkosxApplication *theApp;
+
+	theApp = gtkosx_application_get();
+	g_debug("wins.menu = %p (%s)", b->wins.menu, gtk_widget_get_name(GTK_WIDGET(b->wins.menu)));
+	gtkosx_application_set_menu_bar
+		(theApp,
+		 GTK_MENU_SHELL(b->wins.menu));
+	gtkosx_application_sync_menubar
+		(theApp);
+#endif
+	return(TRUE);
+}
+
+gboolean
 ondraw(GtkWidget *w, cairo_t *cr, gpointer dat)
 {
 
@@ -1376,6 +1300,7 @@ curwin_free(gpointer dat)
 {
 	struct curwin	*cur = dat;
 
+	on_sims_deref(cur->sims);
 	g_free(cur->autosave);
 	g_free(cur);
 }
@@ -1387,46 +1312,61 @@ curwin_free(gpointer dat)
 static void
 window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 {
-	GtkWidget	*w, *draw;
-	GdkRGBA	  	 color = { 1.0, 1.0, 1.0, 1.0 };
+#ifdef	MAC_INTEGRATION
+	GtkApplication	*theApp;
+	gchar		*dir;
+#endif
+	GError		*err;
+	GtkBuilder	*builder;
 	GtkTargetEntry   target;
+	gchar		*file;
 
 	/* Set us to redraw. */
 	cur->redraw = 1;
 
-	w = gtk_window_new(GTK_WINDOW_TOPLEVEL);
-	gtk_widget_override_background_color
-		(w, GTK_STATE_FLAG_NORMAL, &color);
-	draw = gtk_drawing_area_new();
-	/*
-	 * Enable the right-click menu.
-	 * This is different from Mac OSX, which always has a menu
-	 * whilst the program is running.
-	 */
-#ifndef	MAC_INTEGRATION
-	gtk_widget_set_events(draw,
-		gtk_widget_get_events(draw) |
-		GDK_BUTTON_PRESS_MASK);
-	g_signal_connect(G_OBJECT(w),
-		"button-press-event", 
-		G_CALLBACK(onpress), b);
+#ifdef	MAC_INTEGRATION
+	theApp = g_object_new(GTKOSX_TYPE_APPLICATION, NULL);
+	if (NULL != (dir = gtkosx_application_get_bundle_id())) {
+		g_free(dir);
+		dir = gtkosx_application_get_resource_path();
+		file = g_strdup_printf
+			("%s" G_DIR_SEPARATOR_S
+			 "share" G_DIR_SEPARATOR_S
+			 "bmigrate" G_DIR_SEPARATOR_S
+			 "simulation.glade", dir);
+		g_free(dir);
+	}
 #endif
-	gtk_widget_set_margin_left(draw, 10);
-	gtk_widget_set_margin_right(draw, 10);
-	gtk_widget_set_margin_top(draw, 10);
-	gtk_widget_set_margin_bottom(draw, 10);
-	gtk_widget_set_size_request(draw, 440, 400);
-	g_signal_connect(G_OBJECT(draw), 
-		"draw", G_CALLBACK(ondraw), b);
-	g_signal_connect(G_OBJECT(w),
-		"focus-in-event", 
-		G_CALLBACK(onfocus), b);
-	gtk_container_add(GTK_CONTAINER(w), draw);
-	gtk_widget_show_all(w);
-	g_object_set_data_full(G_OBJECT(w), 
+	if (NULL == file)
+		file = g_strdup_printf(DATADIR 
+			G_DIR_SEPARATOR_S "%s", "simulation.glade");
+
+	builder = gtk_builder_new();
+	assert(NULL != builder);
+
+	/*
+	 * This should be gtk_builder_new_from_file(), but we don't
+	 * support that on older versions of GTK, so do it like this.
+	 */
+	err = NULL;
+	if ( ! gtk_builder_add_from_file(builder, file, &err)) {
+		g_error("%s: %s", file, 
+			NULL == err ? "(no error)" : err->message);
+		if (NULL != err)
+			g_error_free(err);
+		g_free(file);
+		g_object_unref(G_OBJECT(builder));
+		return;
+	}
+
+	swin_init(cur, builder);
+	gtk_builder_connect_signals(builder, cur);
+	g_object_unref(G_OBJECT(builder));
+	cur->sims = sims;
+	cur->b = b;
+
+	g_object_set_data_full(G_OBJECT(cur->wins.window), 
 		"cfg", cur, curwin_free);
-	g_object_set_data_full(G_OBJECT(w), 
-		"sims", sims, on_sims_deref);
 
 	/* 
 	 * Coordinate drag-and-drop. 
@@ -1436,58 +1376,59 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	target.target = g_strdup("integer");
 	target.flags = GTK_TARGET_SAME_APP|GTK_TARGET_OTHER_WIDGET;
 	target.info = 0;
-	gtk_drag_dest_set(draw, GTK_DEST_DEFAULT_ALL, 
-		&target, 1, GDK_ACTION_COPY);
-	gtk_drag_source_set(draw, GDK_BUTTON1_MASK, 
-		&target, 1, GDK_ACTION_COPY);
-	g_free(target.target);
-	g_signal_connect(draw, "drag-data-received",
-                G_CALLBACK(on_drag_recv), b);
-	g_signal_connect(draw, "drag-drop", 
-		G_CALLBACK(on_dragdrop), b);
-	g_signal_connect(draw, "drag-data-get",
-                G_CALLBACK(on_drag_get), b);
 
-	/*
-	 * Set the window's title and zero autosave.
-	 */
-	gtk_window_set_title(GTK_WINDOW(w),
+	gtk_drag_dest_set(GTK_WIDGET(cur->wins.notebook),
+		GTK_DEST_DEFAULT_ALL, &target, 1, GDK_ACTION_COPY);
+	gtk_drag_source_set(GTK_WIDGET(cur->wins.notebook),
+		GDK_BUTTON1_MASK, &target, 1, GDK_ACTION_COPY);
+	g_free(target.target);
+
+	gtk_window_set_title(GTK_WINDOW(cur->wins.window),
 		gtk_menu_item_get_label
-		(GTK_MENU_ITEM(b->wins.views[cur->view])));
-	gtk_widget_show_all(GTK_WIDGET(b->wins.menuautoexport));
-	gtk_widget_hide(GTK_WIDGET(b->wins.menuunautoexport));
+		(GTK_MENU_ITEM(cur->wins.views[cur->view])));
+	gtk_widget_show_all(GTK_WIDGET(cur->wins.window));
+
+	/* Reset our auto-save status. */
+	g_free(cur->autosave);
+	cur->autosave = NULL;
+	gtk_widget_hide(GTK_WIDGET(cur->wins.menuunautoexport));
+
+#ifdef MAC_INTEGRATION
+	g_debug("cwins.menu = %p", cur->wins.menu);
+	gtkosx_application_set_menu_bar
+		(gtkosx_application_get(), 
+		 GTK_MENU_SHELL(cur->wins.menu));
+	gtkosx_application_sync_menubar
+		(gtkosx_application_get());
+	gtk_widget_hide(GTK_WIDGET(cur->wins.menu));
+	gtk_widget_hide(GTK_WIDGET(cur->wins.menuquit));
+#endif
 }
 
 void
 onunautoexport(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct curwin	*cur;
-	struct bmigrate	*b = dat;
+	struct curwin	*cur = dat;
 
-	g_assert(NULL != b->current);
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
 	g_assert(NULL != cur->autosave);
 	g_debug("Disabling auto-exporting: %s", cur->autosave);
 	g_free(cur->autosave);
 	cur->autosave = NULL;
-	gtk_widget_hide(GTK_WIDGET(b->wins.menuunautoexport));
-	gtk_widget_show(GTK_WIDGET(b->wins.menuautoexport));
+	gtk_widget_show(GTK_WIDGET(cur->wins.menuautoexport));
+	gtk_widget_hide(GTK_WIDGET(cur->wins.menuunautoexport));
 }
 
 void
 onautoexport(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
 	GtkWidget	*dialog;
 	gint		 res;
-	struct curwin	*cur;
+	struct curwin	*cur = dat;
 	GtkFileChooser	*chooser;
 
-	g_assert(NULL != b->current);
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
 	g_assert(NULL == cur->autosave);
 	dialog = gtk_file_chooser_dialog_new
-		("Create Data Folder", GTK_WINDOW(b->current),
+		("Create Data Folder", GTK_WINDOW(cur->wins.window),
 		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
@@ -1500,8 +1441,8 @@ onautoexport(GtkMenuItem *menuitem, gpointer dat)
 	}
 	cur->autosave = gtk_file_chooser_get_filename(chooser);
 	gtk_widget_destroy(dialog);
-	gtk_widget_hide(GTK_WIDGET(b->wins.menuautoexport));
-	gtk_widget_show(GTK_WIDGET(b->wins.menuunautoexport));
+	gtk_widget_hide(GTK_WIDGET(cur->wins.menuautoexport));
+	gtk_widget_show(GTK_WIDGET(cur->wins.menuunautoexport));
 	g_debug("Auto-exporting: %s", cur->autosave);
 }
 
@@ -1513,18 +1454,15 @@ onautoexport(GtkMenuItem *menuitem, gpointer dat)
 void
 onclone(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
-	struct curwin	*oldcur, *newcur;
+	struct curwin	*oldcur = dat, *newcur;
 	GList		*oldsims, *newsims;
 
-	g_assert(NULL != b->current);
-	oldcur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	oldsims = g_object_get_data(G_OBJECT(b->current), "sims");
+	oldsims = oldcur->sims;
 	g_list_foreach(oldsims, sim_ref, NULL);
 	newsims = g_list_copy(oldsims);
 	newcur = g_malloc0(sizeof(struct curwin));
 	newcur->view = oldcur->view;
-	window_init(b, newcur, newsims);
+	window_init(oldcur->b, newcur, newsims);
 }
 
 /*
@@ -1533,12 +1471,7 @@ onclone(GtkMenuItem *menuitem, gpointer dat)
 void
 onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
-	struct curwin	*cur;
-
-	g_assert(NULL != b->current);
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
-	g_assert(NULL != cur);
+	struct curwin	*cur = dat;
 
 	/*
 	 * First, set the "view" indicator to be the current view as
@@ -1546,19 +1479,19 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 	 */
 	for (cur->view = 0; cur->view < VIEW__MAX; cur->view++) 
 		if (gtk_check_menu_item_get_active
-			(b->wins.views[cur->view]))
+			(cur->wins.views[cur->view]))
 			break;
 	/*
 	 * Next, set the window name to be the label associated with the
 	 * respective menu check item.
 	 */
 	g_assert(cur->view < VIEW__MAX);
-	gtk_window_set_title(GTK_WINDOW(b->current),
+	gtk_window_set_title(GTK_WINDOW(cur->wins.window),
 		gtk_menu_item_get_label
-		(GTK_MENU_ITEM(b->wins.views[cur->view])));
+		(GTK_MENU_ITEM(cur->wins.views[cur->view])));
 
 	/* Redraw the window. */
-	gtk_widget_queue_draw(b->current);
+	gtk_widget_queue_draw(GTK_WIDGET(cur->wins.window));
 }
 
 /*
@@ -1567,15 +1500,11 @@ onviewtoggle(GtkMenuItem *menuitem, gpointer dat)
 void
 onpause(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
-	GList		*list;
+	GList		*l;
+	struct curwin	*cur = dat;
 
-	g_assert(NULL != b->current);
-	list = g_object_get_data(G_OBJECT(b->current), "sims");
-	assert(NULL != list);
-
-	for ( ; NULL != list; list = list->next)
-		on_sim_pause(list->data, 1);
+	for (l = cur->sims; NULL != l; l = l->next)
+		on_sim_pause(l->data, 1);
 }
 
 /*
@@ -1584,15 +1513,11 @@ onpause(GtkMenuItem *menuitem, gpointer dat)
 void
 onunpause(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
-	GList		*list;
+	struct curwin	*cur = dat;
+	GList		*l;
 
-	g_assert(NULL != b->current);
-	list = g_object_get_data(G_OBJECT(b->current), "sims");
-	assert(NULL != list);
-
-	for ( ; NULL != list; list = list->next)
-		on_sim_pause(list->data, 0);
+	for (l = cur->sims ; NULL != l; l = l->next)
+		on_sim_pause(l->data, 0);
 }
 
 gboolean
@@ -2125,7 +2050,7 @@ on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
 void
 onsavekml(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
+	struct curwin	*cur = dat;
 	GtkWidget	*dialog;
 	gint		 res;
 	GtkFileChooser	*chooser;
@@ -2134,9 +2059,9 @@ onsavekml(GtkMenuItem *menuitem, gpointer dat)
 	char 		*file, *dir;
 	GList		*sims;
 
-	g_assert(NULL != b->current);
 	dialog = gtk_file_chooser_dialog_new
-		("Create KML Data Folder", GTK_WINDOW(b->current),
+		("Create KML Data Folder", 
+		 GTK_WINDOW(cur->wins.window),
 		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
@@ -2153,7 +2078,7 @@ onsavekml(GtkMenuItem *menuitem, gpointer dat)
 	g_assert(NULL != dir);
 	g_assert('\0' != *dir);
 
-	sims = g_object_get_data(G_OBJECT(b->current), "sims");
+	sims = cur->sims;
 	for ( ; NULL != sims; sims = g_list_next(sims)) {
 		sim = sims->data;
 		file = g_strdup_printf
@@ -2165,7 +2090,7 @@ onsavekml(GtkMenuItem *menuitem, gpointer dat)
 			fclose(f);
 		} else {
 			dialog = gtk_message_dialog_new
-				(GTK_WINDOW(b->current),
+				(GTK_WINDOW(cur->wins.window),
 				 GTK_DIALOG_DESTROY_WITH_PARENT, 
 				 GTK_MESSAGE_ERROR, 
 				 GTK_BUTTONS_CLOSE, 
@@ -2184,18 +2109,17 @@ onsavekml(GtkMenuItem *menuitem, gpointer dat)
 void
 onsaveall(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
+	struct curwin	*cur = dat;
 	GtkWidget	*dialog;
 	gint		 res;
 	GtkFileChooser	*chooser;
 	char 		*dir, *file;
 	enum view	 view, sv;
 	FILE		*f;
-	struct curwin	*cur;
 
-	g_assert(NULL != b->current);
 	dialog = gtk_file_chooser_dialog_new
-		("Create View Data Folder", GTK_WINDOW(b->current),
+		("Create View Data Folder", 
+		 GTK_WINDOW(cur->wins.window),
 		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
@@ -2212,7 +2136,6 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 	g_assert(NULL != dir);
 	g_assert('\0' != *dir);
 
-	cur = g_object_get_data(G_OBJECT(b->current), "cfg");
 	sv = cur->view;
 	for (view = 0; view < VIEW__MAX; view++) {
 		file = g_strdup_printf
@@ -2220,12 +2143,12 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 			 dir, views[view]);
 		cur->view = view;
 		if (NULL != (f = fopen(file, "w+"))) {
-			save(f, b);
+			save(f, cur);
 			g_debug("Saved View: %s", file);
 			fclose(f);
 		} else {
 			dialog = gtk_message_dialog_new
-				(GTK_WINDOW(b->current),
+				(GTK_WINDOW(cur->wins.window),
 				 GTK_DIALOG_DESTROY_WITH_PARENT, 
 				 GTK_MESSAGE_ERROR, 
 				 GTK_BUTTONS_CLOSE, 
@@ -2249,16 +2172,16 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 void
 onsave(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
+	struct curwin	*cur = dat;
 	GtkWidget	*dialog;
 	gint		 res;
 	GtkFileChooser	*chooser;
 	FILE		*f;
 	char 		*file;
 
-	g_assert(NULL != b->current);
 	dialog = gtk_file_chooser_dialog_new
-		("Save View Data", GTK_WINDOW(b->current),
+		("Save View Data", 
+		 GTK_WINDOW(cur->wins.window),
 		 GTK_FILE_CHOOSER_ACTION_SAVE,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Save", GTK_RESPONSE_ACCEPT, NULL);
@@ -2276,12 +2199,12 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	g_assert('\0' != *file);
 
 	if (NULL != (f = fopen(file, "w+"))) {
-		save(f, b);
+		save(f, cur);
 		g_debug("Saved View: %s", file);
 		fclose(f);
 	} else {
 		dialog = gtk_message_dialog_new
-			(GTK_WINDOW(b->current),
+			(GTK_WINDOW(cur->wins.window),
 			 GTK_DIALOG_DESTROY_WITH_PARENT, 
 			 GTK_MESSAGE_ERROR, 
 			 GTK_BUTTONS_CLOSE, 
@@ -2313,18 +2236,29 @@ onterminate(GtkosxApplication *action, gpointer dat)
 void
 onclose(GtkMenuItem *menuitem, gpointer dat)
 {
-	struct bmigrate	*b = dat;
+	struct curwin	*cur = dat;
 
-	g_assert(NULL != b->current);
 	g_debug("Simulation window closing");
-	gtk_widget_destroy(b->current);
+	gtk_widget_destroy(GTK_WIDGET(cur->wins.window));
 }
 
 /*
  * Run when we quit from a simulation window.
  */
 void
-onquit(GtkMenuItem *menuitem, gpointer dat)
+onquitsim(GtkMenuItem *menuitem, gpointer dat)
+{
+	struct curwin	*cur = dat;
+
+	bmigrate_free(cur->b);
+	gtk_main_quit();
+}
+
+/*
+ * Run when we quit from a simulation window.
+ */
+void
+onquitmain(GtkMenuItem *menuitem, gpointer dat)
 {
 
 	bmigrate_free(dat);
@@ -2500,7 +2434,7 @@ main(int argc, char *argv[])
 	if ( ! gtk_builder_add_from_file(builder, file, NULL))
 		return(EXIT_FAILURE);
 
-	windows_init(&b, builder);
+	hwin_init(&b, builder);
 	b.status_elapsed = g_timer_new();
 
 	gtk_builder_connect_signals(builder, &b);
@@ -2509,60 +2443,17 @@ main(int argc, char *argv[])
 	gtk_widget_hide(GTK_WIDGET(b.wins.error));
 
 #ifdef	MAC_INTEGRATION
-	/*
-	 * Title-bar dance.
-	 * On Mac OS X, remove the Quit menu and put the menu itself as
-	 * the top-most menu bar, shared by all windows.
-	 */
 	theApp = gtkosx_application_get();
 	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
 	gtk_widget_hide(GTK_WIDGET(b.wins.menuquit));
+	g_debug("wins.menu = %p", b.wins.menu);
 	gtkosx_application_set_menu_bar
 		(theApp, GTK_MENU_SHELL(b.wins.menu));
 	gtkosx_application_sync_menubar(theApp);
 	g_signal_connect(theApp, "NSApplicationWillTerminate",
 		G_CALLBACK(onterminate), &b);
 	gtkosx_application_ready(theApp);
-#else
-	/*
-	 * On regular systems, remove the title bar alltogether and add
-	 * each submenu to a "popup" menu that we'll dynamically pop up
-	 * in each window.
-	 */
-	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
-	b.wins.allmenus = GTK_MENU(gtk_menu_new());
-
-	/*
-	 * gtk_container_remove() will unreference these menus, and they
-	 * may possibly be destroyed.
-	 * Make sure we have an extra reference to them.
-	 */
-	g_object_ref(b.wins.menufile);
-	g_object_ref(b.wins.menuview);
-	g_object_ref(b.wins.menutools);
-
-	/* Reparent... */
-	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
-		GTK_WIDGET(b.wins.menufile));
-	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
-		GTK_WIDGET(b.wins.menuview));
-	gtk_container_remove(GTK_CONTAINER(b.wins.menu), 
-		GTK_WIDGET(b.wins.menutools));
-	gtk_menu_shell_append(GTK_MENU_SHELL
-		(b.wins.allmenus), GTK_WIDGET(b.wins.menufile));
-	gtk_menu_shell_append(GTK_MENU_SHELL
-		(b.wins.allmenus), GTK_WIDGET(b.wins.menuview));
-	gtk_menu_shell_append(GTK_MENU_SHELL
-		(b.wins.allmenus), GTK_WIDGET(b.wins.menutools));
-
-	/* Remove our temporary reference... */
-	g_object_unref(b.wins.menufile);
-	g_object_unref(b.wins.menuview);
-	g_object_unref(b.wins.menutools);
-
-	gtk_widget_show_all(GTK_WIDGET(b.wins.allmenus));
 #endif
-	gtk_widget_hide(GTK_WIDGET(b.wins.menuunautoexport));
 
 	/*
 	 * Have two running timers: once per second, force a refresh of

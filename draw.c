@@ -741,10 +741,10 @@ drawinfo(cairo_t *cr, double *y,
  * the stddev/fitpoly arrays in the worker threads instead of here.
  */
 void
-draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
+draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 {
-	struct curwin	*cur;
 	double		 width, height, maxy, v, minx, maxx;
+	struct bmigrate	*b;
 	GtkWidget	*top;
 	struct sim	*sim;
 	size_t		 i, simnum, simmax;
@@ -760,11 +760,10 @@ draw(GtkWidget *w, cairo_t *cr, struct bmigrate *b)
 	 * Both of these are stored as pointers to the top-level window.
 	 */
 	top = gtk_widget_get_toplevel(w);
-	cur = g_object_get_data(G_OBJECT(top), "cfg");
-	assert(NULL != cur);
 	cur->redraw = 0;
-	sims = g_object_get_data(G_OBJECT(top), "sims");
+	sims = cur->sims;
 	assert(NULL != sims);
+	b = cur->b;
 
 	/* 
 	 * Initialise the window view to be all white. 

@@ -319,15 +319,9 @@ enum	namefill {
 	NAMEFILL__MAX
 };
 
-/*
- * These are all widgets that may be or are visible.
- */
-struct	hwin {
-	GtkWindow	 *config;
-	GtkWindow	 *rangefind;
-#ifndef	MAC_INTEGRATION
-	GtkMenu		 *allmenus;
-#endif
+struct	swin {
+	GtkWindow	 *window;
+	GtkNotebook	 *notebook;
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
 	GtkMenuItem	 *menuautoexport;
@@ -339,15 +333,25 @@ struct	hwin {
 	GtkMenuItem	 *menufile;
 	GtkMenuItem	 *menuview;
 	GtkMenuItem	 *menutools;
-	GtkStatusbar	 *status;
+	GtkMenuItem	 *viewclone;
+	GtkMenuItem	 *viewpause;
+	GtkMenuItem	 *viewunpause;
 	GtkCheckMenuItem *views[VIEW__MAX];
+};
+
+/*
+ * These are all widgets that may be or are visible.
+ */
+struct	hwin {
+	GtkWindow	 *config;
+	GtkWindow	 *rangefind;
+	GtkMenuBar	 *menu;
+	GtkMenuItem	 *menuquit;
+	GtkStatusbar	 *status;
 	GtkEntry	 *mutantsigma;
 	GtkRadioButton   *mutants[MUTANTS__MAX];
 	GtkToggleButton	 *namefill[NAMEFILL__MAX];
 	GtkToggleButton	 *mapmigrants[MAPMIGRANT__MAX];
-	GtkMenuItem	 *viewclone;
-	GtkMenuItem	 *viewpause;
-	GtkMenuItem	 *viewunpause;
 	GtkToggleButton	 *weighted;
 	GtkEntry	 *stop;
 	GtkEntry	 *input;
@@ -385,7 +389,6 @@ struct	hwin {
 	GtkFileChooser	 *mapfile;
 #define	SIZE_COLOURS	  9 
 	GdkRGBA		  colours[SIZE_COLOURS];
-	GList		 *menus;
 };
 
 /*
@@ -393,9 +396,12 @@ struct	hwin {
  * There's very little in here right now, which is fine.
  */
 struct	curwin {
+	struct swin	  wins; /* windows in view */
 	enum view	  view; /* what view are we seeing? */
 	int		  redraw; /* window is stale? */
-	gchar		 *autosave;
+	GList		 *sims; /* simulations in window */
+	gchar		 *autosave; /* directory or NULL */
+	struct bmigrate	 *b; /* up-reference */
 };
 
 /*
@@ -455,11 +461,10 @@ double		  hnode_exec(const struct hnode *const *p,
 			double x, double X, size_t n);
 void		  hnode_test(void);
 
-void		  draw(GtkWidget *w, cairo_t *cr,
-			struct bmigrate *b);
-void		  save(FILE *f, struct bmigrate *b);
-void		  savewin(FILE *f, const GList *sims, const struct curwin *cur);
-void		 *simulation(void *arg);
+void		  draw(GtkWidget *, cairo_t *, struct curwin *);
+void		  save(FILE *, struct curwin *);
+void		  savewin(FILE *, const GList *, const struct curwin *);
+void		 *simulation(void *);
 
 struct stats	 *stats_alloc0(size_t sz);
 void		  stats_push(struct stats *p, double x);
