@@ -252,6 +252,25 @@ swin_init(struct curwin *cur, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "menuitem17"));
 	cur->wins.menusaveall = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem47"));
+
+	gtk_widget_show_all(GTK_WIDGET(cur->wins.window));
+
+	gtk_window_set_title(GTK_WINDOW(cur->wins.window),
+		gtk_menu_item_get_label
+		(GTK_MENU_ITEM(cur->wins.views[cur->view])));
+
+	gtk_widget_hide(GTK_WIDGET(cur->wins.menuunautoexport));
+
+#ifdef MAC_INTEGRATION
+	gtk_widget_hide(GTK_WIDGET(cur->wins.menu));
+	gtk_widget_hide(GTK_WIDGET(cur->wins.menuquit));
+	g_debug("cwins.menu = %p", cur->wins.menu);
+	gtkosx_application_set_menu_bar
+		(gtkosx_application_get(), 
+		 GTK_MENU_SHELL(cur->wins.menu));
+	gtkosx_application_sync_menubar
+		(gtkosx_application_get());
+#endif
 }
 
 /*
@@ -370,11 +389,16 @@ hwin_init(struct bmigrate *b, GtkBuilder *builder)
 	b->wins.mapmigrants[MAPMIGRANT_DISTANCE] = GTK_TOGGLE_BUTTON
 		(gtk_builder_get_object(builder, "radiobutton6"));
 
+	gtk_widget_show_all(GTK_WIDGET(b->wins.config));
+
+	/* Hide our error message. */
+	gtk_widget_hide(GTK_WIDGET(b->wins.error));
+
 	/* Set the initially-selected notebooks. */
 	gtk_entry_set_text(b->wins.input, inputs
 		[gtk_notebook_get_current_page(b->wins.inputs)]);
 
-	/* Builder doesn't do this. */
+	/* XXX: builder doesn't do this. */
 	w = gtk_builder_get_object(builder, "comboboxtext1");
 	gtk_combo_box_set_active(GTK_COMBO_BOX(w), 0);
 
@@ -398,10 +422,18 @@ hwin_init(struct bmigrate *b, GtkBuilder *builder)
 		g_assert(val);
 	}
 
-	/*
-	 * Hide the rangefinder when we start up.
-	 */
+	/* Hide the rangefinder when we start up. */
 	gtk_widget_set_visible(GTK_WIDGET(b->wins.rangefind), FALSE);
+
+#ifdef MAC_INTEGRATION
+	gtk_widget_hide(GTK_WIDGET(b->wins.menu));
+	gtk_widget_hide(GTK_WIDGET(b->wins.menuquit));
+	gtkosx_application_set_menu_bar
+		(gtkosx_application_get(), 
+		 GTK_MENU_SHELL(b->wins.menu));
+	gtkosx_application_sync_menubar
+		(gtkosx_application_get());
+#endif
 }
 
 /*
@@ -888,7 +920,8 @@ on_sim_autosave(gpointer dat)
 	for ( ; list != NULL; list = list->next) {
 		cur = g_object_get_data
 			(G_OBJECT(list->data), "cfg");
-		g_assert(NULL != cur);
+		if (NULL == cur)
+			continue;
 		for (view = 0; view < VIEW__MAX; view++) {
 			file = g_strdup_printf
 				("%s" G_DIR_SEPARATOR_S "%s",
@@ -1383,26 +1416,9 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 		GDK_BUTTON1_MASK, &target, 1, GDK_ACTION_COPY);
 	g_free(target.target);
 
-	gtk_window_set_title(GTK_WINDOW(cur->wins.window),
-		gtk_menu_item_get_label
-		(GTK_MENU_ITEM(cur->wins.views[cur->view])));
-	gtk_widget_show_all(GTK_WIDGET(cur->wins.window));
-
 	/* Reset our auto-save status. */
 	g_free(cur->autosave);
 	cur->autosave = NULL;
-	gtk_widget_hide(GTK_WIDGET(cur->wins.menuunautoexport));
-
-#ifdef MAC_INTEGRATION
-	g_debug("cwins.menu = %p", cur->wins.menu);
-	gtkosx_application_set_menu_bar
-		(gtkosx_application_get(), 
-		 GTK_MENU_SHELL(cur->wins.menu));
-	gtkosx_application_sync_menubar
-		(gtkosx_application_get());
-	gtk_widget_hide(GTK_WIDGET(cur->wins.menu));
-	gtk_widget_hide(GTK_WIDGET(cur->wins.menuquit));
-#endif
 }
 
 void
@@ -2377,7 +2393,6 @@ main(int argc, char *argv[])
 	gchar	 	  *file;
 #ifdef	MAC_INTEGRATION
 	gchar	 	  *dir;
-	GtkosxApplication *theApp;
 #endif
 	file = NULL;
 	memset(&b, 0, sizeof(struct bmigrate));
@@ -2408,7 +2423,7 @@ main(int argc, char *argv[])
 	 * If we're not in a bundle, look in DATADIR.
 	 */
 #ifdef	MAC_INTEGRATION
-	theApp = g_object_new(GTKOSX_TYPE_APPLICATION, NULL);
+	g_object_new(GTKOSX_TYPE_APPLICATION, NULL);
 	if (NULL != (dir = gtkosx_application_get_bundle_id())) {
 		g_free(dir);
 		dir = gtkosx_application_get_resource_path();
@@ -2435,35 +2450,26 @@ main(int argc, char *argv[])
 		return(EXIT_FAILURE);
 
 	hwin_init(&b, builder);
-	b.status_elapsed = g_timer_new();
-
 	gtk_builder_connect_signals(builder, &b);
 	g_object_unref(G_OBJECT(builder));
-	gtk_widget_show_all(GTK_WIDGET(b.wins.config));
-	gtk_widget_hide(GTK_WIDGET(b.wins.error));
-
-#ifdef	MAC_INTEGRATION
-	theApp = gtkosx_application_get();
-	gtk_widget_hide(GTK_WIDGET(b.wins.menu));
-	gtk_widget_hide(GTK_WIDGET(b.wins.menuquit));
-	g_debug("wins.menu = %p", b.wins.menu);
-	gtkosx_application_set_menu_bar
-		(theApp, GTK_MENU_SHELL(b.wins.menu));
-	gtkosx_application_sync_menubar(theApp);
-	g_signal_connect(theApp, "NSApplicationWillTerminate",
-		G_CALLBACK(onterminate), &b);
-	gtkosx_application_ready(theApp);
-#endif
 
 	/*
 	 * Have two running timers: once per second, force a refresh of
 	 * the window system.
 	 * Four times per second, update our cold statistics.
 	 */
+	b.status_elapsed = g_timer_new();
 	g_timeout_add_seconds(1, (GSourceFunc)on_sim_timer, &b);
 	g_timeout_add_seconds(60, (GSourceFunc)on_sim_autosave, &b);
 	g_timeout_add(250, (GSourceFunc)on_sim_copyout, &b);
 	gtk_statusbar_push(b.wins.status, 0, "No simulations.");
+
+#ifdef MAC_INTEGRATION
+	g_signal_connect(gtkosx_application_get(), 
+		"NSApplicationWillTerminate",
+		G_CALLBACK(onterminate), &b);
+	gtkosx_application_ready(gtkosx_application_get());
+#endif
 	gtk_main();
 	bmigrate_free(&b);
 	return(EXIT_SUCCESS);
