@@ -22,10 +22,10 @@
 
 #include <cairo.h>
 #include <gtk/gtk.h>
-
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_histogram.h>
+#include <kplot.h>
 
 #include "extern.h"
 
@@ -238,20 +238,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 				*maxy = v;
 		}
 		break;
-	case (VIEW_EXTM):
-		for (i = 0; i < s->dims; i++) {
-			v = stats_extinctm(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
-	case (VIEW_EXTI):
-		for (i = 0; i < s->dims; i++) {
-			v = stats_extincti(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
 	case (VIEW_EXTIMINPDF):
 		if (gsl_histogram_max_val(s->cold.extimins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.extimins);
@@ -445,19 +431,11 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 			drawlegendmin(buf, sizeof(buf),
 				sim, sim->cold.meanmin);
 			break;
-		case (VIEW_EXTI):
-			drawlegendmin(buf, sizeof(buf),
-				sim, sim->cold.extimin);
-			break;
 		case (VIEW_EXTIMINCDF):
 		case (VIEW_EXTIMINPDF):
 		case (VIEW_EXTIMINS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->cold.extiminst);
-			break;
-		case (VIEW_EXTM):
-			drawlegendmax(buf, sizeof(buf),
-				sim, sim->cold.extmmax);
 			break;
 		case (VIEW_EXTMMAXCDF):
 		case (VIEW_EXTMMAXPDF):
@@ -752,8 +730,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	cairo_text_extents_t e;
 	gchar		 buf[1024];
 
-	cairo_set_font_size(cr, 12.0);
-
 	/* 
 	 * Get our window configuration.
 	 * Then get our list of simulations.
@@ -773,6 +749,22 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
 	cairo_rectangle(cr, 0.0, 0.0, width, height);
 	cairo_fill(cr);
+
+	switch (cur->view) {
+	case (VIEW_MEAN):
+		kplot_draw(cur->view_mean, width, height, cr, NULL);
+		return;
+	case (VIEW_EXTM):
+		kplot_draw(cur->view_mextinct, width, height, cr, NULL);
+		return;
+	case (VIEW_EXTI):
+		kplot_draw(cur->view_iextinct, width, height, cr, NULL);
+		return;
+	default:
+		break;
+	}
+
+	cairo_set_font_size(cr, 12.0);
 
 	/*
 	 * Create by drawing a legend.
@@ -976,26 +968,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 		case (VIEW_POLYMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
 				&sim->cold.fitminq, &sim->cold.fitminst);
-			break;
-		case (VIEW_EXTI):
-			for (i = 1; i < sim->dims; i++) {
-				v = stats_extincti(&sim->cold.stats[i - 1]);
-				cairo_move_to(cr, GETX(i-1), GETY(v));
-				v = stats_extincti(&sim->cold.stats[i]);
-				cairo_line_to(cr, GETX(i), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			break;
-		case (VIEW_EXTM):
-			for (i = 1; i < sim->dims; i++) {
-				v = stats_extinctm(&sim->cold.stats[i - 1]);
-				cairo_move_to(cr, GETX(i-1), GETY(v));
-				v = stats_extinctm(&sim->cold.stats[i]);
-				cairo_line_to(cr, GETX(i), GETY(v));
-			}
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
 			break;
 		case (VIEW_EXTIMINCDF):
 			draw_cdf(sim, b, cr, width, height, 

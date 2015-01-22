@@ -29,6 +29,7 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
 #include <gsl/gsl_histogram.h>
+#include <kplot.h>
 
 #include "extern.h"
 
@@ -73,6 +74,10 @@ snapshot(struct sim *sim, struct simwarm *warm,
 		assert(warm->tgens == tgens);
 		return;
 	}
+
+	simbuf_copy_warm(sim->bufs.means);
+	simbuf_copy_warm(sim->bufs.mextinct);
+	simbuf_copy_warm(sim->bufs.iextinct);
 
 	memcpy(warm->stats, sim->hot.statslsb, 
 		sim->dims * sizeof(struct stats));
@@ -223,7 +228,7 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	size_t *islandidx, double *mutantp, double *incumbentp, 
 	size_t *incumbentidx, double *vp, size_t gen)
 {
-	int		 fit = 0;
+	int		 fit = 0, rc;
 	size_t		 mutant;
 	uint64_t	 truns, tgens;
 
@@ -242,6 +247,16 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * This prevents us from overwriting others' results.
 	 */
 	if (NULL != vp) {
+		rc = kdata_bucket_set
+			(sim->bufs.fractions, *incumbentidx, *vp);
+		g_assert(0 != rc);
+		rc = kdata_bucket_set
+			(sim->bufs.mutants, *incumbentidx, 0.0 == *vp);
+		g_assert(0 != rc);
+		rc = kdata_bucket_set
+			(sim->bufs.incumbents, *incumbentidx, 1.0 == *vp);
+		g_assert(0 != rc);
+
 		stats_push(&sim->hot.stats[*incumbentidx], *vp);
 		stats_push(&sim->hot.islands[*islandidx], *vp);
 		sim->hot.tgens += gen;
@@ -264,6 +279,11 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * of the hot mutex.
 	 */
 	if (1 == sim->hot.copyout) {
+		simbuf_copy_hotlsb(sim->bufs.means);
+		simbuf_copy_hotlsb(sim->bufs.mextinct);
+		simbuf_copy_hotlsb(sim->bufs.iextinct);
+		/*rc = kdata_buffer_copy(sim->hot.stddevs, sim->hot.stddevslsb);
+		g_assert(0 != rc);*/
 		memcpy(sim->hot.statslsb, sim->hot.stats,
 			sim->dims * sizeof(struct stats));
 		memcpy(sim->hot.islandslsb, sim->hot.islands,

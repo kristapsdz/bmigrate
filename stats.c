@@ -23,6 +23,7 @@
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_histogram.h>
+#include <kplot.h>
 
 #include "extern.h"
 
@@ -78,7 +79,7 @@ double
 stats_variance(const struct stats *p)
 {
 
-	if (0 == p->n)
+	if (p->n < 2)
 		return(0.0);
 	return(p->M2 / ((double)p->n - 1.0));
 }

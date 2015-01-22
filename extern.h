@@ -73,6 +73,22 @@ struct	sim_continuum {
 	double		  ymax; /* maximum Gaussian mutant strategy */
 };
 
+struct	simbuf {
+	struct kdata	*hot;
+	struct kdata	*hotlsb;
+	struct kdata	*warm;
+	struct kdata	*cold;
+};
+
+struct	simbufs {
+	struct kdata	*fractions;
+	struct kdata	*mutants;
+	struct kdata	*incumbents;
+	struct simbuf	*means;
+	struct simbuf	*mextinct;
+	struct simbuf	*iextinct;
+};
+
 /*
  * This structure is maintained by a thread group for a particular
  * running simulation.
@@ -244,6 +260,7 @@ struct	sim {
 	struct kml	 *kml; /* KML places */
 	size_t		  colour; /* graph colour */
 	struct sim_continuum continuum;
+	struct simbufs	  bufs; /* kdata buffers */
 	struct simhot	  hot; /* current results */
 	struct simwarm	  warm; /* current results */
 	struct simcold	  cold; /* graphed results */
@@ -321,7 +338,8 @@ enum	namefill {
 
 struct	swin {
 	GtkWindow	 *window;
-	GtkNotebook	 *notebook;
+	GtkDrawingArea	 *draw;
+	GtkBox		 *boxconfig;
 	GtkMenuBar	 *menu;
 	GtkMenuItem	 *menuquit;
 	GtkMenuItem	 *menuautoexport;
@@ -393,11 +411,15 @@ struct	hwin {
 
 /*
  * This describes a window.
- * There's very little in here right now, which is fine.
+ * Windows manage one or more simulations that might be in multiple
+ * other windows, too.
  */
 struct	curwin {
 	struct swin	  wins; /* windows in view */
 	enum view	  view; /* what view are we seeing? */
+	struct kplot	 *view_mean;
+	struct kplot	 *view_iextinct;
+	struct kplot	 *view_mextinct;
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */
@@ -466,6 +488,12 @@ void		  draw(GtkWidget *, cairo_t *, struct curwin *);
 void		  save(FILE *, struct curwin *);
 void		  savewin(FILE *, const GList *, const struct curwin *);
 void		 *simulation(void *);
+
+void		  simbuf_copy_cold(struct simbuf *);
+void		  simbuf_copy_warm(struct simbuf *);
+void		  simbuf_copy_hotlsb(struct simbuf *);
+void		  simbuf_free(struct simbuf *);
+struct simbuf	 *simbuf_alloc(struct kdata *, size_t);
 
 struct stats	 *stats_alloc0(size_t sz);
 void		  stats_push(struct stats *p, double x);

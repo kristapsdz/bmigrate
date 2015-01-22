@@ -24,10 +24,10 @@
 #endif
 #include <gtk/gtk.h>
 #include <gdk/gdk.h>
-
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_histogram.h>
+#include <kplot.h>
 
 #include "extern.h"
 
@@ -164,8 +164,10 @@ swin_init(struct curwin *cur, GtkBuilder *builder)
 		(gtk_builder_get_object(builder, "window1"));
 	cur->wins.menu = GTK_MENU_BAR
 		(gtk_builder_get_object(builder, "menubar1"));
-	cur->wins.notebook = GTK_NOTEBOOK
-		(gtk_builder_get_object(builder, "notebook1"));
+	cur->wins.draw = GTK_DRAWING_AREA
+		(gtk_builder_get_object(builder, "drawingarea1"));
+	cur->wins.boxconfig = GTK_BOX
+		(gtk_builder_get_object(builder, "box2"));
 	cur->wins.menufile = GTK_MENU_ITEM
 		(gtk_builder_get_object(builder, "menuitem1"));
 	cur->wins.menuview = GTK_MENU_ITEM
@@ -462,6 +464,13 @@ sim_free(gpointer arg)
 			g_thread_join(p->threads[i].thread);
 		}
 	p->nprocs = 0;
+
+	simbuf_free(p->bufs.means);
+	simbuf_free(p->bufs.mextinct);
+	simbuf_free(p->bufs.iextinct);
+	kdata_destroy(p->bufs.fractions);
+	kdata_destroy(p->bufs.mutants);
+	kdata_destroy(p->bufs.incumbents);
 
 	hnode_free(p->continuum.exp);
 	g_mutex_clear(&p->hot.mux);
@@ -838,6 +847,10 @@ on_sim_copyout(gpointer dat)
 		/*
 		 * Most strutures we simply copy over.
 		 */
+		simbuf_copy_cold(sim->bufs.means);
+		simbuf_copy_cold(sim->bufs.mextinct);
+		simbuf_copy_cold(sim->bufs.iextinct);
+
 		memcpy(sim->cold.stats, 
 			sim->warm.stats,
 			sizeof(struct stats) * sim->dims);
@@ -910,6 +923,8 @@ on_sim_autosave(gpointer dat)
 
 	for (list = b->windows; list != NULL; list = list->next) {
 		cur = list->data;
+		if (NULL == cur->autosave)
+			continue;
 		for (view = 0; view < VIEW__MAX; view++) {
 			file = g_strdup_printf
 				("%s" G_DIR_SEPARATOR_S "%s",
@@ -1193,6 +1208,27 @@ mapbox2pair(GtkLabel *err, GtkWidget *w, size_t *n)
 	return(1);
 }
 
+static void
+window_add_sim(struct curwin *cur, struct sim *sim)
+{
+	GtkWidget	*box, *w;
+
+	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+
+	w = gtk_label_new(sim->name);
+	gtk_container_add(GTK_CONTAINER(box), w);
+	gtk_container_add(GTK_CONTAINER(cur->wins.boxconfig), box);
+	gtk_widget_show_all(GTK_WIDGET(cur->wins.boxconfig));
+
+	/* FIXME: colour of lines */
+	kplot_data_attach(cur->view_mean, 
+		sim->bufs.means->cold, KPLOT_LINES, NULL);
+	kplot_data_attach(cur->view_mextinct, 
+		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
+	kplot_data_attach(cur->view_iextinct, 
+		sim->bufs.iextinct->cold, KPLOT_LINES, NULL);
+}
+
 /*
  * Transfer the other widget's data into our own.
  */
@@ -1238,6 +1274,7 @@ on_drag_recv(GtkWidget *widget, GdkDragContext *ctx,
 
 		sim_ref(l->data, NULL);
 		cur->sims = g_list_append(cur->sims, l->data);
+		window_add_sim(cur, l->data);
 	}
 }
 
@@ -1316,6 +1353,9 @@ curwin_free(gpointer dat)
 	struct curwin	*cur = dat;
 
 	g_debug("Freeing window: %p", cur);
+	kplot_free(cur->view_mean);
+	kplot_free(cur->view_mextinct);
+	kplot_free(cur->view_iextinct);
 	cur->b->windows = g_list_remove(cur->b->windows, cur);
 	on_sims_deref(cur->sims);
 	g_free(cur->autosave);
@@ -1380,12 +1420,20 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 {
 	GtkBuilder	*builder;
 	GtkTargetEntry   target;
+	GList		*l;
 
 	builder = builder_get("simulation.glade");
 	g_assert(NULL != builder);
 	swin_init(cur, builder);
 	gtk_builder_connect_signals(builder, cur);
 	g_object_unref(G_OBJECT(builder));
+
+	cur->view_mean = kplot_alloc();
+	g_assert(NULL != cur->view_mean);
+	cur->view_mextinct = kplot_alloc();
+	g_assert(NULL != cur->view_mextinct);
+	cur->view_iextinct = kplot_alloc();
+	g_assert(NULL != cur->view_iextinct);
 
 	cur->redraw = 1;
 	cur->sims = sims;
@@ -1404,11 +1452,14 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	target.flags = GTK_TARGET_SAME_APP|GTK_TARGET_OTHER_WIDGET;
 	target.info = 0;
 
-	gtk_drag_dest_set(GTK_WIDGET(cur->wins.notebook),
+	gtk_drag_dest_set(GTK_WIDGET(cur->wins.draw),
 		GTK_DEST_DEFAULT_ALL, &target, 1, GDK_ACTION_COPY);
-	gtk_drag_source_set(GTK_WIDGET(cur->wins.notebook),
+	gtk_drag_source_set(GTK_WIDGET(cur->wins.draw),
 		GDK_BUTTON1_MASK, &target, 1, GDK_ACTION_COPY);
 	g_free(target.target);
+
+	for (l = cur->sims; NULL != l; l = g_list_next(l))
+		window_add_sim(cur, l->data);
 }
 
 void
@@ -1434,7 +1485,7 @@ onautoexport(GtkMenuItem *menuitem, gpointer dat)
 
 	g_assert(NULL == cur->autosave);
 	dialog = gtk_file_chooser_dialog_new
-		("Create Data Folder", GTK_WINDOW(cur->wins.window),
+		("Create Data Folder", cur->wins.window,
 		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
@@ -1844,6 +1895,22 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->kml = kml;
 	g_mutex_init(&sim->hot.mux);
 	g_cond_init(&sim->hot.cond);
+
+	/* Source for the fraction of mutants. */
+	sim->bufs.fractions = kdata_bucket_alloc(0, slices);
+	g_assert(NULL != sim->bufs.fractions);
+	sim->bufs.mutants = kdata_bucket_alloc(0, slices);
+	g_assert(NULL != sim->bufs.mutants);
+	sim->bufs.incumbents = kdata_bucket_alloc(0, slices);
+	g_assert(NULL != sim->bufs.incumbents);
+
+	sim->bufs.means = simbuf_alloc
+		(kdata_mean_alloc(sim->bufs.fractions), slices);
+	sim->bufs.mextinct = simbuf_alloc
+		(kdata_mean_alloc(sim->bufs.mutants), slices);
+	sim->bufs.iextinct = simbuf_alloc
+		(kdata_mean_alloc(sim->bufs.incumbents), slices);
+
 	sim->hot.stats = g_malloc0_n
 		(sim->dims, sizeof(struct stats));
 	sim->hot.statslsb = g_malloc0_n
@@ -2066,8 +2133,7 @@ onsavekml(GtkMenuItem *menuitem, gpointer dat)
 	GList		*sims;
 
 	dialog = gtk_file_chooser_dialog_new
-		("Create KML Data Folder", 
-		 GTK_WINDOW(cur->wins.window),
+		("Create KML Data Folder", cur->wins.window,
 		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
@@ -2124,8 +2190,7 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 	FILE		*f;
 
 	dialog = gtk_file_chooser_dialog_new
-		("Create View Data Folder", 
-		 GTK_WINDOW(cur->wins.window),
+		("Create View Data Folder", cur->wins.window,
 		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
@@ -2186,8 +2251,7 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	char 		*file;
 
 	dialog = gtk_file_chooser_dialog_new
-		("Save View Data", 
-		 GTK_WINDOW(cur->wins.window),
+		("Save View Data", cur->wins.window,
 		 GTK_FILE_CHOOSER_ACTION_SAVE,
 		 "_Cancel", GTK_RESPONSE_CANCEL,
 		 "_Save", GTK_RESPONSE_ACCEPT, NULL);

@@ -21,10 +21,10 @@
 
 #include <cairo.h>
 #include <gtk/gtk.h>
-
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_histogram.h>
+#include <kplot.h>
 
 #include "extern.h"
 

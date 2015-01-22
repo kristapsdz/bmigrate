@@ -11,7 +11,7 @@ VERSIONXML = version_0_1_3.xml \
 	     version_0_1_6.xml
 DATADIR = ${PREFIX}/share/bmigrate
 CFLAGS += -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
-GTK_OBJS = bmigrate.o parser.o stats.o simulation.o draw.o save.o kml.o
+GTK_OBJS = bmigrate.o parser.o stats.o simulation.o draw.o save.o kml.o buf.o
 IMAGES = screen-config.png screen1.png screen2.png screen3.png screen4.png screen5.png
 SHARE = $(IMAGES) bmigrate.css bmigrate.glade simulation.glade bmigrate.html
 ifeq ($(shell uname),Darwin)
@@ -70,7 +70,7 @@ installwww: www
 $(GTK_OBJS): extern.h
 
 bmigrate: $(GTK_OBJS)
-	$(CC) -o $@ $(GTK_OBJS) $(GTK_LIBS) $(BSDLIB)
+	$(CC) -o $@ $(GTK_OBJS) $(GTK_LIBS) $(BSDLIB) -lkplot
 
 bmigrate-$(VERSION).tgz:
 	mkdir -p .dist/bmigrate-$(VERSION)

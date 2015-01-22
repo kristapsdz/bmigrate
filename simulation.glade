@@ -480,14 +480,14 @@
           <object class="GtkNotebook" id="notebook1">
             <property name="visible">True</property>
             <property name="can_focus">True</property>
-            <signal name="drag-drop" handler="on_drag_drop" swapped="no"/>
-            <signal name="drag-data-received" handler="on_drag_recv" swapped="no"/>
-            <signal name="drag-data-get" handler="on_drag_get" swapped="no"/>
             <child>
               <object class="GtkDrawingArea" id="drawingarea1">
                 <property name="visible">True</property>
                 <property name="can_focus">False</property>
                 <signal name="draw" handler="ondraw" swapped="no"/>
+                <signal name="drag-drop" handler="on_drag_drop" swapped="no"/>
+                <signal name="drag-data-received" handler="on_drag_recv" swapped="no"/>
+                <signal name="drag-data-get" handler="on_drag_get" swapped="no"/>
               </object>
             </child>
             <child type="tab">
