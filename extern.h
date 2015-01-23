@@ -85,6 +85,7 @@ struct	simbufs {
 	struct kdata	*mutants;
 	struct kdata	*incumbents;
 	struct simbuf	*means;
+	struct simbuf	*stddevs;
 	struct simbuf	*mextinct;
 	struct simbuf	*iextinct;
 };
@@ -418,6 +419,7 @@ struct	curwin {
 	struct swin	  wins; /* windows in view */
 	enum view	  view; /* what view are we seeing? */
 	struct kplot	 *view_mean;
+	struct kplot	 *view_stddev;
 	struct kplot	 *view_iextinct;
 	struct kplot	 *view_mextinct;
 	int		  redraw; /* window is stale? */

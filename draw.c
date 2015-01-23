@@ -230,14 +230,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_MEANMINCDF):
 		*maxy = 1.0;
 		break;
-	case (VIEW_DEV):
-		for (i = 0; i < s->dims; i++) {
-			v = stats_mean(&s->cold.stats[i]) +
-				stats_stddev(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
 	case (VIEW_EXTIMINPDF):
 		if (gsl_histogram_max_val(s->cold.extimins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.extimins);
@@ -427,10 +419,6 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		 * Sometimes we write more.
 		 */
 		switch (cur->view) {
-		case (VIEW_DEV):
-			drawlegendmin(buf, sizeof(buf),
-				sim, sim->cold.meanmin);
-			break;
 		case (VIEW_EXTIMINCDF):
 		case (VIEW_EXTIMINPDF):
 		case (VIEW_EXTIMINS):
@@ -559,37 +547,6 @@ draw_pdf(const struct sim *sim, const struct bmigrate *b,
 	}
 	cairo_set_source_rgba(cr, GETC(1.0));
 	cairo_stroke(cr);
-}
-
-/*
- * Draw the standard deviation line.
- */
-static void
-draw_stddev(const struct sim *sim, const struct bmigrate *b,
-	cairo_t *cr, double width, double height, double maxy,
-	double minx, double maxx)
-{
-	size_t	 i;
-	double	 v;
-
-	for (i = 1; i < sim->dims; i++) {
-		v = stats_mean(&sim->cold.stats[i - 1]) -
-			stats_stddev(&sim->cold.stats[i - 1]);
-		if (v < 0.0)
-			v = 0.0;
-		cairo_move_to(cr, GETX(i-1), GETY(v));
-		v = stats_mean(&sim->cold.stats[i]) -
-			stats_stddev(&sim->cold.stats[i]);
-		if (v < 0.0)
-			v = 0.0;
-		cairo_line_to(cr, GETX(i), GETY(v));
-		v = stats_mean(&sim->cold.stats[i - 1]) +
-			stats_stddev(&sim->cold.stats[i - 1]);
-		cairo_move_to(cr, GETX(i-1), GETY(v));
-		v = stats_mean(&sim->cold.stats[i]) +
-			stats_stddev(&sim->cold.stats[i]);
-		cairo_line_to(cr, GETX(i), GETY(v));
-	}
 }
 
 static void
@@ -760,6 +717,9 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_EXTI):
 		kplot_draw(cur->view_iextinct, width, height, cr, NULL);
 		return;
+	case (VIEW_DEV):
+		kplot_draw(cur->view_stddev, width, height, cr, NULL);
+		return;
 	default:
 		break;
 	}
@@ -898,17 +858,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 				PRIu64, sim->cold.truns);
 			drawinfo(cr, &v, &e, "Generations: %" 
 				PRIu64, sim->cold.tgens);
-			break;
-		case (VIEW_DEV):
-			draw_mean(sim, b, cr, width, 
-				height, maxy, minx, maxx);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			draw_stddev(sim, b, cr, width, 
-				height, maxy, minx, maxx);
-			cairo_set_line_width(cr, 1.5);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
 			break;
 		case (VIEW_POLY):
 			draw_mean(sim, b, cr, width, 

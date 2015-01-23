@@ -466,6 +466,7 @@ sim_free(gpointer arg)
 	p->nprocs = 0;
 
 	simbuf_free(p->bufs.means);
+	simbuf_free(p->bufs.stddevs);
 	simbuf_free(p->bufs.mextinct);
 	simbuf_free(p->bufs.iextinct);
 	kdata_destroy(p->bufs.fractions);
@@ -848,6 +849,7 @@ on_sim_copyout(gpointer dat)
 		 * Most strutures we simply copy over.
 		 */
 		simbuf_copy_cold(sim->bufs.means);
+		simbuf_copy_cold(sim->bufs.stddevs);
 		simbuf_copy_cold(sim->bufs.mextinct);
 		simbuf_copy_cold(sim->bufs.iextinct);
 
@@ -1212,6 +1214,8 @@ static void
 window_add_sim(struct curwin *cur, struct sim *sim)
 {
 	GtkWidget	*box, *w;
+	struct kdata	*stats[2];
+	enum kplottype	 ts[2];
 
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
 
@@ -1220,9 +1224,15 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	gtk_container_add(GTK_CONTAINER(cur->wins.boxconfig), box);
 	gtk_widget_show_all(GTK_WIDGET(cur->wins.boxconfig));
 
+	stats[0] = sim->bufs.means->cold;
+	stats[1] = sim->bufs.stddevs->cold;
+	ts[0] = ts[1] = KPLOT_LINES;
+
 	/* FIXME: colour of lines */
 	kplot_data_attach(cur->view_mean, 
 		sim->bufs.means->cold, KPLOT_LINES, NULL);
+	kplot_datas_attach(cur->view_stddev, 2,
+		stats, ts, NULL, KPLOTS_YERRORLINE);
 	kplot_data_attach(cur->view_mextinct, 
 		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
 	kplot_data_attach(cur->view_iextinct, 
@@ -1354,6 +1364,7 @@ curwin_free(gpointer dat)
 
 	g_debug("Freeing window: %p", cur);
 	kplot_free(cur->view_mean);
+	kplot_free(cur->view_stddev);
 	kplot_free(cur->view_mextinct);
 	kplot_free(cur->view_iextinct);
 	cur->b->windows = g_list_remove(cur->b->windows, cur);
@@ -1430,6 +1441,8 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 
 	cur->view_mean = kplot_alloc();
 	g_assert(NULL != cur->view_mean);
+	cur->view_stddev = kplot_alloc();
+	g_assert(NULL != cur->view_stddev);
 	cur->view_mextinct = kplot_alloc();
 	g_assert(NULL != cur->view_mextinct);
 	cur->view_iextinct = kplot_alloc();
@@ -1906,6 +1919,8 @@ onactivate(GtkButton *button, gpointer dat)
 
 	sim->bufs.means = simbuf_alloc
 		(kdata_mean_alloc(sim->bufs.fractions), slices);
+	sim->bufs.stddevs = simbuf_alloc
+		(kdata_stddev_alloc(sim->bufs.fractions), slices);
 	sim->bufs.mextinct = simbuf_alloc
 		(kdata_mean_alloc(sim->bufs.mutants), slices);
 	sim->bufs.iextinct = simbuf_alloc

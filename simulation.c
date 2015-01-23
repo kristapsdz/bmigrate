@@ -76,6 +76,7 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	}
 
 	simbuf_copy_warm(sim->bufs.means);
+	simbuf_copy_warm(sim->bufs.stddevs);
 	simbuf_copy_warm(sim->bufs.mextinct);
 	simbuf_copy_warm(sim->bufs.iextinct);
 
@@ -280,6 +281,7 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 */
 	if (1 == sim->hot.copyout) {
 		simbuf_copy_hotlsb(sim->bufs.means);
+		simbuf_copy_hotlsb(sim->bufs.stddevs);
 		simbuf_copy_hotlsb(sim->bufs.mextinct);
 		simbuf_copy_hotlsb(sim->bufs.iextinct);
 		/*rc = kdata_buffer_copy(sim->hot.stddevs, sim->hot.stddevslsb);
