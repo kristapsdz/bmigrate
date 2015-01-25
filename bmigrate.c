@@ -246,6 +246,9 @@ sim_free(gpointer arg)
 	kdata_destroy(p->bufs.fractions);
 	kdata_destroy(p->bufs.mutants);
 	kdata_destroy(p->bufs.incumbents);
+	kdata_destroy(p->bufs.meanmins);
+	kdata_destroy(p->bufs.mextinctmaxs);
+	kdata_destroy(p->bufs.iextinctmins);
 
 	hnode_free(p->continuum.exp);
 	g_mutex_clear(&p->hot.mux);
@@ -509,10 +512,19 @@ on_sim_copyout(gpointer dat)
 			&sim->cold.sextmmaxst, sim->cold.sextmmax);
 		hist_update(sim, sim->cold.meanmins, 
 			&sim->cold.meanminst, sim->cold.meanmin);
+
 		hist_update(sim, sim->cold.extmmaxs, 
 			&sim->cold.extmmaxst, sim->cold.extmmax);
 		hist_update(sim, sim->cold.extimins, 
 			&sim->cold.extiminst, sim->cold.extimin);
+
+		kdata_bucket_add(sim->bufs.meanmins, 
+			sim->cold.meanmin, 1.0);
+		kdata_bucket_add(sim->bufs.mextinctmaxs, 
+			sim->cold.extmmax, 1.0);
+		kdata_bucket_add(sim->bufs.iextinctmins, 
+			sim->cold.extimin, 1.0);
+
 
 		/* Copy-out when convenient. */
 		g_mutex_lock(&sim->hot.mux);

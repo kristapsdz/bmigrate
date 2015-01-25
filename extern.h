@@ -84,6 +84,9 @@ struct	simbufs {
 	struct kdata	*fractions;
 	struct kdata	*mutants;
 	struct kdata	*incumbents;
+	struct kdata	*meanmins;
+	struct kdata	*mextinctmaxs;
+	struct kdata	*iextinctmins;
 	struct simbuf	*means;
 	struct simbuf	*stddevs;
 	struct simbuf	*mextinct;
@@ -429,6 +432,12 @@ struct	curwin {
 	struct kplot	 *view_smean;
 	struct kplot	 *view_smextinct;
 	struct kplot	 *view_stddev;
+	struct kplot	 *view_meanmins_pdf;
+	struct kplot	 *view_meanmins_cdf;
+	struct kplot	 *view_mextinctmaxs_pdf;
+	struct kplot	 *view_mextinctmaxs_cdf;
+	struct kplot	 *view_iextinctmins_pdf;
+	struct kplot	 *view_iextinctmins_cdf;
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */

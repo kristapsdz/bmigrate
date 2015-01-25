@@ -117,12 +117,6 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	switch (cur->view) {
 	case (VIEW_POLYMINPDF):
 	case (VIEW_POLYMINCDF):
-	case (VIEW_MEANMINPDF):
-	case (VIEW_MEANMINCDF):
-	case (VIEW_EXTMMAXPDF):
-	case (VIEW_EXTMMAXCDF):
-	case (VIEW_EXTIMINPDF):
-	case (VIEW_EXTIMINCDF):
 		break;
 	default:
 		/* Bottom right. */
@@ -222,21 +216,10 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_CONFIG):
 	case (VIEW_STATUS):
 		return;
-	case (VIEW_EXTIMINCDF):
-	case (VIEW_EXTMMAXCDF):
 	case (VIEW_POLYMINCDF):
 	case (VIEW_SMEANMINCDF):
 	case (VIEW_SEXTMMAXCDF):
-	case (VIEW_MEANMINCDF):
 		*maxy = 1.0;
-		break;
-	case (VIEW_EXTIMINPDF):
-		if (gsl_histogram_max_val(s->cold.extimins) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.extimins);
-		break;
-	case (VIEW_EXTMMAXPDF):
-		if (gsl_histogram_max_val(s->cold.extmmaxs) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.extmmaxs);
 		break;
 	case (VIEW_POLYMINPDF):
 		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
@@ -249,10 +232,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_SMEANMINPDF):
 		if (gsl_histogram_max_val(s->cold.smeanmins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.smeanmins);
-		break;
-	case (VIEW_MEANMINPDF):
-		if (gsl_histogram_max_val(s->cold.meanmins) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.meanmins);
 		break;
 	case (VIEW_MEANMINQ):
 		v = GETS(s, s->cold.meanminq.vals[s->cold.meanminq.maxpos]);
@@ -388,14 +367,10 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		 * Sometimes we write more.
 		 */
 		switch (cur->view) {
-		case (VIEW_EXTIMINCDF):
-		case (VIEW_EXTIMINPDF):
 		case (VIEW_EXTIMINS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->cold.extiminst);
 			break;
-		case (VIEW_EXTMMAXCDF):
-		case (VIEW_EXTMMAXPDF):
 		case (VIEW_EXTMMAXS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->cold.extmmaxst);
@@ -407,8 +382,6 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 			drawlegendmin(buf, sizeof(buf),
 				sim, sim->cold.meanmin);
 			break;
-		case (VIEW_MEANMINCDF):
-		case (VIEW_MEANMINPDF):
 		case (VIEW_MEANMINS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->cold.meanminst);
@@ -689,6 +662,24 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_SEXTM):
 		kplot_draw(cur->view_smextinct, width, height, cr, NULL);
 		return;
+	case (VIEW_MEANMINCDF):
+		kplot_draw(cur->view_meanmins_cdf, width, height, cr, NULL);
+		return;
+	case (VIEW_MEANMINPDF):
+		kplot_draw(cur->view_meanmins_pdf, width, height, cr, NULL);
+		return;
+	case (VIEW_EXTMMAXCDF):
+		kplot_draw(cur->view_mextinctmaxs_cdf, width, height, cr, NULL);
+		return;
+	case (VIEW_EXTMMAXPDF):
+		kplot_draw(cur->view_mextinctmaxs_pdf, width, height, cr, NULL);
+		return;
+	case (VIEW_EXTIMINCDF):
+		kplot_draw(cur->view_iextinctmins_cdf, width, height, cr, NULL);
+		return;
+	case (VIEW_EXTIMINPDF):
+		kplot_draw(cur->view_iextinctmins_pdf, width, height, cr, NULL);
+		return;
 	default:
 		break;
 	}
@@ -720,10 +711,7 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	 * CDFs and the configuration window don't change.
 	 */
 	switch (cur->view) {
-	case (VIEW_EXTMMAXCDF):
-	case (VIEW_EXTIMINCDF):
 	case (VIEW_POLYMINCDF):
-	case (VIEW_MEANMINCDF):
 	case (VIEW_SMEANMINCDF):
 	case (VIEW_SEXTMMAXCDF):
 	case (VIEW_CONFIG):
@@ -847,14 +835,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 			draw_cdf(sim, b, cr, width, height, 
 				maxy, sim->cold.fitmins, minx, maxx);
 			break;
-		case (VIEW_MEANMINPDF):
-			draw_pdf(sim, b, cr, width, height, 
-				maxy, sim->cold.meanmins, minx, maxx);
-			break;
-		case (VIEW_MEANMINCDF):
-			draw_cdf(sim, b, cr, width, height, 
-				maxy, sim->cold.meanmins, minx, maxx);
-			break;
 		case (VIEW_MEANMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
 				&sim->cold.meanminq, &sim->cold.meanminst);
@@ -886,22 +866,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 		case (VIEW_POLYMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
 				&sim->cold.fitminq, &sim->cold.fitminst);
-			break;
-		case (VIEW_EXTIMINCDF):
-			draw_cdf(sim, b, cr, width, height, 
-				maxy, sim->cold.extimins, minx, maxx);
-			break;
-		case (VIEW_EXTIMINPDF):
-			draw_pdf(sim, b, cr, width, height, 
-				maxy, sim->cold.extimins, minx, maxx);
-			break;
-		case (VIEW_EXTMMAXCDF):
-			draw_cdf(sim, b, cr, width, height, 
-				maxy, sim->cold.extmmaxs, minx, maxx);
-			break;
-		case (VIEW_EXTMMAXPDF):
-			draw_pdf(sim, b, cr, width, height, 
-				maxy, sim->cold.extmmaxs, minx, maxx);
 			break;
 		case (VIEW_SEXTMMAXCDF):
 			draw_cdf(sim, b, cr, width, height, 

@@ -144,6 +144,12 @@ curwin_free(gpointer dat)
 	kplot_free(cur->view_stddev);
 	kplot_free(cur->view_mextinct);
 	kplot_free(cur->view_iextinct);
+	kplot_free(cur->view_meanmins_cdf);
+	kplot_free(cur->view_meanmins_pdf);
+	kplot_free(cur->view_mextinctmaxs_cdf);
+	kplot_free(cur->view_mextinctmaxs_pdf);
+	kplot_free(cur->view_iextinctmins_cdf);
+	kplot_free(cur->view_iextinctmins_pdf);
 	cur->b->windows = g_list_remove(cur->b->windows, cur);
 	on_sims_deref(cur->sims);
 	g_free(cur->autosave);
@@ -156,6 +162,8 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	GtkWidget	*box, *w;
 	struct kdata	*stats[2];
 	enum kplottype	 ts[2];
+	struct kdatacfg	 cfg;
+	struct kdatacfg	*cfgs[2];
 
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
 
@@ -168,7 +176,6 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	stats[1] = sim->bufs.stddevs->cold;
 	ts[0] = ts[1] = KPLOT_LINES;
 
-	/* FIXME: colour of lines */
 	kplot_attach_data(cur->view_mean, 
 		sim->bufs.means->cold, KPLOT_LINES, NULL);
 
@@ -184,14 +191,38 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		sim->bufs.means->cold, KPLOT_LINES, NULL,
 		KSMOOTH_MOVAVG, NULL);
 
+	/* FIXME: colour of lines */
+	kdatacfg_defaults(&cfg);
+	cfg.extrema = EXTREMA_YMIN;
+	cfg.extrema_ymin = 0.0;
+	cfgs[0] = cfgs[1] = &cfg;
 	kplot_attach_datas(cur->view_stddev, 2,
-		stats, ts, NULL, KPLOTS_YERRORLINE);
+		stats, ts, (const struct kdatacfg *const *)cfgs, 
+		KPLOTS_YERRORLINE);
 
 	kplot_attach_data(cur->view_mextinct, 
 		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
 
 	kplot_attach_data(cur->view_iextinct, 
 		sim->bufs.iextinct->cold, KPLOT_LINES, NULL);
+
+	kplot_attach_data(cur->view_meanmins_pdf, 
+		sim->bufs.meanmins, KPLOT_LINES, NULL);
+	kplot_attach_smooth(cur->view_meanmins_cdf, 
+		sim->bufs.meanmins, KPLOT_LINES, NULL,
+		KSMOOTH_CDF, NULL);
+
+	kplot_attach_data(cur->view_mextinctmaxs_pdf, 
+		sim->bufs.mextinctmaxs, KPLOT_LINES, NULL);
+	kplot_attach_smooth(cur->view_mextinctmaxs_cdf, 
+		sim->bufs.mextinctmaxs, KPLOT_LINES, NULL,
+		KSMOOTH_CDF, NULL);
+
+	kplot_attach_data(cur->view_iextinctmins_pdf, 
+		sim->bufs.iextinctmins, KPLOT_LINES, NULL);
+	kplot_attach_smooth(cur->view_iextinctmins_cdf, 
+		sim->bufs.iextinctmins, KPLOT_LINES, NULL,
+		KSMOOTH_CDF, NULL);
 }
 
 /*
@@ -316,6 +347,18 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	g_assert(NULL != cur->view_mextinct);
 	cur->view_iextinct = kplot_alloc();
 	g_assert(NULL != cur->view_iextinct);
+	cur->view_meanmins_pdf = kplot_alloc();
+	g_assert(NULL != cur->view_meanmins_pdf);
+	cur->view_meanmins_cdf = kplot_alloc();
+	g_assert(NULL != cur->view_meanmins_cdf);
+	cur->view_mextinctmaxs_cdf = kplot_alloc();
+	g_assert(NULL != cur->view_mextinctmaxs_cdf);
+	cur->view_mextinctmaxs_pdf = kplot_alloc();
+	g_assert(NULL != cur->view_mextinctmaxs_pdf);
+	cur->view_iextinctmins_cdf = kplot_alloc();
+	g_assert(NULL != cur->view_iextinctmins_cdf);
+	cur->view_iextinctmins_pdf = kplot_alloc();
+	g_assert(NULL != cur->view_iextinctmins_pdf);
 
 	cur->redraw = 1;
 	cur->sims = sims;
@@ -754,6 +797,7 @@ onactivate(GtkButton *button, gpointer dat)
 	struct curwin	 *cur;
 	struct kmlplace	 *kmlp;
 	GError		 *er;
+	double		  strat;
 
 	islandpops = NULL;
 	islandpop = 0;
@@ -1041,6 +1085,22 @@ onactivate(GtkButton *button, gpointer dat)
 	g_assert(NULL != sim->bufs.mutants);
 	sim->bufs.incumbents = kdata_bucket_alloc(0, slices);
 	g_assert(NULL != sim->bufs.incumbents);
+	sim->bufs.meanmins = kdata_bucket_alloc(0, slices);
+	g_assert(NULL != sim->bufs.meanmins);
+	sim->bufs.mextinctmaxs = kdata_bucket_alloc(0, slices);
+	g_assert(NULL != sim->bufs.mextinctmaxs);
+	sim->bufs.iextinctmins = kdata_bucket_alloc(0, slices);
+	g_assert(NULL != sim->bufs.iextinctmins);
+
+	for (i = 0; i < slices; i++) {
+		strat = xmin + (xmax - xmin) * (i / (double)slices);
+		kdata_bucket_set(sim->bufs.fractions, i, strat, 0);
+		kdata_bucket_set(sim->bufs.mutants, i, strat, 0);
+		kdata_bucket_set(sim->bufs.incumbents, i, strat, 0);
+		kdata_bucket_set(sim->bufs.meanmins, i, strat, 0);
+		kdata_bucket_set(sim->bufs.mextinctmaxs, i, strat, 0);
+		kdata_bucket_set(sim->bufs.iextinctmins, i, strat, 0);
+	}
 
 	sim->bufs.means = simbuf_alloc
 		(kdata_mean_alloc(sim->bufs.fractions), slices);
@@ -1103,6 +1163,7 @@ onactivate(GtkButton *button, gpointer dat)
 		(sim->cold.sextmmaxs, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.meanmins, xmin, xmax);
+
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.extmmaxs, xmin, xmax);
 	gsl_histogram_set_ranges_uniform

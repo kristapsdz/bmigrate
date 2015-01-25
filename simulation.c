@@ -119,6 +119,10 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	if (warm->sextms[i] > max)
 		warm->sextmmax = i;
 
+	/* 
+	 * FIXME: be careful when we have less than the sample size
+	 * total number of observations!
+	 */
 	warm->meanmin = kdata_min(sim->bufs.means->warm, NULL);
 	warm->extmmax = kdata_max(sim->bufs.mextinct->warm, NULL);
 	warm->extimin = kdata_min(sim->bufs.iextinct->warm, NULL);
@@ -231,16 +235,15 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * This prevents us from overwriting others' results.
 	 */
 	if (NULL != vp) {
-		rc = kdata_bucket_set
-			(sim->bufs.fractions, *incumbentidx, *vp);
+		rc = kdata_bucket_set(sim->bufs.fractions, 
+			*incumbentidx, *incumbentp, *vp);
 		g_assert(0 != rc);
-		rc = kdata_bucket_set
-			(sim->bufs.mutants, *incumbentidx, 0.0 == *vp);
+		rc = kdata_bucket_set(sim->bufs.mutants, 
+			*incumbentidx, *incumbentp, 0.0 == *vp);
 		g_assert(0 != rc);
-		rc = kdata_bucket_set
-			(sim->bufs.incumbents, *incumbentidx, 1.0 == *vp);
+		rc = kdata_bucket_set(sim->bufs.incumbents, 
+			*incumbentidx, *incumbentp, 1.0 == *vp);
 		g_assert(0 != rc);
-
 		stats_push(&sim->hot.stats[*incumbentidx], *vp);
 		stats_push(&sim->hot.islands[*islandidx], *vp);
 		sim->hot.tgens += gen;
