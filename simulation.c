@@ -119,26 +119,9 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	if (warm->sextms[i] > max)
 		warm->sextmmax = i;
 
-	/* Compute the empirical minimum. */
-	for (min = FLT_MAX, i = 0; i < sim->dims; i++)
-		if (stats_mean(&warm->stats[i]) < min) {
-			min = stats_mean(&warm->stats[i]);
-			warm->meanmin = i;
-		}
-
-	/* Find the extinct mutant maximum. */
-	for (min = -FLT_MAX, i = 0; i < sim->dims; i++)
-		if (stats_extinctm(&warm->stats[i]) > min) {
-			min = stats_extinctm(&warm->stats[i]);
-			warm->extmmax = i;
-		}
-
-	/* Find the extinct incumbent minimum. */
-	for (min = FLT_MAX, i = 0; i < sim->dims; i++)
-		if (stats_extincti(&warm->stats[i]) < min) {
-			min = stats_extincti(&warm->stats[i]);
-			warm->extimin = i;
-		}
+	warm->meanmin = kdata_min(sim->bufs.means->warm, NULL);
+	warm->extmmax = kdata_max(sim->bufs.mextinct->warm, NULL);
+	warm->extimin = kdata_min(sim->bufs.iextinct->warm, NULL);
 
 	/*
 	 * If we're going to fit to a polynomial, set the dependent

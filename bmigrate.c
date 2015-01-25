@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2014 Kristaps Dzonsons <kristaps@kcons.eu>
+ * Copyright (c) 2014, 2015 Kristaps Dzonsons <kristaps@kcons.eu>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -84,11 +84,10 @@ static	const char *const views[VIEW__MAX] = {
 
 /*
  * We have various ways of auto-setting the name of the simulation.
- * Perform all of them here.
- * (By default, it's set to the current date-time.)
+ * By default, it's set to the current date-time.
  */
 static void
-donamefill(struct bmigrate *b)
+donamefill(struct hwin *c)
 {
 	enum namefill	 v;
 	GTimeVal	 gt;
@@ -102,17 +101,16 @@ donamefill(struct bmigrate *b)
 	 *  (1) which input tab (for m)
 	 *  (2) which mutants (for mutants)
 	 */
-	input = gtk_notebook_get_current_page(b->wins.inputs);
+	input = gtk_notebook_get_current_page(c->inputs);
 	g_assert(input < INPUT__MAX);
 
 	for (mutants = 0; mutants < MUTANTS__MAX; mutants++)
 		if (gtk_toggle_button_get_active
-			(GTK_TOGGLE_BUTTON(b->wins.mutants[mutants])))
+			(GTK_TOGGLE_BUTTON(c->mutants[mutants])))
 			break;
 
 	for (v = 0; v < NAMEFILL__MAX; v++)
-		if (gtk_toggle_button_get_active
-			(b->wins.namefill[v]))
+		if (gtk_toggle_button_get_active(c->namefill[v]))
 			break;
 
 	/*
@@ -121,27 +119,28 @@ donamefill(struct bmigrate *b)
 	switch (v) {
 	case (NAMEFILL_M):
 		g_snprintf(buf, sizeof(buf), "m=%s", 
-			gtk_entry_get_text(b->wins.migrate[input]));
+			gtk_entry_get_text(c->migrate[input]));
 		bufp = buf;
 		break;
 	case (NAMEFILL_T):
 		g_snprintf(buf, sizeof(buf), "T=%s", 
-			gtk_entry_get_text(b->wins.stop));
+			gtk_entry_get_text(c->stop));
 		bufp = buf;
 		break;
 	case (NAMEFILL_MUTANTS):
-		if (MUTANTS_DISCRETE == mutants)
+		bufp = buf;
+		if (MUTANTS_DISCRETE == mutants) {
 			g_snprintf(buf, sizeof(buf), 
 				"discrete [%s,%s)", 
-				gtk_entry_get_text(b->wins.xmin),
-				gtk_entry_get_text(b->wins.xmax));
-		else
-			g_snprintf(buf, sizeof(buf), 
-				"Gaussian s=%s, [%s,%s)", 
-				gtk_entry_get_text(b->wins.mutantsigma),
-				gtk_entry_get_text(b->wins.ymin),
-				gtk_entry_get_text(b->wins.ymax));
-		bufp = buf;
+				gtk_entry_get_text(c->xmin),
+				gtk_entry_get_text(c->xmax));
+			break;
+		}
+		g_snprintf(buf, sizeof(buf), 
+			"Gaussian s=%s, [%s,%s)", 
+			gtk_entry_get_text(c->mutantsigma),
+			gtk_entry_get_text(c->ymin),
+			gtk_entry_get_text(c->ymax));
 		break;
 	case (NAMEFILL_DATE):
 		g_get_current_time(&gt);
@@ -153,282 +152,216 @@ donamefill(struct bmigrate *b)
 		abort();
 	}
 
-	gtk_entry_set_text(b->wins.name, bufp);
+	gtk_entry_set_text(c->name, bufp);
 }
 
+#define DEFINE_GTK_INIT(_class, _type, _name) \
+static _class * \
+win_init_ ##_name (GtkBuilder *b, const gchar *name) \
+{ \
+	g_assert(gtk_builder_get_object(b, name)); \
+	g_assert(GTK_IS_##_type (gtk_builder_get_object(b, name))); \
+	return(GTK_ ##_type (gtk_builder_get_object(b, name))); \
+}
+
+DEFINE_GTK_INIT(GtkAdjustment, ADJUSTMENT, adjustment)
+DEFINE_GTK_INIT(GtkStatusbar, STATUSBAR, status)
+DEFINE_GTK_INIT(GtkDrawingArea, DRAWING_AREA, draw)
+DEFINE_GTK_INIT(GtkMenuBar, MENU_BAR, menubar)
+DEFINE_GTK_INIT(GtkCheckMenuItem, CHECK_MENU_ITEM, menucheck)
+DEFINE_GTK_INIT(GtkMenuItem, MENU_ITEM, menuitem)
+DEFINE_GTK_INIT(GtkWindow, WINDOW, window)
+DEFINE_GTK_INIT(GtkLabel, LABEL, label)
+DEFINE_GTK_INIT(GtkBox, BOX, box)
+DEFINE_GTK_INIT(GtkButton, BUTTON, button)
+DEFINE_GTK_INIT(GtkRadioButton, RADIO_BUTTON, radio)
+DEFINE_GTK_INIT(GtkNotebook, NOTEBOOK, notebook)
+DEFINE_GTK_INIT(GtkToggleButton, TOGGLE_BUTTON, toggle)
+DEFINE_GTK_INIT(GtkEntry, ENTRY, entry)
+DEFINE_GTK_INIT(GtkFileChooser, FILE_CHOOSER, filechoose)
+
 static void
-swin_init(struct curwin *cur, GtkBuilder *builder)
+swin_init(struct curwin *c, GtkBuilder *b)
 {
 
-	cur->wins.window = GTK_WINDOW
-		(gtk_builder_get_object(builder, "window1"));
-	cur->wins.menu = GTK_MENU_BAR
-		(gtk_builder_get_object(builder, "menubar1"));
-	cur->wins.draw = GTK_DRAWING_AREA
-		(gtk_builder_get_object(builder, "drawingarea1"));
-	cur->wins.boxconfig = GTK_BOX
-		(gtk_builder_get_object(builder, "box2"));
-	cur->wins.menufile = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem1"));
-	cur->wins.menuview = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem2"));
-	cur->wins.menutools = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem3"));
-	cur->wins.viewclone = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem15"));
-	cur->wins.viewpause = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem20"));
-	cur->wins.viewunpause = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem21"));
-	cur->wins.views[VIEW_ISLANDMEAN] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem45"));
-	cur->wins.views[VIEW_MEAN] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem8"));
-	cur->wins.views[VIEW_SMEAN] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem37"));
-	cur->wins.views[VIEW_SEXTM] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem43"));
-	cur->wins.views[VIEW_EXTM] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem25"));
-	cur->wins.views[VIEW_EXTMMAXPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem28"));
-	cur->wins.views[VIEW_EXTMMAXCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem29"));
-	cur->wins.views[VIEW_EXTI] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem26"));
-	cur->wins.views[VIEW_EXTIMINPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem27"));
-	cur->wins.views[VIEW_EXTIMINCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem30"));
-	cur->wins.views[VIEW_SMEANMINPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem38"));
-	cur->wins.views[VIEW_SMEANMINCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem39"));
-	cur->wins.views[VIEW_SEXTMMAXPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem52"));
-	cur->wins.views[VIEW_SEXTMMAXCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem51"));
-	cur->wins.views[VIEW_SMEANMINQ] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem41"));
-	cur->wins.views[VIEW_SMEANMINS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem40"));
-	cur->wins.views[VIEW_EXTIMINS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem35"));
-	cur->wins.views[VIEW_DEV] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem6"));
-	cur->wins.views[VIEW_POLY] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem7"));
-	cur->wins.views[VIEW_POLYMINPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem9"));
-	cur->wins.views[VIEW_POLYMINCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem11"));
-	cur->wins.views[VIEW_MEANMINPDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem10"));
-	cur->wins.views[VIEW_MEANMINCDF] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem12"));
-	cur->wins.views[VIEW_MEANMINQ] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem13"));
-	cur->wins.views[VIEW_MEANMINS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem22"));
-	cur->wins.views[VIEW_POLYMINS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem31"));
-	cur->wins.views[VIEW_EXTMMAXS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem33"));
-	cur->wins.views[VIEW_POLYMINQ] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem14"));
-	cur->wins.views[VIEW_CONFIG] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem36"));
-	cur->wins.views[VIEW_STATUS] = GTK_CHECK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem46"));
-	cur->wins.menuquit = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem5"));
-	cur->wins.menuautoexport = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem49"));
-	cur->wins.menuunautoexport = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem50"));
-	cur->wins.menuclose = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem24"));
-	cur->wins.menusave = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem34"));
-	cur->wins.menusavekml = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem17"));
-	cur->wins.menusaveall = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem47"));
+	c->wins.window = win_init_window(b, "window1");
+	c->wins.menu = win_init_menubar(b, "menubar1");
+	c->wins.draw = win_init_draw(b, "drawingarea1");
+	c->wins.boxconfig = win_init_box(b, "box2");
+	c->wins.menufile = win_init_menuitem(b, "menuitem1");
+	c->wins.menuview = win_init_menuitem(b, "menuitem2");
+	c->wins.menutools = win_init_menuitem(b, "menuitem3");
+	c->wins.viewclone = win_init_menuitem(b, "menuitem15");
+	c->wins.viewpause = win_init_menuitem(b, "menuitem20");
+	c->wins.viewunpause = win_init_menuitem(b, "menuitem21");
+	c->wins.views[VIEW_ISLANDMEAN] = win_init_menucheck(b, "menuitem45");
+	c->wins.views[VIEW_MEAN] = win_init_menucheck(b, "menuitem8");
+	c->wins.views[VIEW_SMEAN] = win_init_menucheck(b, "menuitem37");
+	c->wins.views[VIEW_SEXTM] = win_init_menucheck(b, "menuitem43");
+	c->wins.views[VIEW_EXTM] = win_init_menucheck(b, "menuitem25");
+	c->wins.views[VIEW_EXTMMAXPDF] = win_init_menucheck(b, "menuitem28");
+	c->wins.views[VIEW_EXTMMAXCDF] = win_init_menucheck(b, "menuitem29");
+	c->wins.views[VIEW_EXTI] = win_init_menucheck(b, "menuitem26");
+	c->wins.views[VIEW_EXTIMINPDF] = win_init_menucheck(b, "menuitem27");
+	c->wins.views[VIEW_EXTIMINCDF] = win_init_menucheck(b, "menuitem30");
+	c->wins.views[VIEW_SMEANMINPDF] = win_init_menucheck(b, "menuitem38");
+	c->wins.views[VIEW_SMEANMINCDF] = win_init_menucheck(b, "menuitem39");
+	c->wins.views[VIEW_SEXTMMAXPDF] = win_init_menucheck(b, "menuitem52");
+	c->wins.views[VIEW_SEXTMMAXCDF] = win_init_menucheck(b, "menuitem51");
+	c->wins.views[VIEW_SMEANMINQ] = win_init_menucheck(b, "menuitem41");
+	c->wins.views[VIEW_SMEANMINS] = win_init_menucheck(b, "menuitem40");
+	c->wins.views[VIEW_EXTIMINS] = win_init_menucheck(b, "menuitem35");
+	c->wins.views[VIEW_DEV] = win_init_menucheck(b, "menuitem6");
+	c->wins.views[VIEW_POLY] = win_init_menucheck(b, "menuitem7");
+	c->wins.views[VIEW_POLYMINPDF] = win_init_menucheck(b, "menuitem9");
+	c->wins.views[VIEW_POLYMINCDF] = win_init_menucheck(b, "menuitem11");
+	c->wins.views[VIEW_MEANMINPDF] = win_init_menucheck(b, "menuitem10");
+	c->wins.views[VIEW_MEANMINCDF] = win_init_menucheck(b, "menuitem12");
+	c->wins.views[VIEW_MEANMINQ] = win_init_menucheck(b, "menuitem13");
+	c->wins.views[VIEW_MEANMINS] = win_init_menucheck(b, "menuitem22");
+	c->wins.views[VIEW_POLYMINS] = win_init_menucheck(b, "menuitem31");
+	c->wins.views[VIEW_EXTMMAXS] = win_init_menucheck(b, "menuitem33");
+	c->wins.views[VIEW_POLYMINQ] = win_init_menucheck(b, "menuitem14");
+	c->wins.views[VIEW_CONFIG] = win_init_menucheck(b, "menuitem36");
+	c->wins.views[VIEW_STATUS] = win_init_menucheck(b, "menuitem46");
+	c->wins.menuquit = win_init_menuitem(b, "menuitem5");
+	c->wins.menuautoexport = win_init_menuitem(b, "menuitem49");
+	c->wins.menuunautoexport = win_init_menuitem(b, "menuitem50");
+	c->wins.menuclose = win_init_menuitem(b, "menuitem24");
+	c->wins.menusave = win_init_menuitem(b, "menuitem34");
+	c->wins.menusavekml = win_init_menuitem(b, "menuitem17");
+	c->wins.menusaveall = win_init_menuitem(b, "menuitem47");
 
-	gtk_widget_show_all(GTK_WIDGET(cur->wins.window));
+	gtk_widget_show_all(GTK_WIDGET(c->wins.window));
 
-	gtk_window_set_title(GTK_WINDOW(cur->wins.window),
+	gtk_window_set_title(GTK_WINDOW(c->wins.window),
 		gtk_menu_item_get_label
-		(GTK_MENU_ITEM(cur->wins.views[cur->view])));
+		(GTK_MENU_ITEM(c->wins.views[c->view])));
 
-	gtk_widget_hide(GTK_WIDGET(cur->wins.menuunautoexport));
+	gtk_widget_hide(GTK_WIDGET(c->wins.menuunautoexport));
 
 #ifdef MAC_INTEGRATION
-	gtk_widget_hide(GTK_WIDGET(cur->wins.menu));
-	gtk_widget_hide(GTK_WIDGET(cur->wins.menuquit));
+	gtk_widget_hide(GTK_WIDGET(c->wins.menu));
+	gtk_widget_hide(GTK_WIDGET(c->wins.menuquit));
 	gtkosx_application_set_menu_bar
 		(gtkosx_application_get(), 
-		 GTK_MENU_SHELL(cur->wins.menu));
+		 GTK_MENU_SHELL(c->wins.menu));
 	gtkosx_application_sync_menubar
 		(gtkosx_application_get());
 #endif
 }
 
 static void
-hwin_init(struct bmigrate *b, GtkBuilder *builder)
+hwin_init(struct hwin *c, GtkBuilder *b)
 {
 	GObject		*w;
 	gchar		 buf[1024];
 	gboolean	 val;
-	size_t		 i;
+	size_t		 i, nprocs;
 
-	b->wins.rangeminlambda = GTK_LABEL
-		(gtk_builder_get_object(builder, "label55"));
-	b->wins.rangemaxlambda = GTK_LABEL
-		(gtk_builder_get_object(builder, "label52"));
-	b->wins.rangemeanlambda = GTK_LABEL
-		(gtk_builder_get_object(builder, "label58"));
-	b->wins.rangeerrorbox = GTK_BOX
-		(gtk_builder_get_object(builder, "box39"));
-	b->wins.rangeerror = GTK_LABEL
-		(gtk_builder_get_object(builder, "label48"));
-	b->wins.rangemin = GTK_LABEL
-		(gtk_builder_get_object(builder, "label42"));
-	b->wins.rangemax = GTK_LABEL
-		(gtk_builder_get_object(builder, "label40"));
-	b->wins.rangemean = GTK_LABEL
-		(gtk_builder_get_object(builder, "label44"));
-	b->wins.rangestatus = GTK_LABEL
-		(gtk_builder_get_object(builder, "label46"));
-	b->wins.rangefunc = GTK_LABEL
-		(gtk_builder_get_object(builder, "label50"));
-	b->wins.buttonrange = GTK_BUTTON
-		(gtk_builder_get_object(builder, "button4"));
-	b->wins.namefill[NAMEFILL_DATE] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton3"));
-	b->wins.namefill[NAMEFILL_M] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton4"));
-	b->wins.namefill[NAMEFILL_T] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton7"));
-	b->wins.namefill[NAMEFILL_MUTANTS] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton8"));
-	b->wins.namefill[NAMEFILL_NONE] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton9"));
-	b->wins.mapbox = GTK_BOX
-		(gtk_builder_get_object(builder, "box31"));
-	b->wins.config = GTK_WINDOW
-		(gtk_builder_get_object(builder, "window1"));
-	b->wins.rangefind = GTK_WINDOW
-		(gtk_builder_get_object(builder, "window2"));
-	b->wins.status = GTK_STATUSBAR
-		(gtk_builder_get_object(builder, "statusbar1"));
-	b->wins.menu = GTK_MENU_BAR
-		(gtk_builder_get_object(builder, "menubar1"));
-	b->wins.mutants[MUTANTS_DISCRETE] = GTK_RADIO_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton1"));
-	b->wins.mutants[MUTANTS_GAUSSIAN] = GTK_RADIO_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton2"));
-	b->wins.weighted = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "checkbutton1"));
-	b->wins.menuquit = GTK_MENU_ITEM
-		(gtk_builder_get_object(builder, "menuitem5"));
-	b->wins.input = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry3"));
-	b->wins.mutantsigma = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry17"));
-	b->wins.name = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry16"));
-	b->wins.stop = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry9"));
-	b->wins.xmin = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry8"));
-	b->wins.xmax = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry10"));
-	b->wins.ymin = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry18"));
-	b->wins.ymax = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry19"));
-	b->wins.inputs = GTK_NOTEBOOK
-		(gtk_builder_get_object(builder, "notebook1"));
-	b->wins.error = GTK_LABEL
-		(gtk_builder_get_object(builder, "label8"));
-	b->wins.func = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry2"));
-	b->wins.nthreads = GTK_ADJUSTMENT
-		(gtk_builder_get_object(builder, "adjustment3"));
-	b->wins.fitpoly = GTK_ADJUSTMENT
-		(gtk_builder_get_object(builder, "adjustment4"));
-	b->wins.pop = GTK_ADJUSTMENT
-		(gtk_builder_get_object(builder, "adjustment1"));
-	b->wins.totalpop = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry12"));
-	b->wins.islands = GTK_ADJUSTMENT
-		(gtk_builder_get_object(builder, "adjustment2"));
-	b->wins.resprocs = GTK_LABEL
-		(gtk_builder_get_object(builder, "label3"));
-	b->wins.onprocs = GTK_LABEL
-		(gtk_builder_get_object(builder, "label36"));
-	b->wins.alpha = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry13"));
-	b->wins.delta = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry14"));
-	b->wins.migrate[INPUT_UNIFORM] = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry1"));
-	b->wins.migrate[INPUT_VARIABLE] = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry20"));
-	b->wins.migrate[INPUT_MAPPED] = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry4"));
-	b->wins.incumbents = GTK_ENTRY
-		(gtk_builder_get_object(builder, "entry15"));
-	b->wins.mapfile = GTK_FILE_CHOOSER
-		(gtk_builder_get_object(builder, "filechooserbutton1"));
-	b->wins.mapmigrants[MAPMIGRANT_UNIFORM] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton5"));
-	b->wins.mapmigrants[MAPMIGRANT_DISTANCE] = GTK_TOGGLE_BUTTON
-		(gtk_builder_get_object(builder, "radiobutton6"));
+	c->mapfromfile = win_init_toggle(b, "radiobutton10");
+	c->mapfromrand = win_init_toggle(b, "radiobutton11");
+	c->rangeminlambda = win_init_label(b, "label55");
+	c->rangemaxlambda = win_init_label(b, "label52");
+	c->rangemeanlambda = win_init_label(b, "label58");
+	c->rangeerrorbox = win_init_box(b, "box39");
+	c->rangeerror = win_init_label(b, "label48");
+	c->rangemin = win_init_label(b, "label42");
+	c->rangemax = win_init_label(b, "label40");
+	c->rangemean = win_init_label(b, "label44");
+	c->rangestatus = win_init_label(b, "label46");
+	c->rangefunc = win_init_label(b, "label50");
+	c->buttonrange = win_init_button(b, "button4");
+	c->namefill[NAMEFILL_DATE] = win_init_toggle(b, "radiobutton3");
+	c->namefill[NAMEFILL_M] = win_init_toggle(b, "radiobutton4");
+	c->namefill[NAMEFILL_T] = win_init_toggle(b, "radiobutton7");
+	c->namefill[NAMEFILL_MUTANTS] = win_init_toggle(b, "radiobutton8");
+	c->namefill[NAMEFILL_NONE] = win_init_toggle(b, "radiobutton9");
+	c->mapbox = win_init_box(b, "box31");
+	c->config = win_init_window(b, "window1");
+	c->rangefind = win_init_window(b, "window2");
+	c->status = win_init_status(b, "statusbar1");
+	c->menu = win_init_menubar(b, "menubar1");
+	c->mutants[MUTANTS_DISCRETE] = win_init_radio(b, "radiobutton1");
+	c->mutants[MUTANTS_GAUSSIAN] = win_init_radio(b, "radiobutton2");
+	c->weighted = win_init_toggle(b, "checkbutton1");
+	c->menuquit = win_init_menuitem(b, "menuitem5");
+	c->input = win_init_entry(b, "entry3");
+	c->mutantsigma = win_init_entry(b, "entry17");
+	c->name = win_init_entry(b, "entry16");
+	c->stop = win_init_entry(b, "entry9");
+	c->xmin = win_init_entry(b, "entry8");
+	c->xmax = win_init_entry(b, "entry10");
+	c->ymin = win_init_entry(b, "entry18");
+	c->ymax = win_init_entry(b, "entry19");
+	c->inputs = win_init_notebook(b, "notebook1");
+	c->error = win_init_label(b, "label8");
+	c->func = win_init_entry(b, "entry2");
+	c->nthreads = win_init_adjustment(b, "adjustment3");
+	c->fitpoly = win_init_adjustment(b, "adjustment4");
+	c->pop = win_init_adjustment(b, "adjustment1");
+	c->totalpop = win_init_entry(b, "entry12");
+	c->islands = win_init_adjustment(b, "adjustment2");
+	c->resprocs = win_init_label(b, "label3");
+	c->onprocs = win_init_label(b, "label36");
+	c->alpha = win_init_entry(b, "entry13");
+	c->delta = win_init_entry(b, "entry14");
+	c->migrate[INPUT_UNIFORM] = win_init_entry(b, "entry1");
+	c->migrate[INPUT_VARIABLE] = win_init_entry(b, "entry20");
+	c->migrate[INPUT_MAPPED] = win_init_entry(b, "entry4");
+	c->incumbents = win_init_entry(b, "entry15");
+	c->mapfile = win_init_filechoose(b, "filechooserbutton1");
+	c->mapmigrants[MAPMIGRANT_UNIFORM] = win_init_toggle(b, "radiobutton5");
+	c->mapmigrants[MAPMIGRANT_DISTANCE] = win_init_toggle(b, "radiobutton6");
 
-	gtk_widget_show_all(GTK_WIDGET(b->wins.config));
+	gtk_widget_show_all(GTK_WIDGET(c->config));
 
 	/* Hide our error message. */
-	gtk_widget_hide(GTK_WIDGET(b->wins.error));
+	gtk_widget_hide(GTK_WIDGET(c->error));
 
 	/* Set the initially-selected notebooks. */
-	gtk_entry_set_text(b->wins.input, inputs
-		[gtk_notebook_get_current_page(b->wins.inputs)]);
+	gtk_entry_set_text(c->input, inputs
+		[gtk_notebook_get_current_page(c->inputs)]);
 
 	/* XXX: builder doesn't do this. */
-	w = gtk_builder_get_object(builder, "comboboxtext1");
+	w = gtk_builder_get_object(b, "comboboxtext1");
 	gtk_combo_box_set_active(GTK_COMBO_BOX(w), 0);
 
+#if GLIB_CHECK_VERSION(2, 36, 0)
+	nprocs = g_get_num_processors();
+#else
+	nprocs = sysconf(_SC_NPROCESSORS_ONLN);
+#endif
+
 	/* Maximum number of processors. */
-	gtk_adjustment_set_upper(b->wins.nthreads, b->nprocs);
-	w = gtk_builder_get_object(builder, "label12");
-	(void)g_snprintf(buf, sizeof(buf), "%zu", b->nprocs);
+	gtk_adjustment_set_upper(c->nthreads, nprocs);
+	w = gtk_builder_get_object(b, "label12");
+	(void)g_snprintf(buf, sizeof(buf), "%zu", nprocs);
 	gtk_label_set_text(GTK_LABEL(w), buf);
 
 	/* Compute initial total population. */
 	(void)g_snprintf(buf, sizeof(buf),
-		"%g", gtk_adjustment_get_value(b->wins.pop) *
-		gtk_adjustment_get_value(b->wins.islands));
-	gtk_entry_set_text(b->wins.totalpop, buf);
+		"%g", gtk_adjustment_get_value(c->pop) *
+		gtk_adjustment_get_value(c->islands));
+	gtk_entry_set_text(c->totalpop, buf);
 
-	donamefill(b);
+	donamefill(c);
 
 	/* Initialise our colour matrix. */
 	for (i = 0; i < SIZE_COLOURS; i++) {
-		val = gdk_rgba_parse(&b->wins.colours[i], colours[i]);
+		val = gdk_rgba_parse(&c->colours[i], colours[i]);
 		g_assert(val);
 	}
 
 	/* Hide the rangefinder when we start up. */
-	gtk_widget_set_visible(GTK_WIDGET(b->wins.rangefind), FALSE);
+	gtk_widget_set_visible(GTK_WIDGET(c->rangefind), FALSE);
 
 #ifdef MAC_INTEGRATION
-	gtk_widget_hide(GTK_WIDGET(b->wins.menu));
-	gtk_widget_hide(GTK_WIDGET(b->wins.menuquit));
+	gtk_widget_hide(GTK_WIDGET(c->menu));
+	gtk_widget_hide(GTK_WIDGET(c->menuquit));
 	gtkosx_application_set_menu_bar
 		(gtkosx_application_get(), 
-		 GTK_MENU_SHELL(b->wins.menu));
+		 GTK_MENU_SHELL(c->menu));
 	gtkosx_application_sync_menubar
 		(gtkosx_application_get());
 #endif
@@ -1229,13 +1162,28 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	ts[0] = ts[1] = KPLOT_LINES;
 
 	/* FIXME: colour of lines */
-	kplot_data_attach(cur->view_mean, 
+	kplot_attach_data(cur->view_mean, 
 		sim->bufs.means->cold, KPLOT_LINES, NULL);
-	kplot_datas_attach(cur->view_stddev, 2,
-		stats, ts, NULL, KPLOTS_YERRORLINE);
-	kplot_data_attach(cur->view_mextinct, 
+
+	kplot_attach_data(cur->view_smextinct, 
 		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
-	kplot_data_attach(cur->view_iextinct, 
+	kplot_attach_smooth(cur->view_smextinct, 
+		sim->bufs.mextinct->cold, KPLOT_LINES, NULL,
+		KSMOOTH_MOVAVG, NULL);
+
+	kplot_attach_data(cur->view_smean, 
+		sim->bufs.means->cold, KPLOT_LINES, NULL);
+	kplot_attach_smooth(cur->view_smean, 
+		sim->bufs.means->cold, KPLOT_LINES, NULL,
+		KSMOOTH_MOVAVG, NULL);
+
+	kplot_attach_datas(cur->view_stddev, 2,
+		stats, ts, NULL, KPLOTS_YERRORLINE);
+
+	kplot_attach_data(cur->view_mextinct, 
+		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
+
+	kplot_attach_data(cur->view_iextinct, 
 		sim->bufs.iextinct->cold, KPLOT_LINES, NULL);
 }
 
@@ -1364,6 +1312,8 @@ curwin_free(gpointer dat)
 
 	g_debug("Freeing window: %p", cur);
 	kplot_free(cur->view_mean);
+	kplot_free(cur->view_smean);
+	kplot_free(cur->view_smextinct);
 	kplot_free(cur->view_stddev);
 	kplot_free(cur->view_mextinct);
 	kplot_free(cur->view_iextinct);
@@ -1441,6 +1391,10 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 
 	cur->view_mean = kplot_alloc();
 	g_assert(NULL != cur->view_mean);
+	cur->view_smean = kplot_alloc();
+	g_assert(NULL != cur->view_smean);
+	cur->view_smextinct = kplot_alloc();
+	g_assert(NULL != cur->view_smextinct);
 	cur->view_stddev = kplot_alloc();
 	g_assert(NULL != cur->view_stddev);
 	cur->view_mextinct = kplot_alloc();
@@ -1666,9 +1620,8 @@ onactivate(GtkButton *button, gpointer dat)
 		 * for both migration (no inter-island migration) and
 		 * populations.
 		 */
-		islands = (size_t)gtk_adjustment_get_value
-			(b->wins.islands);
-		islandpop = (size_t)gtk_adjustment_get_value(b->wins.pop);
+		islands = gtk_adjustment_get_value(b->wins.islands);
+		islandpop = gtk_adjustment_get_value(b->wins.pop);
 		break;
 	case (INPUT_VARIABLE):
 		/*
@@ -1678,7 +1631,7 @@ onactivate(GtkButton *button, gpointer dat)
 		 */
 		list = gtk_container_get_children
 			(GTK_CONTAINER(b->wins.mapbox));
-		islands = (size_t)g_list_length(list);
+		islands = g_list_length(list);
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++) {
 			w = GTK_WIDGET(g_list_nth_data(list, i));
@@ -2057,7 +2010,7 @@ onactivate(GtkButton *button, gpointer dat)
 	/* 
 	 * Initialise the name of our simulation. 
 	 */
-	donamefill(b);
+	donamefill(&b->wins);
 	return;
 cleanup:
 	if (NULL != ms)
@@ -2440,36 +2393,28 @@ onislandspin(GtkSpinButton *spinbutton, gpointer dat)
 void
 onnametoggle(GtkToggleButton *editable, gpointer dat)
 {
+	struct bmigrate	*b = dat;
 
-	donamefill(dat);
+	donamefill(&b->wins);
 }
 
 void
 onnameupdate(GtkEditable *editable, gpointer dat)
 {
+	struct bmigrate	*b = dat;
 
-	donamefill(dat);
+	donamefill(&b->wins);
 }
 
 int 
 main(int argc, char *argv[])
 {
-	GtkBuilder	  *builder;
-	struct bmigrate	   b;
+	GtkBuilder	*builder;
+	struct bmigrate	 b;
 
 	memset(&b, 0, sizeof(struct bmigrate));
 	gtk_init(&argc, &argv);
 
-	/*
-	 * Right now, the only system I have with this older version of
-	 * glibc is Debian (stable?).
-	 * So use the sysconf() in assuming we're handling that.
-	 */
-#if GLIB_CHECK_VERSION(2, 36, 0)
-	b.nprocs = g_get_num_processors();
-#else
-	b.nprocs = sysconf(_SC_NPROCESSORS_ONLN);
-#endif
 	/*
 	 * Sanity-check to make sure that the hnode expression evaluator
 	 * is working properly.
@@ -2482,7 +2427,7 @@ main(int argc, char *argv[])
 	if (NULL == builder) 
 		return(EXIT_FAILURE);
 
-	hwin_init(&b, builder);
+	hwin_init(&b.wins, builder);
 	gtk_builder_connect_signals(builder, &b);
 	g_object_unref(G_OBJECT(builder));
 

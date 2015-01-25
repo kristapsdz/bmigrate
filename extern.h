@@ -398,6 +398,8 @@ struct	hwin {
 	GtkAdjustment	 *fitpoly;
 	GtkAdjustment	 *pop;
 	GtkAdjustment	 *islands;
+	GtkToggleButton	 *mapfromfile;
+	GtkToggleButton	 *mapfromrand;
 	GtkEntry	 *totalpop;
 	GtkEntry	 *alpha;
 	GtkEntry	 *delta;
@@ -418,10 +420,12 @@ struct	hwin {
 struct	curwin {
 	struct swin	  wins; /* windows in view */
 	enum view	  view; /* what view are we seeing? */
-	struct kplot	 *view_mean;
-	struct kplot	 *view_stddev;
 	struct kplot	 *view_iextinct;
+	struct kplot	 *view_mean;
 	struct kplot	 *view_mextinct;
+	struct kplot	 *view_smean;
+	struct kplot	 *view_smextinct;
+	struct kplot	 *view_stddev;
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */
@@ -461,7 +465,6 @@ struct	bmigrate {
 	GTimer		 *status_elapsed; /* elapsed since update */
 	uint64_t	  lastmatches; /* last seen no. matches */
 	GtkWidget	 *current; /* the current window or NULL */
-	size_t		  nprocs; /* total number processors */
 	guint		  rangeid; /* range-finding process */
 	struct range	  range; /* range-finding data */
 };
