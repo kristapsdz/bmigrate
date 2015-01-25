@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2014 Kristaps Dzonsons <kristaps@kcons.eu>
+ * Copyright (c) 2014, 2015 Kristaps Dzonsons <kristaps@kcons.eu>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -15,6 +15,7 @@
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
 #include <assert.h>
+#include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -93,6 +94,28 @@ static	const char *const kmltypes[KML__MAX] = {
 	"description", /* KML_DESCRIPTION */
 };
 
+static	const double DEG_TO_RAD = 0.017453292519943295769236907684886;
+static	const double EARTH_RADIUS_IN_METERS = 6372797.560856;
+
+static double
+kml_dist(const struct kmlplace *from, const struct kmlplace *to)
+{
+	double	 latitudeArc, longitudeArc, 
+		 latitudeH, lontitudeH, tmp;
+
+	latitudeArc = (from->lat - to->lat) * DEG_TO_RAD;
+	longitudeArc = (from->lng - to->lng) * DEG_TO_RAD;
+	latitudeH = sin(latitudeArc * 0.5);
+	latitudeH *= latitudeH;
+	lontitudeH = sin(longitudeArc * 0.5);
+	lontitudeH *= lontitudeH;
+	tmp = cos(from->lat * DEG_TO_RAD) * 
+		cos(to->lat * DEG_TO_RAD);
+
+	return(EARTH_RADIUS_IN_METERS * 2.0 * 
+		asin(sqrt(latitudeH + tmp * lontitudeH)));
+}
+
 static void
 kml_append(gchar **buf, gsize *bufsz, 
 	gsize *bufmax, const char *text, gsize sz)
@@ -132,7 +155,6 @@ kmlparse_free(gpointer dat)
 
 	if (NULL == place)
 		return;
-
 	free(place);
 }
 
@@ -144,7 +166,9 @@ kml_free(struct kml *kml)
 		return;
 
 	g_list_free_full(kml->kmls, kmlparse_free);
-	g_mapped_file_unref(kml->file);
+
+	if (NULL != kml->file)
+		g_mapped_file_unref(kml->file);
 }
 
 /*
@@ -529,6 +553,26 @@ kml_save(FILE *f, struct sim *sim)
 }
 
 struct kml *
+kml_rand(size_t islands, size_t islanders)
+{
+	struct kml	*kml;
+	struct kmlplace	*p;
+	size_t		 i;
+
+	kml = g_malloc0(sizeof(struct kml));
+
+	for (i = 0; i < islands; i++) {
+		p = g_malloc0(sizeof(struct kmlplace));
+		p->pop = islanders;
+		p->lng = 360 * arc4random() / (double)UINT32_MAX - 180.0;
+		p->lat = 180 * arc4random() / (double)UINT32_MAX - 90.0;
+		kml->kmls = g_list_append(kml->kmls, p);
+	}
+
+	return(kml);
+}
+
+struct kml *
 kml_parse(const gchar *file, GError **er)
 {
 	GMarkupParseContext	*ctx;
@@ -578,6 +622,34 @@ kml_parse(const gchar *file, GError **er)
 	kml->file = f;
 	kml->kmls = data.places;
 	return(kml);
+}
+
+double **
+kml_migration_nearest(GList *list)
+{
+	double		**p;
+	double		  dist, min;
+	size_t		  i, j, len, minj;
+	struct kmlplace	 *pl1, *pl2;
+
+	len = (size_t)g_list_length(list);
+	p = g_malloc0_n(len, sizeof(double *));
+	for (i = 0; i < len; i++) {
+		pl1 = g_list_nth_data(list, i);
+		p[i] = g_malloc0_n(len, sizeof(double));
+		for (minj = j = 0, min = DBL_MAX; j < len; j++) {
+			if (i == j)
+				continue;
+			pl2 = g_list_nth_data(list, j);
+			if ((dist = kml_dist(pl1, pl2)) < min) {
+				min = dist;
+				minj = j;
+			}
+		}
+		p[i][minj] = 1.0;
+	}
+
+	return(p);
 }
 
 /*

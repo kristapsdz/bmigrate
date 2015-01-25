@@ -220,6 +220,7 @@ enum	input {
 enum	mapmigrant {
 	MAPMIGRANT_UNIFORM = 0,
 	MAPMIGRANT_DISTANCE,
+	MAPMIGRANT_NEAREST,
 	MAPMIGRANT__MAX
 };
 
@@ -400,6 +401,8 @@ struct	hwin {
 	GtkAdjustment	 *islands;
 	GtkToggleButton	 *mapfromfile;
 	GtkToggleButton	 *mapfromrand;
+	GtkAdjustment	 *mapislands;
+	GtkAdjustment	 *mapislanders;
 	GtkEntry	 *totalpop;
 	GtkEntry	 *alpha;
 	GtkEntry	 *delta;
@@ -476,8 +479,8 @@ struct	kmlplace {
 };
 
 struct	kml {
-	GMappedFile	*file;
-	GList		*kmls;
+	GMappedFile	*file; /* if not NULL, input */
+	GList		*kmls; /* mapped places */
 };
 
 __BEGIN_DECLS
@@ -494,6 +497,8 @@ void		  save(FILE *, struct curwin *);
 void		  savewin(FILE *, const GList *, const struct curwin *);
 void		 *simulation(void *);
 
+void		  sim_stop(gpointer, gpointer);
+
 void		  simbuf_copy_cold(struct simbuf *);
 void		  simbuf_copy_warm(struct simbuf *);
 void		  simbuf_copy_hotlsb(struct simbuf *);
@@ -509,9 +514,28 @@ double		  stats_extinctm(const struct stats *p);
 double		  stats_extincti(const struct stats *p);
 
 struct kml	 *kml_parse(const gchar *file, GError **er);
+struct kml	 *kml_rand(size_t, size_t);
 void		  kml_free(struct kml *kml);
 void		  kml_save(FILE *file, struct sim *sim);
 double		**kml_migration_distance(GList *);
+double		**kml_migration_nearest(GList *);
+
+GtkAdjustment	 *win_init_adjustment(GtkBuilder *, const gchar *);
+GtkStatusbar	 *win_init_status(GtkBuilder *, const gchar *);
+GtkDrawingArea	 *win_init_draw(GtkBuilder *, const gchar *);
+GtkMenuBar	 *win_init_menubar(GtkBuilder *, const gchar *);
+GtkCheckMenuItem *win_init_menucheck(GtkBuilder *, const gchar *);
+GtkMenuItem 	 *win_init_menuitem(GtkBuilder *, const gchar *);
+GtkWindow 	 *win_init_window(GtkBuilder *, const gchar *);
+GtkLabel 	 *win_init_label(GtkBuilder *, const gchar *);
+GtkBox 	 	 *win_init_box(GtkBuilder *, const gchar *);
+GtkButton 	 *win_init_button(GtkBuilder *, const gchar *);
+GtkRadioButton 	 *win_init_radio(GtkBuilder *, const gchar *);
+GtkNotebook 	 *win_init_notebook(GtkBuilder *, const gchar *);
+GtkToggleButton  *win_init_toggle(GtkBuilder *, const gchar *);
+GtkEntry	 *win_init_entry(GtkBuilder *, const gchar *);
+GtkFileChooser	 *win_init_filechoose(GtkBuilder *, const gchar *);
+GtkBuilder	 *builder_get(const gchar *);
 
 __END_DECLS
 

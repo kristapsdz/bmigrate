@@ -35,6 +35,14 @@
   <object class="GtkAdjustment" id="adjustment6">
     <property name="lower">2</property>
     <property name="upper">1000</property>
+    <property name="value">10</property>
+    <property name="step_increment">1</property>
+    <property name="page_increment">10</property>
+  </object>
+  <object class="GtkAdjustment" id="adjustment7">
+    <property name="lower">2</property>
+    <property name="upper">1000</property>
+    <property name="value">2</property>
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
@@ -499,7 +507,7 @@
                             <property name="can_focus">False</property>
                             <child>
                               <object class="GtkRadioButton" id="radiobutton11">
-                                <property name="label" translatable="yes">Randomly generated</property>
+                                <property name="label" translatable="yes">Random</property>
                                 <property name="visible">True</property>
                                 <property name="can_focus">True</property>
                                 <property name="receives_default">False</property>
@@ -532,12 +540,37 @@
                               <object class="GtkLabel" id="label61">
                                 <property name="visible">True</property>
                                 <property name="can_focus">False</property>
-                                <property name="label" translatable="yes">islands</property>
+                                <property name="label" translatable="yes">islands, </property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
                                 <property name="fill">True</property>
                                 <property name="position">2</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkSpinButton" id="spinbutton7">
+                                <property name="visible">True</property>
+                                <property name="can_focus">True</property>
+                                <property name="invisible_char">●</property>
+                                <property name="adjustment">adjustment7</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">3</property>
+                              </packing>
+                            </child>
+                            <child>
+                              <object class="GtkLabel" id="label62">
+                                <property name="visible">True</property>
+                                <property name="can_focus">False</property>
+                                <property name="label" translatable="yes">islanders</property>
+                              </object>
+                              <packing>
+                                <property name="expand">False</property>
+                                <property name="fill">True</property>
+                                <property name="position">4</property>
                               </packing>
                             </child>
                           </object>
