@@ -72,13 +72,7 @@ static	const char *const views[VIEW__MAX] = {
 	"fitted-mean-min-history", /* VIEW_POLYMINQ */
 	"fitted-mean-min-mean", /* VIEW_POLYMINS */
 	"extinct-mutant-smooth", /* VIEW_SEXTM */
-	"extinct-mutant-smooth-max-cdf", /* VIEW_SEXTMMAXCDF */
-	"extinct-mutant-smooth-max-pdf", /* VIEW_SEXTMMAXPDF */
 	"raw-mean-smooth", /* VIEW_SMEAN */
-	"raw-mean-smooth-min-cdf", /* VIEW_SMEANMINCDF */
-	"raw-mean-smooth-min-pdf", /* VIEW_SMEANMINPDF */
-	"raw-mean-smooth-min-history", /* VIEW_SMEANMINQ */
-	"raw-mean-smooth-min-mean", /* VIEW_SMEANMINS */
 	"status", /* VIEW_STATUS */
 };
 
@@ -224,7 +218,8 @@ sim_free(gpointer arg)
 	if (NULL == p)
 		return;
 
-	g_debug("Freeing simulation %p", p);
+	g_debug("%p: Freeing simulation", p);
+
 	/*
 	 * Join all of our running threads.
 	 * They were stopped in the sim_stop function, which was called
@@ -232,7 +227,7 @@ sim_free(gpointer arg)
 	 */
 	for (i = 0; i < p->nprocs; i++) 
 		if (NULL != p->threads[i].thread) {
-			g_debug("Freeing joining thread %p "
+			g_debug("%p: Freeing joining thread "
 				"(simulation %p)", 
 				p->threads[i].thread, p);
 			g_thread_join(p->threads[i].thread);
@@ -248,6 +243,8 @@ sim_free(gpointer arg)
 	kdata_destroy(p->bufs.incumbents);
 	kdata_destroy(p->bufs.meanmins);
 	kdata_destroy(p->bufs.mextinctmaxs);
+	kdata_destroy(p->bufs.fitpoly);
+	kdata_destroy(p->bufs.fitpolybuf);
 	kdata_destroy(p->bufs.iextinctmins);
 
 	hnode_free(p->continuum.exp);
@@ -261,7 +258,6 @@ sim_free(gpointer arg)
 	g_free(p->hot.islandslsb);
 	g_free(p->warm.stats);
 	g_free(p->warm.islands);
-	g_free(p->warm.coeffs);
 	g_free(p->warm.smeans);
 	g_free(p->warm.sextms);
 	g_free(p->warm.fits);
@@ -280,6 +276,7 @@ sim_free(gpointer arg)
 	gsl_histogram_free(p->cold.extmmaxs);
 	gsl_histogram_free(p->cold.extimins);
 	if (p->fitpoly) {
+		g_free(p->work.coeffs);
 		gsl_matrix_free(p->work.X);
 		gsl_vector_free(p->work.y);
 		gsl_vector_free(p->work.w);
@@ -288,13 +285,12 @@ sim_free(gpointer arg)
 		gsl_multifit_linear_free(p->work.work);
 		p->fitpoly = 0;
 	}
-	g_free(p->cold.coeffs);
 	g_free(p->cold.smeans);
 	g_free(p->cold.sextms);
 	g_free(p->cold.fits);
 	g_free(p->threads);
 	g_free(p);
-	g_debug("Simulation %p freed", p);
+	g_debug("%p: Simulation freed", p);
 }
 
 /*
@@ -411,7 +407,7 @@ on_sim_copyout(gpointer dat)
 	GList		*list, *w, *sims;
 	struct sim	*sim;
 	struct curwin	*cur;
-	int		 copy;
+	int		 copy, rc;
 
 	for (list = b->sims; NULL != list; list = g_list_next(list)) {
 		sim = list->data;
@@ -467,6 +463,10 @@ on_sim_copyout(gpointer dat)
 		simbuf_copy_cold(sim->bufs.stddevs);
 		simbuf_copy_cold(sim->bufs.mextinct);
 		simbuf_copy_cold(sim->bufs.iextinct);
+		rc = kdata_buffer_copy
+			(sim->bufs.fitpolybuf, 
+			 sim->bufs.fitpoly);
+		g_assert(0 != rc);
 
 		memcpy(sim->cold.stats, 
 			sim->warm.stats,
@@ -477,9 +477,6 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.fits, 
 			sim->warm.fits,
 			sizeof(double) * sim->dims);
-		memcpy(sim->cold.coeffs, 
-			sim->warm.coeffs,
-			sizeof(double) * (sim->fitpoly + 1));
 		memcpy(sim->cold.smeans, 
 			sim->warm.smeans,
 			sizeof(double) * sim->dims);

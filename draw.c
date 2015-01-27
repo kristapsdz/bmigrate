@@ -159,7 +159,6 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	case (VIEW_MEANMINS):
 	case (VIEW_EXTMMAXS):
 	case (VIEW_EXTIMINS):
-	case (VIEW_SMEANMINS):
 	case (VIEW_ISLANDMEAN):
 		break;
 	default:
@@ -217,21 +216,11 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_STATUS):
 		return;
 	case (VIEW_POLYMINCDF):
-	case (VIEW_SMEANMINCDF):
-	case (VIEW_SEXTMMAXCDF):
 		*maxy = 1.0;
 		break;
 	case (VIEW_POLYMINPDF):
 		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
 			*maxy = gsl_histogram_max_val(s->cold.fitmins);
-		break;
-	case (VIEW_SEXTMMAXPDF):
-		if (gsl_histogram_max_val(s->cold.sextmmaxs) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.sextmmaxs);
-		break;
-	case (VIEW_SMEANMINPDF):
-		if (gsl_histogram_max_val(s->cold.smeanmins) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.smeanmins);
 		break;
 	case (VIEW_MEANMINQ):
 		v = GETS(s, s->cold.meanminq.vals[s->cold.meanminq.maxpos]);
@@ -258,30 +247,10 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		if (v > *maxy)
 			*maxy = v;
 		break;
-	case (VIEW_SMEANMINS):
-		v = s->cold.smeanminst.mean + s->cold.smeanminst.stddev;
-		if (v > *maxy)
-			*maxy = v;
-		break;
-	case (VIEW_SMEANMINQ):
-		v = GETS(s, s->cold.smeanminq.vals[s->cold.smeanminq.maxpos]);
-		if (v > *maxy)
-			*maxy = v;
-		break;
 	case (VIEW_POLYMINQ):
 		v = GETS(s, s->cold.fitminq.vals[s->cold.fitminq.maxpos]);
 		if (v > *maxy)
 			*maxy = v;
-		break;
-	case (VIEW_POLY):
-		for (i = 0; i < s->dims; i++) {
-			v = s->cold.fits[i] > 
-				stats_mean(&s->cold.stats[i]) ?
-				s->cold.fits[i] : 
-				stats_mean(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
 		break;
 	case (VIEW_ISLANDMEAN):
 		for (i = 0; i < s->islands; i++) {
@@ -386,7 +355,6 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->cold.meanminst);
 			break;
-		case (VIEW_POLY):
 		case (VIEW_POLYMINQ):
 			drawlegendmin(buf, sizeof(buf),
 				sim, sim->cold.fitmin);
@@ -396,21 +364,6 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		case (VIEW_POLYMINS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->cold.fitminst);
-			break;
-		case (VIEW_SEXTMMAXPDF):
-		case (VIEW_SEXTMMAXCDF):
-			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->cold.sextmmaxst);
-			break;
-		case (VIEW_SMEANMINQ):
-			drawlegendmin(buf, sizeof(buf),
-				sim, sim->cold.smeanmin);
-			break;
-		case (VIEW_SMEANMINCDF):
-		case (VIEW_SMEANMINPDF):
-		case (VIEW_SMEANMINS):
-			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->cold.smeanminst);
 			break;
 		default:
 			abort();
@@ -517,44 +470,6 @@ draw_islandmean(const struct sim *sim, const struct bmigrate *b,
 	}
 }
 
-/*
- * Draw the mean line.
- */
-static void
-draw_mean(const struct sim *sim, const struct bmigrate *b,
-	cairo_t *cr, double width, double height, 
-	double maxy, double minx, double maxx)
-{
-	size_t	 i;
-	double	 v;
-
-	for (i = 1; i < sim->dims; i++) {
-		v = stats_mean(&sim->cold.stats[i - 1]);
-		cairo_move_to(cr, GETX(i-1), GETY(v));
-		v = stats_mean(&sim->cold.stats[i]);
-		cairo_line_to(cr, GETX(i), GETY(v));
-	}
-}
-
-/*
- * Draw the fitted polynomial line.
- */
-static void
-draw_poly(const struct sim *sim, const struct bmigrate *b,
-	cairo_t *cr, double width, double height, 
-	double maxy, double minx, double maxx)
-{
-	size_t	 i;
-	double	 v;
-
-	for (i = 1; i < sim->dims; i++) {
-		v = sim->cold.fits[i - 1];
-		cairo_move_to(cr, GETX(i-1), GETY(v));
-		v = sim->cold.fits[i];
-		cairo_line_to(cr, GETX(i), GETY(v));
-	}
-}
-
 static void
 draw_cqueue(const struct sim *sim, const struct bmigrate *b,
 	cairo_t *cr, double width, double height, double maxy,
@@ -644,6 +559,9 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	cairo_fill(cr);
 
 	switch (cur->view) {
+	case (VIEW_POLY):
+		kplot_draw(cur->view_poly, width, height, cr, NULL);
+		return;
 	case (VIEW_MEAN):
 		kplot_draw(cur->view_mean, width, height, cr, NULL);
 		return;
@@ -712,8 +630,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	 */
 	switch (cur->view) {
 	case (VIEW_POLYMINCDF):
-	case (VIEW_SMEANMINCDF):
-	case (VIEW_SEXTMMAXCDF):
 	case (VIEW_CONFIG):
 	case (VIEW_STATUS):
 		break;
@@ -733,7 +649,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_STATUS):
 		cairo_text_extents(cr, "lj", &e);
 		break;
-	case (VIEW_SMEANMINQ):
 	case (VIEW_POLYMINQ):
 	case (VIEW_MEANMINQ):
 		drawlabels(cur, cr, "%g", &width, 
@@ -816,17 +731,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 			drawinfo(cr, &v, &e, "Generations: %" 
 				PRIu64, sim->cold.tgens);
 			break;
-		case (VIEW_POLY):
-			draw_mean(sim, b, cr, width, 
-				height, maxy, minx, maxx);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
-			draw_poly(sim, b, cr, width, 
-				height, maxy, minx, maxx);
-			cairo_set_line_width(cr, 1.5);
-			cairo_set_source_rgba(cr, GETC(0.5));
-			cairo_stroke(cr);
-			break;
 		case (VIEW_POLYMINPDF):
 			draw_pdf(sim, b, cr, width, height, 
 				maxy, sim->cold.fitmins, minx, maxx);
@@ -851,46 +755,19 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 			draw_set(sim, b, cr, width, height, maxy, 
 				simnum, simmax, &sim->cold.extmmaxst);
 			break;
-		case (VIEW_SMEANMINS):
-			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->cold.smeanminst);
-			break;
 		case (VIEW_MEANMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
 				simnum, simmax, &sim->cold.meanminst);
-			break;
-		case (VIEW_SMEANMINQ):
-			draw_cqueue(sim, b, cr, width, height, maxy,
-				&sim->cold.smeanminq, &sim->cold.smeanminst);
 			break;
 		case (VIEW_POLYMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
 				&sim->cold.fitminq, &sim->cold.fitminst);
 			break;
-		case (VIEW_SEXTMMAXCDF):
-			draw_cdf(sim, b, cr, width, height, 
-				maxy, sim->cold.sextmmaxs, minx, maxx);
-			break;
-		case (VIEW_SEXTMMAXPDF):
-			draw_pdf(sim, b, cr, width, height, 
-				maxy, sim->cold.sextmmaxs, minx, maxx);
-			break;
-		case (VIEW_SMEANMINCDF):
-			draw_cdf(sim, b, cr, width, height, 
-				maxy, sim->cold.smeanmins, minx, maxx);
-			break;
-		case (VIEW_SMEANMINPDF):
-			draw_pdf(sim, b, cr, width, height, 
-				maxy, sim->cold.smeanmins, minx, maxx);
-			break;
 		case (VIEW_ISLANDMEAN):
 			draw_islandmean(sim, b, cr, width, height, maxy);
 			break;
 		default:
-			draw_mean(sim, b, cr, width, 
-				height, maxy, minx, maxx);
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_stroke(cr);
+			abort();
 			break;
 		}
 	}

@@ -28,6 +28,7 @@
 
 #include "extern.h"
 
+#if 0
 static void
 write_cqueue(FILE *f, const struct sim *sim, size_t simnum, 
 	const struct cqueue *q, const struct hstats *st)
@@ -83,10 +84,12 @@ write_pdf(FILE *f, size_t simnum,
 		fprintf(f, "%g\n", gsl_histogram_get(p, i));
 	}
 }
+#endif
 
 void
 savewin(FILE *f, const GList *sims, const struct curwin *cur)
 {
+#if 0
 	double		 v;
 	const struct sim *sim;
 	size_t		 i, j;
@@ -282,11 +285,14 @@ savewin(FILE *f, const GList *sims, const struct curwin *cur)
 
 		fputc('\n', f);
 	}
+#endif
 }
 
 void
 save(FILE *f, struct curwin *cur)
 {
 
+#if 0
 	savewin(f, cur->sims, cur);
+#endif
 }

@@ -87,6 +87,8 @@ struct	simbufs {
 	struct kdata	*meanmins;
 	struct kdata	*mextinctmaxs;
 	struct kdata	*iextinctmins;
+	struct kdata	*fitpoly;
+	struct kdata	*fitpolybuf;
 	struct simbuf	*means;
 	struct simbuf	*stddevs;
 	struct simbuf	*mextinct;
@@ -132,7 +134,6 @@ struct	simwarm {
 	size_t		 extimin; /* index of min incumb extinction */
 	double		*smeans; /* smoothed mean */
 	double		*sextms; /* smoothed mutant extinctions */
-	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
 	struct stats	*islands; /* statistics per island */
@@ -147,6 +148,7 @@ struct	simwarm {
  * parameters for the fitting.
  */
 struct	simwork {
+	double		*coeffs;
 	gsl_matrix	*X; /* matrix of independent variables */
 	gsl_matrix	*cov; /* covariance matrix */
 	gsl_vector	*y; /* vector dependent variables */
@@ -180,7 +182,6 @@ struct	simcold {
 	struct stats	*islands; /* statistics per island */
 	double	   	*smeans; /* smoothed mean */
 	double	   	*sextms; /* smoothed mutant extinctions */
-	double	   	*coeffs; /* fitpoly coefficients */
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
 	gsl_histogram	*smeanmins; /* smoothed mean minimum dist */
@@ -317,8 +318,6 @@ enum	view {
 	VIEW_POLYMINQ,
 	VIEW_POLYMINS,
 	VIEW_SEXTM,
-	VIEW_SEXTMMAXCDF,
-	VIEW_SEXTMMAXPDF,
 	VIEW_SMEAN,
 	VIEW_SMEANMINCDF,
 	VIEW_SMEANMINPDF,
@@ -426,6 +425,7 @@ struct	hwin {
 struct	curwin {
 	struct swin	  wins; /* windows in view */
 	enum view	  view; /* what view are we seeing? */
+	struct kplot	 *view_poly;
 	struct kplot	 *view_iextinct;
 	struct kplot	 *view_mean;
 	struct kplot	 *view_mextinct;
@@ -513,6 +513,7 @@ void		  simbuf_copy_warm(struct simbuf *);
 void		  simbuf_copy_hotlsb(struct simbuf *);
 void		  simbuf_free(struct simbuf *);
 struct simbuf	 *simbuf_alloc(struct kdata *, size_t);
+struct simbuf	 *simbuf_alloc_warm(struct kdata *, size_t);
 
 struct stats	 *stats_alloc0(size_t sz);
 void		  stats_push(struct stats *p, double x);

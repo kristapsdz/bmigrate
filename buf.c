@@ -28,6 +28,18 @@
 #include "extern.h"
 
 struct simbuf *
+simbuf_alloc_warm(struct kdata *hot, size_t bufsz)
+{
+	struct simbuf	*buf;
+
+	g_assert(NULL != hot);
+	buf = g_malloc0(sizeof(struct simbuf));
+	buf->cold = kdata_buffer_alloc(bufsz);
+	g_assert(NULL != buf->cold);
+	return(buf);
+}
+
+struct simbuf *
 simbuf_alloc(struct kdata *hot, size_t bufsz)
 {
 	struct simbuf	*buf;

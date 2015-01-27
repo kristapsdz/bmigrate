@@ -55,12 +55,6 @@ swin_init(struct swin *c, enum view view, GtkBuilder *b)
 	c->views[VIEW_EXTI] = win_init_menucheck(b, "menuitem26");
 	c->views[VIEW_EXTIMINPDF] = win_init_menucheck(b, "menuitem27");
 	c->views[VIEW_EXTIMINCDF] = win_init_menucheck(b, "menuitem30");
-	c->views[VIEW_SMEANMINPDF] = win_init_menucheck(b, "menuitem38");
-	c->views[VIEW_SMEANMINCDF] = win_init_menucheck(b, "menuitem39");
-	c->views[VIEW_SEXTMMAXPDF] = win_init_menucheck(b, "menuitem52");
-	c->views[VIEW_SEXTMMAXCDF] = win_init_menucheck(b, "menuitem51");
-	c->views[VIEW_SMEANMINQ] = win_init_menucheck(b, "menuitem41");
-	c->views[VIEW_SMEANMINS] = win_init_menucheck(b, "menuitem40");
 	c->views[VIEW_EXTIMINS] = win_init_menucheck(b, "menuitem35");
 	c->views[VIEW_DEV] = win_init_menucheck(b, "menuitem6");
 	c->views[VIEW_POLY] = win_init_menucheck(b, "menuitem7");
@@ -138,6 +132,7 @@ curwin_free(gpointer dat)
 	struct curwin	*cur = dat;
 
 	g_debug("%p: Simwin freeing", cur);
+	kplot_free(cur->view_poly);
 	kplot_free(cur->view_mean);
 	kplot_free(cur->view_smean);
 	kplot_free(cur->view_smextinct);
@@ -165,6 +160,10 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	struct kdatacfg	 cfg;
 	struct kdatacfg	*cfgs[2];
 
+	kdatacfg_defaults(&cfg);
+	cfg.extrema = EXTREMA_YMIN;
+	cfg.extrema_ymin = 0.0;
+
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
 
 	w = gtk_label_new(sim->name);
@@ -179,6 +178,11 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	kplot_attach_data(cur->view_mean, 
 		sim->bufs.means->cold, KPLOT_LINES, NULL);
 
+	kplot_attach_data(cur->view_poly, 
+		sim->bufs.means->cold, KPLOT_LINES, NULL);
+	kplot_attach_data(cur->view_poly, 
+		sim->bufs.fitpolybuf, KPLOT_LINES, &cfg);
+
 	kplot_attach_data(cur->view_smextinct, 
 		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
 	kplot_attach_smooth(cur->view_smextinct, 
@@ -191,10 +195,6 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		sim->bufs.means->cold, KPLOT_LINES, NULL,
 		KSMOOTH_MOVAVG, NULL);
 
-	/* FIXME: colour of lines */
-	kdatacfg_defaults(&cfg);
-	cfg.extrema = EXTREMA_YMIN;
-	cfg.extrema_ymin = 0.0;
 	cfgs[0] = cfgs[1] = &cfg;
 	kplot_attach_datas(cur->view_stddev, 2,
 		stats, ts, (const struct kdatacfg *const *)cfgs, 
@@ -335,6 +335,8 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	gtk_builder_connect_signals(builder, cur);
 	g_object_unref(G_OBJECT(builder));
 
+	cur->view_poly = kplot_alloc();
+	g_assert(NULL != cur->view_poly);
 	cur->view_mean = kplot_alloc();
 	g_assert(NULL != cur->view_mean);
 	cur->view_smean = kplot_alloc();
@@ -1091,6 +1093,10 @@ onactivate(GtkButton *button, gpointer dat)
 	g_assert(NULL != sim->bufs.mextinctmaxs);
 	sim->bufs.iextinctmins = kdata_bucket_alloc(0, slices);
 	g_assert(NULL != sim->bufs.iextinctmins);
+	sim->bufs.fitpoly = kdata_bucket_alloc(0, slices);
+	g_assert(NULL != sim->bufs.fitpoly);
+	sim->bufs.fitpolybuf = kdata_buffer_alloc(slices);
+	g_assert(NULL != sim->bufs.fitpolybuf);
 
 	for (i = 0; i < slices; i++) {
 		strat = xmin + (xmax - xmin) * (i / (double)slices);
@@ -1100,6 +1106,7 @@ onactivate(GtkButton *button, gpointer dat)
 		kdata_bucket_set(sim->bufs.meanmins, i, strat, 0);
 		kdata_bucket_set(sim->bufs.mextinctmaxs, i, strat, 0);
 		kdata_bucket_set(sim->bufs.iextinctmins, i, strat, 0);
+		kdata_bucket_set(sim->bufs.fitpoly, i, strat, 0);
 	}
 
 	sim->bufs.means = simbuf_alloc
@@ -1127,8 +1134,6 @@ onactivate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(struct stats));
 	sim->warm.fits = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->warm.coeffs = g_malloc0_n
-		(sim->fitpoly + 1, sizeof(double));
 	sim->warm.smeans = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->warm.sextms = g_malloc0_n
@@ -1137,8 +1142,6 @@ onactivate(GtkButton *button, gpointer dat)
 		(sim->islands, sizeof(struct stats));
 	sim->cold.fits = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->cold.coeffs = g_malloc0_n
-		(sim->fitpoly + 1, sizeof(double));
 	sim->cold.smeans = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.sextms = g_malloc0_n
@@ -1184,6 +1187,8 @@ onactivate(GtkButton *button, gpointer dat)
 			(sim->fitpoly + 1, sim->fitpoly + 1);
 		sim->work.work = gsl_multifit_linear_alloc
 			(sim->dims, sim->fitpoly + 1);
+		sim->work.coeffs = g_malloc0_n
+			(sim->fitpoly + 1, sizeof(double));
 	}
 
 	sim->nprocs = gtk_adjustment_get_value(b->wins.nthreads);

@@ -63,7 +63,7 @@ static void
 snapshot(struct sim *sim, struct simwarm *warm, 
 	uint64_t truns, uint64_t tgens)
 {
-	double	 min, max, v, chisq, x;
+	double	 min, max, v, chisq, x, y;
 	size_t	 i, j, k;
 
 	/*
@@ -189,18 +189,20 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	 * minimum value).
 	 */
 	for (i = 0; i < sim->fitpoly + 1; i++)
-		warm->coeffs[i] = gsl_vector_get(sim->work.c, i);
+		sim->work.coeffs[i] = gsl_vector_get(sim->work.c, i);
+
 	min = FLT_MAX;
 	for (i = 0; i < sim->dims; i++) {
 		x = sim->continuum.xmin + 
 			(sim->continuum.xmax -
 			 sim->continuum.xmin) *
 			i / (double)sim->dims;
-		warm->fits[i] = fitpoly
-			(warm->coeffs, sim->fitpoly + 1, x);
-		if (warm->fits[i] < min) {
+		y = fitpoly(sim->work.coeffs, 
+			sim->fitpoly + 1, x);
+		kdata_bucket_set(sim->bufs.fitpoly, i, x, y);
+		if (y < min) {
 			warm->fitmin = i;
-			min = warm->fits[i];
+			min = y;
 		}
 	}
 }
@@ -414,7 +416,7 @@ simulation(void *arg)
 	seed = arc4random();
 	gsl_rng_set(rng, seed);
 
-	g_debug("Thread %p (simulation %p) using RNG %s, "
+	g_debug("%p: Thread (simulation %p) using RNG %s, "
 		"seed %lu, initial %lu", 
 		g_thread_self(), sim, gsl_rng_name(rng),
 		seed, gsl_rng_get(rng));
@@ -439,7 +441,7 @@ simulation(void *arg)
 	 * notice the singular).
 	 */
 	if (NULL != sim->pops) {
-		g_debug("Thread %p (simulation %p) has non-uniform "
+		g_debug("%p: Thread (simulation %p) has non-uniform "
 			"populations", g_thread_self(), sim);
 		assert(0 == sim->pop);
 		icaches = g_malloc0_n(sim->islands, sizeof(double *));
@@ -451,7 +453,7 @@ simulation(void *arg)
 				(sim->pops[i] + 1, sizeof(double));
 		}
 	} else {
-		g_debug("Thread %p (simulation %p) has "
+		g_debug("%p: Thread (simulation %p) has "
 			"uniform populations: %zu", 
 			g_thread_self(), sim, sim->pop);
 		assert(sim->pop > 0);
@@ -465,7 +467,7 @@ again:
 	 */
 	if ( ! on_sim_next(sim, rng, &islandidx, &mutant, 
 		&incumbent, &incumbentidx, vp, t)) {
-		g_debug("Thread %p (simulation %p) exiting", 
+		g_debug("%p: Thread (simulation %p) exiting", 
 			g_thread_self(), sim);
 		/*
 		 * Upon termination, free up all of the memory
