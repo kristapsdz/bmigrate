@@ -87,22 +87,6 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	warm->truns = truns;
 	warm->tgens = tgens;
 
-	v = stats_mean(&warm->stats[0]) +
-		stats_mean(&warm->stats[1]);
-	min = warm->smeans[0] = v / 2.0;
-	for (i = 1; i < sim->dims - 1; i++) {
-		v += stats_mean(&warm->stats[i + 1]);
-		warm->smeans[i] = v / 3.0;
-		v -= stats_mean(&warm->stats[i - 1]);
-		if (warm->smeans[i] < min) {
-			min = warm->smeans[i];
-			warm->smeanmin = i;
-		}
-	}
-	warm->smeans[i] = v / 2.0;
-	if (warm->smeans[i] < min)
-		warm->smeanmin = i;
-
 	v = stats_extinctm(&warm->stats[0]) +
 		stats_extinctm(&warm->stats[1]);
 	max = warm->sextms[0] = v / 2.0;

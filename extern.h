@@ -127,12 +127,10 @@ struct	simhot {
  */
 struct	simwarm {
 	size_t		 meanmin; /* min sample mean */
-	size_t		 smeanmin; /* min smoothed sample mean */
 	size_t	 	 sextmmax; /* max smoothed mutant extinct */
 	size_t		 fitmin; /* index of min fitpoly point */
 	size_t		 extmmax; /* index of max mutant extinction */
 	size_t		 extimin; /* index of min incumb extinction */
-	double		*smeans; /* smoothed mean */
 	double		*sextms; /* smoothed mutant extinctions */
 	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
@@ -180,7 +178,6 @@ struct	cqueue {
 struct	simcold {
 	struct stats	*stats; /* statistics per incumbent */
 	struct stats	*islands; /* statistics per island */
-	double	   	*smeans; /* smoothed mean */
 	double	   	*sextms; /* smoothed mutant extinctions */
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
@@ -193,7 +190,6 @@ struct	simcold {
 	size_t		 extimin; /* current incumbent extinct min */
 	size_t		 fitmin; /* current fitpoly minimum */
 	size_t		 meanmin; /* current sample mean min */
-	size_t		 smeanmin; /* min smoothed sample mean */
 	size_t	 	 sextmmax; /* max smoothed mutant extinct */
 	struct hstats	 fitminst; /* fitmins statistics */
 	struct hstats	 meanminst; /* meanmins statistics */
@@ -403,8 +399,11 @@ struct	hwin {
 	GtkAdjustment	 *islands;
 	GtkToggleButton	 *mapfromfile;
 	GtkToggleButton	 *mapfromrand;
-	GtkAdjustment	 *mapislands;
-	GtkAdjustment	 *mapislanders;
+	GtkToggleButton	 *mapfromtorus;
+	GtkAdjustment	 *maprandislands;
+	GtkAdjustment	 *maprandislanders;
+	GtkAdjustment	 *maptorusislands;
+	GtkAdjustment	 *maptorusislanders;
 	GtkEntry	 *totalpop;
 	GtkEntry	 *alpha;
 	GtkEntry	 *delta;
@@ -525,6 +524,7 @@ double		  stats_extincti(const struct stats *p);
 
 struct kml	 *kml_parse(const gchar *file, GError **er);
 struct kml	 *kml_rand(size_t, size_t);
+struct kml	 *kml_torus(size_t, size_t);
 void		  kml_free(struct kml *kml);
 void		  kml_save(FILE *file, struct sim *sim);
 double		**kml_migration_distance(GList *);

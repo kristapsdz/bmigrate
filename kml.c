@@ -553,6 +553,26 @@ kml_save(FILE *f, struct sim *sim)
 }
 
 struct kml *
+kml_torus(size_t islands, size_t islanders)
+{
+	struct kml	*kml;
+	struct kmlplace	*p;
+	size_t		 i;
+
+	kml = g_malloc0(sizeof(struct kml));
+
+	for (i = 0; i < islands; i++) {
+		p = g_malloc0(sizeof(struct kmlplace));
+		p->pop = islanders;
+		p->lng = 360 * i / (double)islands - 180.0;
+		p->lat = 0.0;
+		kml->kmls = g_list_append(kml->kmls, p);
+	}
+
+	return(kml);
+}
+
+struct kml *
 kml_rand(size_t islands, size_t islanders)
 {
 	struct kml	*kml;

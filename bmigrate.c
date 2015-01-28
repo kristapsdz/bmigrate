@@ -88,6 +88,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 
 	c->mapfromfile = win_init_toggle(b, "radiobutton10");
 	c->mapfromrand = win_init_toggle(b, "radiobutton11");
+	c->mapfromtorus = win_init_toggle(b, "radiobutton13");
 	c->rangeminlambda = win_init_label(b, "label55");
 	c->rangemaxlambda = win_init_label(b, "label52");
 	c->rangemeanlambda = win_init_label(b, "label58");
@@ -141,10 +142,10 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->mapmigrants[MAPMIGRANT_UNIFORM] = win_init_toggle(b, "radiobutton5");
 	c->mapmigrants[MAPMIGRANT_DISTANCE] = win_init_toggle(b, "radiobutton6");
 	c->mapmigrants[MAPMIGRANT_NEAREST] = win_init_toggle(b, "radiobutton12");
-	c->mapfromfile = win_init_toggle(b, "radiobutton10");
-	c->mapfromrand = win_init_toggle(b, "radiobutton11");
-	c->mapislands = win_init_adjustment(b, "adjustment6");
-	c->mapislanders = win_init_adjustment(b, "adjustment7");
+	c->maprandislands = win_init_adjustment(b, "adjustment6");
+	c->maprandislanders = win_init_adjustment(b, "adjustment7");
+	c->maptorusislands = win_init_adjustment(b, "adjustment8");
+	c->maptorusislanders = win_init_adjustment(b, "adjustment9");
 
 	gtk_widget_show_all(GTK_WIDGET(c->config));
 
@@ -258,7 +259,6 @@ sim_free(gpointer arg)
 	g_free(p->hot.islandslsb);
 	g_free(p->warm.stats);
 	g_free(p->warm.islands);
-	g_free(p->warm.smeans);
 	g_free(p->warm.sextms);
 	g_free(p->warm.fits);
 	g_free(p->cold.stats);
@@ -285,7 +285,6 @@ sim_free(gpointer arg)
 		gsl_multifit_linear_free(p->work.work);
 		p->fitpoly = 0;
 	}
-	g_free(p->cold.smeans);
 	g_free(p->cold.sextms);
 	g_free(p->cold.fits);
 	g_free(p->threads);
@@ -477,14 +476,10 @@ on_sim_copyout(gpointer dat)
 		memcpy(sim->cold.fits, 
 			sim->warm.fits,
 			sizeof(double) * sim->dims);
-		memcpy(sim->cold.smeans, 
-			sim->warm.smeans,
-			sizeof(double) * sim->dims);
 		memcpy(sim->cold.sextms, 
 			sim->warm.sextms,
 			sizeof(double) * sim->dims);
 		sim->cold.meanmin = sim->warm.meanmin;
-		sim->cold.smeanmin = sim->warm.smeanmin;
 		sim->cold.sextmmax = sim->warm.sextmmax;
 		sim->cold.fitmin = sim->warm.fitmin;
 		sim->cold.extmmax = sim->warm.extmmax;
@@ -497,14 +492,11 @@ on_sim_copyout(gpointer dat)
 		 */
 		cqueue_push(&sim->cold.meanminq, sim->cold.meanmin);
 		cqueue_push(&sim->cold.fitminq, sim->cold.fitmin);
-		cqueue_push(&sim->cold.smeanminq, sim->cold.smeanmin);
 		/*
 		 * Now update our histogram and statistics.
 		 */
 		hist_update(sim, sim->cold.fitmins, 
 			&sim->cold.fitminst, sim->cold.fitmin);
-		hist_update(sim, sim->cold.smeanmins, 
-			&sim->cold.smeanminst, sim->cold.smeanmin);
 		hist_update(sim, sim->cold.sextmmaxs, 
 			&sim->cold.sextmmaxst, sim->cold.sextmmax);
 		hist_update(sim, sim->cold.meanmins, 

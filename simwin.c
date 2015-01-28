@@ -871,12 +871,19 @@ onactivate(GtkButton *button, gpointer dat)
 				g_error_free(er);
 				goto cleanup;
 			}
+		} else if (gtk_toggle_button_get_active(b->wins.mapfromrand)) {
+			islands = gtk_adjustment_get_value
+				(b->wins.maprandislands);
+			islandpop = gtk_adjustment_get_value
+				(b->wins.maprandislanders);
+			kml = kml_rand(islands, islandpop);
+			islandpop = islands = 0;
 		} else {
 			islands = gtk_adjustment_get_value
-				(b->wins.mapislands);
+				(b->wins.maptorusislands);
 			islandpop = gtk_adjustment_get_value
-				(b->wins.mapislanders);
-			kml = kml_rand(islands, islandpop);
+				(b->wins.maptorusislanders);
+			kml = kml_torus(islands, islandpop);
 			islandpop = islands = 0;
 		}
 
@@ -1134,15 +1141,11 @@ onactivate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(struct stats));
 	sim->warm.fits = g_malloc0_n
 		(sim->dims, sizeof(double));
-	sim->warm.smeans = g_malloc0_n
-		(sim->dims, sizeof(double));
 	sim->warm.sextms = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.islands = g_malloc0_n
 		(sim->islands, sizeof(struct stats));
 	sim->cold.fits = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->cold.smeans = g_malloc0_n
 		(sim->dims, sizeof(double));
 	sim->cold.sextms = g_malloc0_n
 		(sim->dims, sizeof(double));
