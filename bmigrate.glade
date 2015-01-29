@@ -48,14 +48,14 @@
   </object>
   <object class="GtkAdjustment" id="adjustment8">
     <property name="lower">2</property>
-    <property name="upper">100</property>
+    <property name="upper">1000</property>
     <property name="value">10</property>
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
   </object>
   <object class="GtkAdjustment" id="adjustment9">
     <property name="lower">2</property>
-    <property name="upper">100</property>
+    <property name="upper">1000</property>
     <property name="value">2</property>
     <property name="step_increment">1</property>
     <property name="page_increment">10</property>
@@ -568,6 +568,7 @@
                                 <property name="can_focus">True</property>
                                 <property name="invisible_char">●</property>
                                 <property name="adjustment">adjustment7</property>
+                                <property name="numeric">True</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
@@ -648,6 +649,7 @@
                                 <property name="invisible_char">●</property>
                                 <property name="invisible_char_set">True</property>
                                 <property name="adjustment">adjustment9</property>
+                                <property name="numeric">True</property>
                               </object>
                               <packing>
                                 <property name="expand">False</property>
