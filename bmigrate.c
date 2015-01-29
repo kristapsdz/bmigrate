@@ -247,6 +247,7 @@ sim_free(gpointer arg)
 	kdata_destroy(p->bufs.fitpoly);
 	kdata_destroy(p->bufs.fitpolybuf);
 	kdata_destroy(p->bufs.iextinctmins);
+	kdata_destroy(p->bufs.fitpolymins);
 
 	hnode_free(p->continuum.exp);
 	g_mutex_clear(&p->hot.mux);
@@ -269,8 +270,6 @@ sim_free(gpointer arg)
 	g_free(p->ms);
 	g_free(p->pops);
 	kml_free(p->kml);
-	gsl_histogram_free(p->cold.smeanmins);
-	gsl_histogram_free(p->cold.sextmmaxs);
 	gsl_histogram_free(p->cold.fitmins);
 	gsl_histogram_free(p->cold.meanmins);
 	gsl_histogram_free(p->cold.extmmaxs);
@@ -497,8 +496,6 @@ on_sim_copyout(gpointer dat)
 		 */
 		hist_update(sim, sim->cold.fitmins, 
 			&sim->cold.fitminst, sim->cold.fitmin);
-		hist_update(sim, sim->cold.sextmmaxs, 
-			&sim->cold.sextmmaxst, sim->cold.sextmmax);
 		hist_update(sim, sim->cold.meanmins, 
 			&sim->cold.meanminst, sim->cold.meanmin);
 
@@ -513,6 +510,8 @@ on_sim_copyout(gpointer dat)
 			sim->cold.extmmax, 1.0);
 		kdata_bucket_add(sim->bufs.iextinctmins, 
 			sim->cold.extimin, 1.0);
+		kdata_bucket_add(sim->bufs.fitpolymins, 
+			sim->cold.fitmin, 1.0);
 
 
 		/* Copy-out when convenient. */

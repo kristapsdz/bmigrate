@@ -114,45 +114,38 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	cairo_text_extents(cr, "-10.00", &e);
 	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0); 
 
-	switch (cur->view) {
-	case (VIEW_POLYMINPDF):
-	case (VIEW_POLYMINCDF):
-		break;
-	default:
-		/* Bottom right. */
-		cairo_move_to(cr, width - e.width, 
-			height - e.height * 3.0);
-		(void)snprintf(buf, sizeof(buf), fmt, miny);
-		cairo_show_text(cr, buf);
+	/* Bottom right. */
+	cairo_move_to(cr, width - e.width, 
+		height - e.height * 3.0);
+	(void)snprintf(buf, sizeof(buf), fmt, miny);
+	cairo_show_text(cr, buf);
 
-		/* Middle-bottom right. */
-		cairo_move_to(cr, width - e.width, 
-			height * 0.75 - 1.5 * e.height);
-		(void)snprintf(buf, sizeof(buf), 
-			fmt, miny + (maxy - miny) * 0.25);
-		cairo_show_text(cr, buf);
+	/* Middle-bottom right. */
+	cairo_move_to(cr, width - e.width, 
+		height * 0.75 - 1.5 * e.height);
+	(void)snprintf(buf, sizeof(buf), 
+		fmt, miny + (maxy - miny) * 0.25);
+	cairo_show_text(cr, buf);
 
-		/* Middle right. */
-		cairo_move_to(cr, width - e.width, 
-			height * 0.5 - 0.5 * e.height);
-		(void)snprintf(buf, sizeof(buf), 
-			fmt, miny + (maxy - miny) * 0.5);
-		cairo_show_text(cr, buf);
+	/* Middle right. */
+	cairo_move_to(cr, width - e.width, 
+		height * 0.5 - 0.5 * e.height);
+	(void)snprintf(buf, sizeof(buf), 
+		fmt, miny + (maxy - miny) * 0.5);
+	cairo_show_text(cr, buf);
 
-		/* Middle-top right. */
-		cairo_move_to(cr, width - e.width, height * 0.25);
-		(void)snprintf(buf, sizeof(buf), 
-			fmt, miny + (maxy - miny) * 0.75);
-		cairo_show_text(cr, buf);
+	/* Middle-top right. */
+	cairo_move_to(cr, width - e.width, height * 0.25);
+	(void)snprintf(buf, sizeof(buf), 
+		fmt, miny + (maxy - miny) * 0.75);
+	cairo_show_text(cr, buf);
 
-		/* Top right. */
-		cairo_move_to(cr, width - e.width, e.height * 1.5);
-		(void)snprintf(buf, sizeof(buf), fmt, maxy);
-		cairo_show_text(cr, buf);
+	/* Top right. */
+	cairo_move_to(cr, width - e.width, e.height * 1.5);
+	(void)snprintf(buf, sizeof(buf), fmt, maxy);
+	cairo_show_text(cr, buf);
 
-		*widthp -= e.width * 1.3;
-		break;
-	}
+	*widthp -= e.width * 1.3;
 
 	switch (cur->view) {
 	case (VIEW_POLYMINS):
@@ -215,13 +208,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_CONFIG):
 	case (VIEW_STATUS):
 		return;
-	case (VIEW_POLYMINCDF):
-		*maxy = 1.0;
-		break;
-	case (VIEW_POLYMINPDF):
-		if (gsl_histogram_max_val(s->cold.fitmins) > *maxy)
-			*maxy = gsl_histogram_max_val(s->cold.fitmins);
-		break;
 	case (VIEW_MEANMINQ):
 		v = GETS(s, s->cold.meanminq.vals[s->cold.meanminq.maxpos]);
 		if (v > *maxy)
@@ -359,8 +345,6 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 			drawlegendmin(buf, sizeof(buf),
 				sim, sim->cold.fitmin);
 			break;
-		case (VIEW_POLYMINCDF):
-		case (VIEW_POLYMINPDF):
 		case (VIEW_POLYMINS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->cold.fitminst);
@@ -394,48 +378,6 @@ draw_set(const struct sim *sim, const struct bmigrate *b, cairo_t *cr,
 	cairo_stroke_preserve(cr);
 	cairo_set_source_rgba(cr, GETC(0.5));
 	cairo_fill(cr);
-}
-
-/*
- * Draw a histogram CDF.
- */
-static void
-draw_cdf(const struct sim *sim, const struct bmigrate *b, 
-	cairo_t *cr, double width, double height, double maxy, 
-	const gsl_histogram *p, double minx, double maxx)
-{
-	double	v, sum;
-	size_t	i;
-
-	sum = gsl_histogram_sum(p);
-	cairo_move_to(cr, GETX(0), GETY(0.0));
-	for (v = 0.0, i = 0; i < sim->dims; i++) {
-		v += gsl_histogram_get(p, i) / sum;
-		cairo_line_to(cr, GETX(i), GETY(v));
-	}
-	cairo_set_source_rgba(cr, GETC(1.0));
-	cairo_stroke(cr);
-}
-
-/*
- * Draw a histogram PDF.
- */
-static void
-draw_pdf(const struct sim *sim, const struct bmigrate *b, 
-	cairo_t *cr, double width, double height, double maxy, 
-	const gsl_histogram *p, double minx, double maxx)
-{
-	double	v;
-	size_t	i;
-
-	for (i = 1; i < sim->dims; i++) {
-		v = gsl_histogram_get(p, i - 1);
-		cairo_move_to(cr, GETX(i-1), GETY(v));
-		v = gsl_histogram_get(p, i);
-		cairo_line_to(cr, GETX(i), GETY(v));
-	}
-	cairo_set_source_rgba(cr, GETC(1.0));
-	cairo_stroke(cr);
 }
 
 static void
@@ -596,6 +538,12 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_EXTIMINPDF):
 		kplot_draw(cur->view_iextinctmins_pdf, width, height, cr, NULL);
 		return;
+	case (VIEW_POLYMINCDF):
+		kplot_draw(cur->view_fitpolymins_cdf, width, height, cr, NULL);
+		return;
+	case (VIEW_POLYMINPDF):
+		kplot_draw(cur->view_fitpolymins_pdf, width, height, cr, NULL);
+		return;
 	default:
 		break;
 	}
@@ -627,7 +575,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	 * CDFs and the configuration window don't change.
 	 */
 	switch (cur->view) {
-	case (VIEW_POLYMINCDF):
 	case (VIEW_CONFIG):
 	case (VIEW_STATUS):
 		break;
@@ -728,14 +675,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 				PRIu64, sim->cold.truns);
 			drawinfo(cr, &v, &e, "Generations: %" 
 				PRIu64, sim->cold.tgens);
-			break;
-		case (VIEW_POLYMINPDF):
-			draw_pdf(sim, b, cr, width, height, 
-				maxy, sim->cold.fitmins, minx, maxx);
-			break;
-		case (VIEW_POLYMINCDF):
-			draw_cdf(sim, b, cr, width, height, 
-				maxy, sim->cold.fitmins, minx, maxx);
 			break;
 		case (VIEW_MEANMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,

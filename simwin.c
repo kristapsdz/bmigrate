@@ -145,6 +145,8 @@ curwin_free(gpointer dat)
 	kplot_free(cur->view_mextinctmaxs_pdf);
 	kplot_free(cur->view_iextinctmins_cdf);
 	kplot_free(cur->view_iextinctmins_pdf);
+	kplot_free(cur->view_fitpolymins_cdf);
+	kplot_free(cur->view_fitpolymins_pdf);
 	cur->b->windows = g_list_remove(cur->b->windows, cur);
 	on_sims_deref(cur->sims);
 	g_free(cur->autosave);
@@ -222,6 +224,12 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		sim->bufs.iextinctmins, KPLOT_LINES, NULL);
 	kplot_attach_smooth(cur->view_iextinctmins_cdf, 
 		sim->bufs.iextinctmins, KPLOT_LINES, NULL,
+		KSMOOTH_CDF, NULL);
+
+	kplot_attach_data(cur->view_fitpolymins_pdf, 
+		sim->bufs.fitpolymins, KPLOT_LINES, NULL);
+	kplot_attach_smooth(cur->view_fitpolymins_cdf, 
+		sim->bufs.fitpolymins, KPLOT_LINES, NULL,
 		KSMOOTH_CDF, NULL);
 }
 
@@ -361,6 +369,10 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	g_assert(NULL != cur->view_iextinctmins_cdf);
 	cur->view_iextinctmins_pdf = kplot_alloc();
 	g_assert(NULL != cur->view_iextinctmins_pdf);
+	cur->view_fitpolymins_cdf = kplot_alloc();
+	g_assert(NULL != cur->view_fitpolymins_cdf);
+	cur->view_fitpolymins_pdf = kplot_alloc();
+	g_assert(NULL != cur->view_fitpolymins_pdf);
 
 	cur->redraw = 1;
 	cur->sims = sims;
@@ -1116,6 +1128,8 @@ onactivate(GtkButton *button, gpointer dat)
 	g_assert(NULL != sim->bufs.fitpoly);
 	sim->bufs.fitpolybuf = kdata_buffer_alloc(slices);
 	g_assert(NULL != sim->bufs.fitpolybuf);
+	sim->bufs.fitpolymins = kdata_bucket_alloc(0, slices);
+	g_assert(NULL != sim->bufs.fitpolymins);
 
 	for (i = 0; i < slices; i++) {
 		strat = xmin + (xmax - xmin) * (i / (double)slices);
@@ -1126,6 +1140,7 @@ onactivate(GtkButton *button, gpointer dat)
 		kdata_bucket_set(sim->bufs.mextinctmaxs, i, strat, 0);
 		kdata_bucket_set(sim->bufs.iextinctmins, i, strat, 0);
 		kdata_bucket_set(sim->bufs.fitpoly, i, strat, 0);
+		kdata_bucket_set(sim->bufs.fitpolymins, i, strat, 0);
 	}
 
 	sim->bufs.means = simbuf_alloc
@@ -1163,10 +1178,6 @@ onactivate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(double));
 	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.fitmins);
-	sim->cold.smeanmins = gsl_histogram_alloc(sim->dims);
-	g_assert(NULL != sim->cold.smeanmins);
-	sim->cold.sextmmaxs = gsl_histogram_alloc(sim->dims);
-	g_assert(NULL != sim->cold.sextmmaxs);
 	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
 	g_assert(NULL != sim->cold.meanmins);
 	sim->cold.extmmaxs = gsl_histogram_alloc(sim->dims);
@@ -1175,10 +1186,6 @@ onactivate(GtkButton *button, gpointer dat)
 	g_assert(NULL != sim->cold.extimins);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.fitmins, xmin, xmax);
-	gsl_histogram_set_ranges_uniform
-		(sim->cold.smeanmins, xmin, xmax);
-	gsl_histogram_set_ranges_uniform
-		(sim->cold.sextmmaxs, xmin, xmax);
 	gsl_histogram_set_ranges_uniform
 		(sim->cold.meanmins, xmin, xmax);
 

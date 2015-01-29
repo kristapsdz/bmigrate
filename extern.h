@@ -89,6 +89,7 @@ struct	simbufs {
 	struct kdata	*iextinctmins;
 	struct kdata	*fitpoly;
 	struct kdata	*fitpolybuf;
+	struct kdata	*fitpolymins;
 	struct simbuf	*means;
 	struct simbuf	*stddevs;
 	struct simbuf	*mextinct;
@@ -181,8 +182,6 @@ struct	simcold {
 	double	   	*sextms; /* smoothed mutant extinctions */
 	double	   	*fits; /* fitpoly points */
 	gsl_histogram	*fitmins; /* fitted minimum dist */
-	gsl_histogram	*smeanmins; /* smoothed mean minimum dist */
-	gsl_histogram	*sextmmaxs; /* smoothed mutant ext. dist */
 	gsl_histogram	*meanmins; /* mean minimum dist */
 	gsl_histogram	*extmmaxs; /* mutant extinction dist */
 	gsl_histogram	*extimins; /* incumbent extinction dist */
@@ -443,6 +442,8 @@ struct	curwin {
 	struct kplot	 *view_mextinctmaxs_cdf;
 	struct kplot	 *view_iextinctmins_pdf;
 	struct kplot	 *view_iextinctmins_cdf;
+	struct kplot	 *view_fitpolymins_pdf;
+	struct kplot	 *view_fitpolymins_cdf;
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */
