@@ -147,6 +147,8 @@ curwin_free(gpointer dat)
 	kplot_free(cur->view_iextinctmins_pdf);
 	kplot_free(cur->view_fitpolymins_cdf);
 	kplot_free(cur->view_fitpolymins_pdf);
+	kplot_free(cur->view_meanminq);
+	kplot_free(cur->view_fitminq);
 	cur->b->windows = g_list_remove(cur->b->windows, cur);
 	on_sims_deref(cur->sims);
 	g_free(cur->autosave);
@@ -231,6 +233,12 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	kplot_attach_smooth(cur->view_fitpolymins_cdf, 
 		sim->bufs.fitpolymins, KPLOT_LINES, NULL,
 		KSMOOTH_CDF, NULL);
+
+	kplot_attach_data(cur->view_meanminq, 
+		sim->bufs.meanminqbuf, KPLOT_LINES, NULL);
+
+	kplot_attach_data(cur->view_fitminq, 
+		sim->bufs.fitminqbuf, KPLOT_LINES, NULL);
 }
 
 /*
@@ -373,6 +381,10 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	g_assert(NULL != cur->view_fitpolymins_cdf);
 	cur->view_fitpolymins_pdf = kplot_alloc();
 	g_assert(NULL != cur->view_fitpolymins_pdf);
+	cur->view_meanminq = kplot_alloc();
+	g_assert(NULL != cur->view_meanminq);
+	cur->view_fitminq = kplot_alloc();
+	g_assert(NULL != cur->view_fitminq);
 
 	cur->redraw = 1;
 	cur->sims = sims;
@@ -1130,6 +1142,10 @@ onactivate(GtkButton *button, gpointer dat)
 	g_assert(NULL != sim->bufs.fitpolybuf);
 	sim->bufs.fitpolymins = kdata_bucket_alloc(0, slices);
 	g_assert(NULL != sim->bufs.fitpolymins);
+	sim->bufs.meanminqbuf = kdata_array_alloc(NULL, CQUEUESZ);
+	g_assert(NULL != sim->bufs.meanminqbuf);
+	sim->bufs.fitminqbuf = kdata_array_alloc(NULL, CQUEUESZ);
+	g_assert(NULL != sim->bufs.fitminqbuf);
 
 	for (i = 0; i < slices; i++) {
 		strat = xmin + (xmax - xmin) * (i / (double)slices);

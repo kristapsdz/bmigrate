@@ -248,6 +248,8 @@ sim_free(gpointer arg)
 	kdata_destroy(p->bufs.fitpoly);
 	kdata_destroy(p->bufs.fitpolybuf);
 	kdata_destroy(p->bufs.fitpolymins);
+	kdata_destroy(p->bufs.meanminqbuf);
+	kdata_destroy(p->bufs.fitminqbuf);
 
 	hnode_free(p->continuum.exp);
 	g_mutex_clear(&p->hot.mux);
@@ -362,12 +364,17 @@ hstats_push(struct hstats *st, const struct kdata *d)
 	st->stddev = kdata_ystddev(d);
 }
 
-/*
- * Push a value onto the circular queue.
- * This will update our current location and the maximum value, too.
- */
 static void
-cqueue_push(struct cqueue *q, size_t val)
+cqueue_fill(size_t pos, struct kpair *kp, void *arg)
+{
+	struct cqueue	*q = arg;
+
+	kp->x = -(double)(CQUEUESZ - pos);
+	kp->y = q->vals[(q->pos + pos + 1) % CQUEUESZ];
+}
+
+static void
+cqueue_push(struct cqueue *q, double val)
 {
 
 	q->vals[q->pos] = val;
@@ -375,6 +382,7 @@ cqueue_push(struct cqueue *q, size_t val)
 		q->maxpos = q->pos;
 	q->pos = (q->pos + 1) % CQUEUESZ;
 }
+
 
 /*
  * This copies data from the threads into local ("cold") storage.
@@ -388,6 +396,8 @@ on_sim_copyout(gpointer dat)
 {
 	struct bmigrate	*b = dat;
 	GList		*list, *w, *sims;
+	ssize_t		 pos;
+	struct kpair	 kp;
 	struct sim	*sim;
 	struct curwin	*cur;
 	int		 copy, rc;
@@ -462,28 +472,31 @@ on_sim_copyout(gpointer dat)
 		sim->cold.tgens = sim->warm.tgens;
 
 		/*
-		 * Now we compute data that's managed by this function
-		 * and thread alone (no need for locking).
-		 */
-		cqueue_push(&sim->bufs.meanminq, sim->cold.meanmin);
-		cqueue_push(&sim->bufs.fitminq, sim->cold.fitmin);
-
-		/*
 		 * Now update our histogram and statistics.
 		 */
-		kdata_bucket_add(sim->bufs.meanmins, 
-			sim->cold.meanmin, 1.0);
-		kdata_bucket_add(sim->bufs.mextinctmaxs, 
-			sim->cold.extmmax, 1.0);
-		kdata_bucket_add(sim->bufs.iextinctmins, 
-			sim->cold.extimin, 1.0);
-		kdata_bucket_add(sim->bufs.fitpolymins, 
-			sim->cold.fitmin, 1.0);
-
+		pos = kdata_ymin(sim->bufs.means->cold, &kp);
+		g_assert(pos >= 0);
+		kdata_bucket_add(sim->bufs.meanmins, pos, 1.0);
 		hstats_push(&sim->bufs.meanminst, sim->bufs.meanmins);
-		hstats_push(&sim->bufs.fitminst, sim->bufs.fitpolymins);
+		cqueue_push(&sim->bufs.meanminq, kp.x);
+		kdata_array_fill(sim->bufs.meanminqbuf, 
+			&sim->bufs.meanminq, cqueue_fill);
+
+		kdata_bucket_add(sim->bufs.mextinctmaxs, 
+			kdata_ymax(sim->bufs.mextinct->cold, NULL), 1.0);
 		hstats_push(&sim->bufs.extmmaxst, sim->bufs.mextinctmaxs);
+
+		kdata_bucket_add(sim->bufs.iextinctmins, 
+			kdata_ymin(sim->bufs.iextinct->cold, NULL), 1.0);
 		hstats_push(&sim->bufs.extiminst, sim->bufs.iextinctmins);
+
+		pos = kdata_ymin(sim->bufs.fitpolybuf, &kp);
+		g_assert(pos >= 0);
+		kdata_bucket_add(sim->bufs.fitpolymins, pos, 1.0);
+		hstats_push(&sim->bufs.fitminst, sim->bufs.fitpolymins);
+		cqueue_push(&sim->bufs.fitminq, kp.x);
+		kdata_array_fill(sim->bufs.fitminqbuf, 
+			&sim->bufs.fitminq, cqueue_fill);
 
 		/* Copy-out when convenient. */
 		g_mutex_lock(&sim->hot.mux);

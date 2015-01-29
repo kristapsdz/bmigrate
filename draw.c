@@ -208,11 +208,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_CONFIG):
 	case (VIEW_STATUS):
 		return;
-	case (VIEW_MEANMINQ):
-		v = GETS(s, s->bufs.meanminq.vals[s->bufs.meanminq.maxpos]);
-		if (v > *maxy)
-			*maxy = v;
-		break;
 	case (VIEW_POLYMINS):
 		v = s->bufs.fitminst.mean + s->bufs.fitminst.stddev;
 		if (v > *maxy)
@@ -230,11 +225,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		break;
 	case (VIEW_EXTIMINS):
 		v = s->bufs.extiminst.mean + s->bufs.extiminst.stddev;
-		if (v > *maxy)
-			*maxy = v;
-		break;
-	case (VIEW_POLYMINQ):
-		v = GETS(s, s->bufs.fitminq.vals[s->bufs.fitminq.maxpos]);
 		if (v > *maxy)
 			*maxy = v;
 		break;
@@ -264,15 +254,6 @@ drawlegendst(gchar *buf, size_t sz,
 	(void)g_snprintf(buf, sz,
 		"%s: mode %g, mean %g +-%g", sim->name,
 		st->mode, st->mean, st->stddev);
-}
-
-static void
-drawlegendmin(gchar *buf, size_t sz,
-	const struct sim *sim, size_t strat)
-{
-
-	(void)g_snprintf(buf, sz, "%s: min %g",
-		sim->name, GETS(sim, strat));
 }
 
 static double
@@ -328,17 +309,9 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		case (VIEW_ISLANDMEAN):
 			g_strlcpy(buf, sim->name, sizeof(buf));
 			break;
-		case (VIEW_MEANMINQ):
-			drawlegendmin(buf, sizeof(buf),
-				sim, sim->cold.meanmin);
-			break;
 		case (VIEW_MEANMINS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->bufs.meanminst);
-			break;
-		case (VIEW_POLYMINQ):
-			drawlegendmin(buf, sizeof(buf),
-				sim, sim->cold.fitmin);
 			break;
 		case (VIEW_POLYMINS):
 			drawlegendst(buf, sizeof(buf), 
@@ -405,42 +378,6 @@ draw_islandmean(const struct sim *sim, const struct bmigrate *b,
 		cairo_set_source_rgba(cr, GETC(0.5));
 		cairo_fill(cr);
 	}
-}
-
-static void
-draw_cqueue(const struct sim *sim, const struct bmigrate *b,
-	cairo_t *cr, double width, double height, double maxy,
-	const struct cqueue *q, const struct hstats *st)
-{
-	size_t	 i, j;
-	double	 v;
-	static const double dash[] = {6.0};
-
-	for (i = 1; i < CQUEUESZ; i++) {
-		j = (q->pos + i - 1) % CQUEUESZ;
-		v = GETS(sim, q->vals[j]);
-		cairo_move_to(cr, width * (i - 1) / 
-			(double)CQUEUESZ, GETY(v));
-		j = (q->pos + i) % CQUEUESZ;
-		v = GETS(sim, q->vals[j]);
-		cairo_line_to(cr, width * i / 
-			(double)CQUEUESZ, GETY(v));
-	}
-	cairo_set_source_rgba(cr, GETC(1.0));
-	cairo_stroke(cr);
-	cairo_set_line_width(cr, 1.0);
-	v = st->mode;
-	cairo_move_to(cr, 0.0, GETY(v));
-	cairo_line_to(cr, width, GETY(v));
-	cairo_set_dash(cr, dash, 1, 0);
-	cairo_set_source_rgba(cr, GETC(0.75));
-	cairo_stroke(cr);
-	v = st->mean;
-	cairo_move_to(cr, 0.0, GETY(v));
-	cairo_line_to(cr, width, GETY(v));
-	cairo_set_dash(cr, dash, 0, 0);
-	cairo_set_source_rgba(cr, GETC(0.75));
-	cairo_stroke(cr);
 }
 
 static void
@@ -539,6 +476,12 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_POLYMINPDF):
 		kplot_draw(cur->view_fitpolymins_pdf, width, height, cr, NULL);
 		return;
+	case (VIEW_MEANMINQ):
+		kplot_draw(cur->view_meanminq, width, height, cr, NULL);
+		return;
+	case (VIEW_POLYMINQ):
+		kplot_draw(cur->view_fitminq, width, height, cr, NULL);
+		return;
 	default:
 		break;
 	}
@@ -588,11 +531,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_CONFIG):
 	case (VIEW_STATUS):
 		cairo_text_extents(cr, "lj", &e);
-		break;
-	case (VIEW_POLYMINQ):
-	case (VIEW_MEANMINQ):
-		drawlabels(cur, cr, "%g", &width, 
-			&height, 0.0, maxy, -1.0 * CQUEUESZ, 0.0);
 		break;
 	default:
 		drawlabels(cur, cr, "%.2g", &width, 
@@ -671,10 +609,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 			drawinfo(cr, &v, &e, "Generations: %" 
 				PRIu64, sim->cold.tgens);
 			break;
-		case (VIEW_MEANMINQ):
-			draw_cqueue(sim, b, cr, width, height, maxy,
-				&sim->bufs.meanminq, &sim->bufs.meanminst);
-			break;
 		case (VIEW_POLYMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
 				simnum, simmax, &sim->bufs.fitminst);
@@ -690,10 +624,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 		case (VIEW_MEANMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
 				simnum, simmax, &sim->bufs.meanminst);
-			break;
-		case (VIEW_POLYMINQ):
-			draw_cqueue(sim, b, cr, width, height, maxy,
-				&sim->bufs.fitminq, &sim->bufs.fitminst);
 			break;
 		case (VIEW_ISLANDMEAN):
 			draw_islandmean(sim, b, cr, width, height, maxy);

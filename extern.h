@@ -69,7 +69,7 @@ struct	hstats {
 struct	cqueue {
 	size_t		 pos; /* current queue position */
 #define	CQUEUESZ	 256
-	size_t		 vals[CQUEUESZ];
+	double		 vals[CQUEUESZ];
 	size_t		 maxpos; /* position of maximum */
 };
 
@@ -103,6 +103,8 @@ struct	simbufs {
 	struct kdata	*fitpoly;
 	struct kdata	*fitpolybuf;
 	struct kdata	*fitpolymins;
+	struct kdata	*meanminqbuf;
+	struct kdata	*fitminqbuf;
 	struct hstats	 meanminst;
 	struct hstats	 fitminst;
 	struct hstats	 extmmaxst;
@@ -258,15 +260,6 @@ struct	sim {
 	struct simcold	  cold; /* graphed results */
 	struct simwork	  work; /* worker data */
 };
-
-/*
- * Given a current simulation "_s", compute where a given index "_v"
- * (out if the simulation's dimensions) lies within the domain.
- */
-#define	GETS(_s, _v) \
-	((_s)->continuum.xmin + \
-	 ((_s)->continuum.xmax - (_s)->continuum.xmin) * \
-	 (_v) / (double)((_s)->dims))
 
 /*
  * Each thread of a simulation consists of the simulation and the rank
@@ -429,6 +422,8 @@ struct	curwin {
 	struct kplot	 *view_iextinctmins_cdf;
 	struct kplot	 *view_fitpolymins_pdf;
 	struct kplot	 *view_fitpolymins_cdf;
+	struct kplot	 *view_meanminq;
+	struct kplot	 *view_fitminq;
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */
