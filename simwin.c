@@ -800,6 +800,7 @@ onactivate(GtkButton *button, gpointer dat)
 	struct kmlplace	 *kmlp;
 	GError		 *er;
 	double		  strat;
+	enum maptop	  maptop;
 
 	islandpops = NULL;
 	islandpop = 0;
@@ -814,6 +815,13 @@ onactivate(GtkButton *button, gpointer dat)
 	if (gtk_toggle_button_get_active
 		(b->wins.mapmigrants[MAPMIGRANT_DISTANCE]))
 		migrants = MAPMIGRANT_DISTANCE;
+
+	if (gtk_toggle_button_get_active(b->wins.mapfromfile)) 
+		maptop = MAPTOP_RECORD;
+	else if (gtk_toggle_button_get_active(b->wins.mapfromrand)) 
+		maptop = MAPTOP_RAND;
+	else 
+		maptop = MAPTOP_TORUS;
 
 	switch (input) {
 	case (INPUT_UNIFORM):
@@ -847,7 +855,8 @@ onactivate(GtkButton *button, gpointer dat)
 		 * Possibly variable island sizes, possibly variable
 		 * inter-island migration.
 		 */
-		if (gtk_toggle_button_get_active(b->wins.mapfromfile)) {
+		switch (maptop) {
+		case (MAPTOP_RECORD):
 			/* Try to read KML from file. */
 			file = gtk_file_chooser_get_filename
 				(b->wins.mapfile);
@@ -871,20 +880,23 @@ onactivate(GtkButton *button, gpointer dat)
 				g_error_free(er);
 				goto cleanup;
 			}
-		} else if (gtk_toggle_button_get_active(b->wins.mapfromrand)) {
+			break;
+		case (MAPTOP_RAND):
 			islands = gtk_adjustment_get_value
 				(b->wins.maprandislands);
 			islandpop = gtk_adjustment_get_value
 				(b->wins.maprandislanders);
 			kml = kml_rand(islands, islandpop);
 			islandpop = islands = 0;
-		} else {
+			break;
+		case (MAPTOP_TORUS):
 			islands = gtk_adjustment_get_value
 				(b->wins.maptorusislands);
 			islandpop = gtk_adjustment_get_value
 				(b->wins.maptorusislanders);
 			kml = kml_torus(islands, islandpop);
 			islandpop = islands = 0;
+			break;
 		}
 
 		/*
@@ -1222,6 +1234,12 @@ onactivate(GtkButton *button, gpointer dat)
 	g_debug("New %s migration, %g probability, %g(1 + %g pi)", 
 		NULL != sim->ms ? "variable" : "uniform", 
 		sim->m, sim->alpha, sim->delta);
+	if (INPUT_MAPPED == input)
+		g_debug("New mapped migration: %s",
+			MAPTOP_RECORD == maptop ?
+			"KML input" : 
+			MAPTOP_RAND == maptop ?
+			"random islands" : "toroidal islands");
 	g_debug("New function %s, x = [%g, %g)", sim->func,
 		sim->continuum.xmin, sim->continuum.xmax);
 	g_debug("New threads: %zu", sim->nprocs);

@@ -217,6 +217,12 @@ enum	input {
 	INPUT__MAX
 };
 
+enum	maptop {
+	MAPTOP_RECORD,
+	MAPTOP_RAND,
+	MAPTOP_TORUS
+};
+
 enum	mapmigrant {
 	MAPMIGRANT_UNIFORM = 0,
 	MAPMIGRANT_DISTANCE,

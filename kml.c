@@ -18,6 +18,9 @@
 #include <math.h>
 #include <stdint.h>
 #include <stdlib.h>
+#ifdef __linux__
+#include <bsd/stdlib.h> /* arc4random() */
+#endif
 #include <string.h>
 
 #include <glib.h>

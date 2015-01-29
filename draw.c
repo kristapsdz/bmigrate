@@ -531,7 +531,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 {
 	double		 width, height, maxy, v, minx, maxx;
 	struct bmigrate	*b;
-	GtkWidget	*top;
 	struct sim	*sim;
 	size_t		 simnum, simmax;
 	GList		*sims, *list;
@@ -543,7 +542,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	 * Then get our list of simulations.
 	 * Both of these are stored as pointers to the top-level window.
 	 */
-	top = gtk_widget_get_toplevel(w);
 	cur->redraw = 0;
 	sims = cur->sims;
 	assert(NULL != sims);
