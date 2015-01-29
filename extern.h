@@ -60,6 +60,19 @@ struct	stats {
 	double		M2;
 };
 
+struct	hstats {
+	double		 mode;
+	double		 mean;
+	double		 stddev;
+};
+
+struct	cqueue {
+	size_t		 pos; /* current queue position */
+#define	CQUEUESZ	 256
+	size_t		 vals[CQUEUESZ];
+	size_t		 maxpos; /* position of maximum */
+};
+
 /*
  * Configuration for a running an n-player continuum game.
  * This is associated with a function that's executed with real-valued
@@ -90,10 +103,16 @@ struct	simbufs {
 	struct kdata	*fitpoly;
 	struct kdata	*fitpolybuf;
 	struct kdata	*fitpolymins;
+	struct hstats	 meanminst;
+	struct hstats	 fitminst;
+	struct hstats	 extmmaxst;
+	struct hstats	 extiminst;
 	struct simbuf	*means;
 	struct simbuf	*stddevs;
 	struct simbuf	*mextinct;
 	struct simbuf	*iextinct;
+	struct cqueue	 meanminq; 
+	struct cqueue	 fitminq; 
 };
 
 /*
@@ -128,12 +147,9 @@ struct	simhot {
  */
 struct	simwarm {
 	size_t		 meanmin; /* min sample mean */
-	size_t	 	 sextmmax; /* max smoothed mutant extinct */
 	size_t		 fitmin; /* index of min fitpoly point */
 	size_t		 extmmax; /* index of max mutant extinction */
 	size_t		 extimin; /* index of min incumb extinction */
-	double		*sextms; /* smoothed mutant extinctions */
-	double	   	*fits; /* fitpoly points */
 	struct stats	*stats; /* statistics per incumbent */
 	struct stats	*islands; /* statistics per island */
 	uint64_t	 truns; /* total number of runs */
@@ -156,20 +172,6 @@ struct	simwork {
 	gsl_multifit_linear_workspace *work; /* workspace */
 };
 
-struct	hstats {
-	double		 mode;
-	double		 mean;
-	double		 stddev;
-};
-
-#define	CQUEUESZ	 256
-
-struct	cqueue {
-	size_t		 pos; /* current queue position */
-	size_t		 vals[CQUEUESZ];
-	size_t		 maxpos; /* position of maximum */
-};
-
 /*
  * Instead of operating on the simulation results themselves, we copy
  * output from "struct simwarm" into a "cold" buffer for viewing.
@@ -177,30 +179,13 @@ struct	cqueue {
  * This is done in the main thread of execution, so it is not locked.
  */
 struct	simcold {
-	struct stats	*stats; /* statistics per incumbent */
 	struct stats	*islands; /* statistics per island */
-	double	   	*sextms; /* smoothed mutant extinctions */
-	double	   	*fits; /* fitpoly points */
-	gsl_histogram	*fitmins; /* fitted minimum dist */
-	gsl_histogram	*meanmins; /* mean minimum dist */
-	gsl_histogram	*extmmaxs; /* mutant extinction dist */
-	gsl_histogram	*extimins; /* incumbent extinction dist */
 	size_t		 extmmax; /* current mutant extinct max */
 	size_t		 extimin; /* current incumbent extinct min */
 	size_t		 fitmin; /* current fitpoly minimum */
 	size_t		 meanmin; /* current sample mean min */
-	size_t	 	 sextmmax; /* max smoothed mutant extinct */
-	struct hstats	 fitminst; /* fitmins statistics */
-	struct hstats	 meanminst; /* meanmins statistics */
-	struct hstats	 extmmaxst; /* extmmaxs statistics */
-	struct hstats	 extiminst; /* extimins statistics */
-	struct hstats	 smeanminst; /* smeanmins statistics */
-	struct hstats	 sextmmaxst; /* sextmmaxs statistics */
 	uint64_t	 truns; /* total runs */
 	uint64_t	 tgens; /* total generations */
-	struct cqueue	 meanminq; /* circleq of raw minima */
-	struct cqueue	 fitminq; /* circleq of poly minima */
-	struct cqueue	 smeanminq; /* circleq of smoothed minima */
 };
 
 /*

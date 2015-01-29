@@ -209,32 +209,32 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_STATUS):
 		return;
 	case (VIEW_MEANMINQ):
-		v = GETS(s, s->cold.meanminq.vals[s->cold.meanminq.maxpos]);
+		v = GETS(s, s->bufs.meanminq.vals[s->bufs.meanminq.maxpos]);
 		if (v > *maxy)
 			*maxy = v;
 		break;
 	case (VIEW_POLYMINS):
-		v = s->cold.fitminst.mean + s->cold.fitminst.stddev;
+		v = s->bufs.fitminst.mean + s->bufs.fitminst.stddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
 	case (VIEW_MEANMINS):
-		v = s->cold.meanminst.mean + s->cold.meanminst.stddev;
+		v = s->bufs.meanminst.mean + s->bufs.meanminst.stddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
 	case (VIEW_EXTMMAXS):
-		v = s->cold.extmmaxst.mean + s->cold.extmmaxst.stddev;
+		v = s->bufs.extmmaxst.mean + s->bufs.extmmaxst.stddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
 	case (VIEW_EXTIMINS):
-		v = s->cold.extiminst.mean + s->cold.extiminst.stddev;
+		v = s->bufs.extiminst.mean + s->bufs.extiminst.stddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
 	case (VIEW_POLYMINQ):
-		v = GETS(s, s->cold.fitminq.vals[s->cold.fitminq.maxpos]);
+		v = GETS(s, s->bufs.fitminq.vals[s->bufs.fitminq.maxpos]);
 		if (v > *maxy)
 			*maxy = v;
 		break;
@@ -247,12 +247,7 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		}
 		break;
 	default:
-		for (i = 0; i < s->dims; i++) {
-			v = stats_mean(&s->cold.stats[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
+		abort();
 	}
 
 	if (*xmin > s->continuum.xmin)
@@ -324,11 +319,11 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		switch (cur->view) {
 		case (VIEW_EXTIMINS):
 			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->cold.extiminst);
+				sim, &sim->bufs.extiminst);
 			break;
 		case (VIEW_EXTMMAXS):
 			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->cold.extmmaxst);
+				sim, &sim->bufs.extmmaxst);
 			break;
 		case (VIEW_ISLANDMEAN):
 			g_strlcpy(buf, sim->name, sizeof(buf));
@@ -339,7 +334,7 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 			break;
 		case (VIEW_MEANMINS):
 			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->cold.meanminst);
+				sim, &sim->bufs.meanminst);
 			break;
 		case (VIEW_POLYMINQ):
 			drawlegendmin(buf, sizeof(buf),
@@ -347,7 +342,7 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 			break;
 		case (VIEW_POLYMINS):
 			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->cold.fitminst);
+				sim, &sim->bufs.fitminst);
 			break;
 		default:
 			abort();
@@ -678,27 +673,27 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 			break;
 		case (VIEW_MEANMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
-				&sim->cold.meanminq, &sim->cold.meanminst);
+				&sim->bufs.meanminq, &sim->bufs.meanminst);
 			break;
 		case (VIEW_POLYMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->cold.fitminst);
+				simnum, simmax, &sim->bufs.fitminst);
 			break;
 		case (VIEW_EXTIMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->cold.extiminst);
+				simnum, simmax, &sim->bufs.extiminst);
 			break;
 		case (VIEW_EXTMMAXS):
 			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->cold.extmmaxst);
+				simnum, simmax, &sim->bufs.extmmaxst);
 			break;
 		case (VIEW_MEANMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->cold.meanminst);
+				simnum, simmax, &sim->bufs.meanminst);
 			break;
 		case (VIEW_POLYMINQ):
 			draw_cqueue(sim, b, cr, width, height, maxy,
-				&sim->cold.fitminq, &sim->cold.fitminst);
+				&sim->bufs.fitminq, &sim->bufs.fitminst);
 			break;
 		case (VIEW_ISLANDMEAN):
 			draw_islandmean(sim, b, cr, width, height, maxy);

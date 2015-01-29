@@ -63,7 +63,7 @@ static void
 snapshot(struct sim *sim, struct simwarm *warm, 
 	uint64_t truns, uint64_t tgens)
 {
-	double	 min, max, v, chisq, x, y;
+	double	 min, v, chisq, x, y;
 	size_t	 i, j, k;
 
 	/*
@@ -87,29 +87,13 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	warm->truns = truns;
 	warm->tgens = tgens;
 
-	v = stats_extinctm(&warm->stats[0]) +
-		stats_extinctm(&warm->stats[1]);
-	max = warm->sextms[0] = v / 2.0;
-	for (i = 1; i < sim->dims - 1; i++) {
-		v += stats_extinctm(&warm->stats[i + 1]);
-		warm->sextms[i] = v / 3.0;
-		v -= stats_extinctm(&warm->stats[i - 1]);
-		if (warm->sextms[i] > max) {
-			max = warm->sextms[i];
-			warm->sextmmax = i;
-		}
-	}
-	warm->sextms[i] = v / 2.0;
-	if (warm->sextms[i] > max)
-		warm->sextmmax = i;
-
 	/* 
 	 * FIXME: be careful when we have less than the sample size
 	 * total number of observations!
 	 */
-	warm->meanmin = kdata_min(sim->bufs.means->warm, NULL);
-	warm->extmmax = kdata_max(sim->bufs.mextinct->warm, NULL);
-	warm->extimin = kdata_min(sim->bufs.iextinct->warm, NULL);
+	warm->meanmin = kdata_ymin(sim->bufs.means->warm, NULL);
+	warm->extmmax = kdata_ymax(sim->bufs.mextinct->warm, NULL);
+	warm->extimin = kdata_ymin(sim->bufs.iextinct->warm, NULL);
 
 	/*
 	 * If we're going to fit to a polynomial, set the dependent
@@ -175,7 +159,7 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	for (i = 0; i < sim->fitpoly + 1; i++)
 		sim->work.coeffs[i] = gsl_vector_get(sim->work.c, i);
 
-	min = FLT_MAX;
+	min = DBL_MAX;
 	for (i = 0; i < sim->dims; i++) {
 		x = sim->continuum.xmin + 
 			(sim->continuum.xmax -

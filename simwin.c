@@ -1156,43 +1156,16 @@ onactivate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(struct stats));
 	sim->hot.statslsb = g_malloc0_n
 		(sim->dims, sizeof(struct stats));
+	sim->warm.stats = g_malloc0_n
+		(sim->dims, sizeof(struct stats));
 	sim->hot.islands = g_malloc0_n
 		(sim->islands, sizeof(struct stats));
 	sim->hot.islandslsb = g_malloc0_n
 		(sim->islands, sizeof(struct stats));
-	sim->warm.stats = g_malloc0_n
-		(sim->dims, sizeof(struct stats));
 	sim->warm.islands = g_malloc0_n
 		(sim->islands, sizeof(struct stats));
-	sim->cold.stats = g_malloc0_n
-		(sim->dims, sizeof(struct stats));
-	sim->warm.fits = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->warm.sextms = g_malloc0_n
-		(sim->dims, sizeof(double));
 	sim->cold.islands = g_malloc0_n
 		(sim->islands, sizeof(struct stats));
-	sim->cold.fits = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->cold.sextms = g_malloc0_n
-		(sim->dims, sizeof(double));
-	sim->cold.fitmins = gsl_histogram_alloc(sim->dims);
-	g_assert(NULL != sim->cold.fitmins);
-	sim->cold.meanmins = gsl_histogram_alloc(sim->dims);
-	g_assert(NULL != sim->cold.meanmins);
-	sim->cold.extmmaxs = gsl_histogram_alloc(sim->dims);
-	g_assert(NULL != sim->cold.extmmaxs);
-	sim->cold.extimins = gsl_histogram_alloc(sim->dims);
-	g_assert(NULL != sim->cold.extimins);
-	gsl_histogram_set_ranges_uniform
-		(sim->cold.fitmins, xmin, xmax);
-	gsl_histogram_set_ranges_uniform
-		(sim->cold.meanmins, xmin, xmax);
-
-	gsl_histogram_set_ranges_uniform
-		(sim->cold.extmmaxs, xmin, xmax);
-	gsl_histogram_set_ranges_uniform
-		(sim->cold.extimins, xmin, xmax);
 
 	/*
 	 * Conditionally allocate our fitness polynomial structures.

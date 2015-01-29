@@ -244,9 +244,9 @@ sim_free(gpointer arg)
 	kdata_destroy(p->bufs.incumbents);
 	kdata_destroy(p->bufs.meanmins);
 	kdata_destroy(p->bufs.mextinctmaxs);
+	kdata_destroy(p->bufs.iextinctmins);
 	kdata_destroy(p->bufs.fitpoly);
 	kdata_destroy(p->bufs.fitpolybuf);
-	kdata_destroy(p->bufs.iextinctmins);
 	kdata_destroy(p->bufs.fitpolymins);
 
 	hnode_free(p->continuum.exp);
@@ -260,9 +260,6 @@ sim_free(gpointer arg)
 	g_free(p->hot.islandslsb);
 	g_free(p->warm.stats);
 	g_free(p->warm.islands);
-	g_free(p->warm.sextms);
-	g_free(p->warm.fits);
-	g_free(p->cold.stats);
 	g_free(p->cold.islands);
 	if (NULL != p->ms)
 		for (i = 0; i < p->islands; i++)
@@ -270,10 +267,6 @@ sim_free(gpointer arg)
 	g_free(p->ms);
 	g_free(p->pops);
 	kml_free(p->kml);
-	gsl_histogram_free(p->cold.fitmins);
-	gsl_histogram_free(p->cold.meanmins);
-	gsl_histogram_free(p->cold.extmmaxs);
-	gsl_histogram_free(p->cold.extimins);
 	if (p->fitpoly) {
 		g_free(p->work.coeffs);
 		gsl_matrix_free(p->work.X);
@@ -284,8 +277,6 @@ sim_free(gpointer arg)
 		gsl_multifit_linear_free(p->work.work);
 		p->fitpoly = 0;
 	}
-	g_free(p->cold.sextms);
-	g_free(p->cold.fits);
 	g_free(p->threads);
 	g_free(p);
 	g_debug("%p: Simulation freed", p);
@@ -360,21 +351,15 @@ on_sim_pause(struct sim *sim, int dopause)
 		g_debug("Pausing simulation %p", sim);
 }
 
-
-/*
- * Add an element to a histogram (there are several, e.g., minimum
- * mean-mean, minimum mutant-extinction, etc.) that record strategy.
- * This will update all elements of the applicable hstats.
- */
 static void
-hist_update(const struct sim *sim, 
-	gsl_histogram *p, struct hstats *st, size_t strat)
+hstats_push(struct hstats *st, const struct kdata *d)
 {
+	struct kpair	kp;
 
-	gsl_histogram_increment(p, GETS(sim, strat));
-	st->mode = GETS(sim, gsl_histogram_max_bin(p));
-	st->mean = gsl_histogram_mean(p);
-	st->stddev = gsl_histogram_sigma(p);
+	kdata_ymax(d, &kp);
+	st->mode = kp.y;
+	st->mean = kdata_ymean(d);
+	st->stddev = kdata_ystddev(d);
 }
 
 /*
@@ -466,44 +451,26 @@ on_sim_copyout(gpointer dat)
 			 sim->bufs.fitpoly);
 		g_assert(0 != rc);
 
-		memcpy(sim->cold.stats, 
-			sim->warm.stats,
-			sizeof(struct stats) * sim->dims);
-		memcpy(sim->cold.islands, 
-			sim->warm.islands,
-			sizeof(struct stats) * sim->islands);
-		memcpy(sim->cold.fits, 
-			sim->warm.fits,
-			sizeof(double) * sim->dims);
-		memcpy(sim->cold.sextms, 
-			sim->warm.sextms,
-			sizeof(double) * sim->dims);
+		memcpy(sim->cold.islands, sim->warm.islands,
+			sim->islands * sizeof(struct stats));
+
 		sim->cold.meanmin = sim->warm.meanmin;
-		sim->cold.sextmmax = sim->warm.sextmmax;
 		sim->cold.fitmin = sim->warm.fitmin;
 		sim->cold.extmmax = sim->warm.extmmax;
 		sim->cold.extimin = sim->warm.extimin;
 		sim->cold.truns = sim->warm.truns;
 		sim->cold.tgens = sim->warm.tgens;
+
 		/*
 		 * Now we compute data that's managed by this function
 		 * and thread alone (no need for locking).
 		 */
-		cqueue_push(&sim->cold.meanminq, sim->cold.meanmin);
-		cqueue_push(&sim->cold.fitminq, sim->cold.fitmin);
+		cqueue_push(&sim->bufs.meanminq, sim->cold.meanmin);
+		cqueue_push(&sim->bufs.fitminq, sim->cold.fitmin);
+
 		/*
 		 * Now update our histogram and statistics.
 		 */
-		hist_update(sim, sim->cold.fitmins, 
-			&sim->cold.fitminst, sim->cold.fitmin);
-		hist_update(sim, sim->cold.meanmins, 
-			&sim->cold.meanminst, sim->cold.meanmin);
-
-		hist_update(sim, sim->cold.extmmaxs, 
-			&sim->cold.extmmaxst, sim->cold.extmmax);
-		hist_update(sim, sim->cold.extimins, 
-			&sim->cold.extiminst, sim->cold.extimin);
-
 		kdata_bucket_add(sim->bufs.meanmins, 
 			sim->cold.meanmin, 1.0);
 		kdata_bucket_add(sim->bufs.mextinctmaxs, 
@@ -513,6 +480,10 @@ on_sim_copyout(gpointer dat)
 		kdata_bucket_add(sim->bufs.fitpolymins, 
 			sim->cold.fitmin, 1.0);
 
+		hstats_push(&sim->bufs.meanminst, sim->bufs.meanmins);
+		hstats_push(&sim->bufs.fitminst, sim->bufs.fitpolymins);
+		hstats_push(&sim->bufs.extmmaxst, sim->bufs.mextinctmaxs);
+		hstats_push(&sim->bufs.extiminst, sim->bufs.iextinctmins);
 
 		/* Copy-out when convenient. */
 		g_mutex_lock(&sim->hot.mux);
