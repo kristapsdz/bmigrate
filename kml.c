@@ -210,6 +210,7 @@ static void
 kml_replacekey(FILE *f, enum kmlkey key, 
 	const struct sim *sim, size_t island)
 {
+#if 0
 	double	 v, sum;
 	size_t	 i;
 
@@ -235,6 +236,7 @@ kml_replacekey(FILE *f, enum kmlkey key,
 	default:
 		break;
 	}
+#endif
 }
 
 static void

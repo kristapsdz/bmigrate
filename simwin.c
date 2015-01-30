@@ -132,6 +132,7 @@ curwin_free(gpointer dat)
 	struct curwin	*cur = dat;
 
 	g_debug("%p: Simwin freeing", cur);
+	kplot_free(cur->view_islands);
 	kplot_free(cur->view_poly);
 	kplot_free(cur->view_mean);
 	kplot_free(cur->view_smean);
@@ -175,10 +176,6 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	gtk_container_add(GTK_CONTAINER(cur->wins.boxconfig), box);
 	gtk_widget_show_all(GTK_WIDGET(cur->wins.boxconfig));
 
-	stats[0] = sim->bufs.means->cold;
-	stats[1] = sim->bufs.stddevs->cold;
-	ts[0] = ts[1] = KPLOT_LINES;
-
 	kplot_attach_data(cur->view_mean, 
 		sim->bufs.means->cold, KPLOT_LINES, NULL);
 
@@ -199,10 +196,21 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		sim->bufs.means->cold, KPLOT_LINES, NULL,
 		KSMOOTH_MOVAVG, NULL);
 
+	ts[0] = ts[1] = KPLOT_LINES;
+	stats[0] = sim->bufs.means->cold;
+	stats[1] = sim->bufs.stddevs->cold;
 	cfgs[0] = cfgs[1] = &cfg;
 	kplot_attach_datas(cur->view_stddev, 2,
 		stats, ts, (const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORLINE);
+
+	ts[0] = ts[1] = KPLOT_POINTS;
+	stats[0] = sim->bufs.imeans->cold;
+	stats[1] = sim->bufs.istddevs->cold;
+	cfgs[0] = cfgs[1] = &cfg;
+	kplot_attach_datas(cur->view_islands, 2,
+		stats, ts, (const struct kdatacfg *const *)cfgs, 
+		KPLOTS_YERRORBAR);
 
 	kplot_attach_data(cur->view_mextinct, 
 		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
@@ -351,6 +359,8 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	gtk_builder_connect_signals(builder, cur);
 	g_object_unref(G_OBJECT(builder));
 
+	cur->view_islands = kplot_alloc();
+	g_assert(NULL != cur->view_islands);
 	cur->view_poly = kplot_alloc();
 	g_assert(NULL != cur->view_poly);
 	cur->view_mean = kplot_alloc();
@@ -1126,6 +1136,8 @@ onactivate(GtkButton *button, gpointer dat)
 	/* Source for the fraction of mutants. */
 	sim->bufs.fractions = kdata_bucket_alloc(0, slices);
 	g_assert(NULL != sim->bufs.fractions);
+	sim->bufs.ifractions = kdata_bucket_alloc(0, islands);
+	g_assert(NULL != sim->bufs.ifractions);
 	sim->bufs.mutants = kdata_bucket_alloc(0, slices);
 	g_assert(NULL != sim->bufs.mutants);
 	sim->bufs.incumbents = kdata_bucket_alloc(0, slices);
@@ -1159,6 +1171,10 @@ onactivate(GtkButton *button, gpointer dat)
 		kdata_bucket_set(sim->bufs.fitpolymins, i, strat, 0);
 	}
 
+	sim->bufs.imeans = simbuf_alloc
+		(kdata_mean_alloc(sim->bufs.ifractions), islands);
+	sim->bufs.istddevs = simbuf_alloc
+		(kdata_stddev_alloc(sim->bufs.ifractions), islands);
 	sim->bufs.means = simbuf_alloc
 		(kdata_mean_alloc(sim->bufs.fractions), slices);
 	sim->bufs.stddevs = simbuf_alloc
@@ -1174,14 +1190,6 @@ onactivate(GtkButton *button, gpointer dat)
 		(sim->dims, sizeof(struct stats));
 	sim->warm.stats = g_malloc0_n
 		(sim->dims, sizeof(struct stats));
-	sim->hot.islands = g_malloc0_n
-		(sim->islands, sizeof(struct stats));
-	sim->hot.islandslsb = g_malloc0_n
-		(sim->islands, sizeof(struct stats));
-	sim->warm.islands = g_malloc0_n
-		(sim->islands, sizeof(struct stats));
-	sim->cold.islands = g_malloc0_n
-		(sim->islands, sizeof(struct stats));
 
 	/*
 	 * Conditionally allocate our fitness polynomial structures.
@@ -1214,11 +1222,11 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->pop = islandpop;
 	sim->pops = islandpops;
 	sim->input = input;
-	sim->continuum.exp = exp;
-	sim->continuum.xmin = xmin;
-	sim->continuum.xmax = xmax;
-	sim->continuum.ymin = ymin;
-	sim->continuum.ymax = ymax;
+	sim->exp = exp;
+	sim->xmin = xmin;
+	sim->xmax = xmax;
+	sim->ymin = ymin;
+	sim->ymax = ymax;
 	b->sims = g_list_append(b->sims, sim);
 	sim_ref(sim, NULL);
 	sim->threads = g_malloc0_n(sim->nprocs, sizeof(struct simthr));
@@ -1237,7 +1245,7 @@ onactivate(GtkButton *button, gpointer dat)
 			MAPTOP_RAND == maptop ?
 			"random islands" : "toroidal islands");
 	g_debug("New function %s, x = [%g, %g)", sim->func,
-		sim->continuum.xmin, sim->continuum.xmax);
+		sim->xmin, sim->xmax);
 	g_debug("New threads: %zu", sim->nprocs);
 	g_debug("New polynomial: %zu (%s)", 
 		sim->fitpoly, sim->weighted ? 
@@ -1245,7 +1253,7 @@ onactivate(GtkButton *button, gpointer dat)
 	if (MUTANTS_GAUSSIAN == sim->mutants)
 		g_debug("New Gaussian mutants: "
 			"%g in [%g, %g]", sim->mutantsigma,
-			sim->continuum.ymin, sim->continuum.ymax);
+			sim->ymin, sim->ymax);
 	else
 		g_debug("New discrete mutants");
 

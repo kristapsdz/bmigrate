@@ -34,9 +34,9 @@
  * X and Y coordinates as well as colour.
  */
 #define GETX(_j) \
-	(width * (sim->continuum.xmin - minx) / (maxx - minx) + \
+	(width * (sim->xmin - minx) / (maxx - minx) + \
 	(_j) / (double)(sim->dims - 1) * width * \
-	 (sim->continuum.xmax - sim->continuum.xmin) / (maxx - minx))
+	 (sim->xmax - sim->xmin) / (maxx - minx))
 #define	GETY(_v) (height - ((_v) / maxy * height))
 #define	GETC(_a) b->wins.colours[sim->colour].red, \
 		 b->wins.colours[sim->colour].green, \
@@ -152,7 +152,6 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	case (VIEW_MEANMINS):
 	case (VIEW_EXTMMAXS):
 	case (VIEW_EXTIMINS):
-	case (VIEW_ISLANDMEAN):
 		break;
 	default:
 		/* Right bottom. */
@@ -201,7 +200,6 @@ static void
 max_sim(const struct curwin *cur, const struct sim *s, 
 	double *xmin, double *xmax, double *maxy)
 {
-	size_t	 i;
 	double	 v;
 
 	switch (cur->view) {
@@ -228,22 +226,14 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		if (v > *maxy)
 			*maxy = v;
 		break;
-	case (VIEW_ISLANDMEAN):
-		for (i = 0; i < s->islands; i++) {
-			v = stats_mean(&s->cold.islands[i]) +
-				stats_stddev(&s->cold.islands[i]);
-			if (v > *maxy)
-				*maxy = v;
-		}
-		break;
 	default:
 		abort();
 	}
 
-	if (*xmin > s->continuum.xmin)
-		*xmin = s->continuum.xmin;
-	if (*xmax < s->continuum.xmax)
-		*xmax = s->continuum.xmax;
+	if (*xmin > s->xmin)
+		*xmin = s->xmin;
+	if (*xmax < s->xmax)
+		*xmax = s->xmax;
 }
 
 static void
@@ -306,9 +296,6 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->bufs.extmmaxst);
 			break;
-		case (VIEW_ISLANDMEAN):
-			g_strlcpy(buf, sim->name, sizeof(buf));
-			break;
 		case (VIEW_MEANMINS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->bufs.meanminst);
@@ -346,38 +333,6 @@ draw_set(const struct sim *sim, const struct bmigrate *b, cairo_t *cr,
 	cairo_stroke_preserve(cr);
 	cairo_set_source_rgba(cr, GETC(0.5));
 	cairo_fill(cr);
-}
-
-static void
-draw_islandmean(const struct sim *sim, const struct bmigrate *b,
-	cairo_t *cr, double width, double height, double maxy)
-{
-	size_t	 i;
-	double	 v;
-
-	for (i = 0; i < sim->islands; i++) {
-		v = stats_mean(&sim->cold.islands[i]) -
-			stats_stddev(&sim->cold.islands[i]);
-		if (v < 0.0)
-			v = 0.0;
-		cairo_move_to(cr, width * (i + 1) / 
-			(double)(sim->islands + 1), GETY(v));
-		v = stats_mean(&sim->cold.islands[i]) +
-			stats_stddev(&sim->cold.islands[i]);
-		cairo_line_to(cr, width * (i + 1) / 
-			(double)(sim->islands + 1), GETY(v));
-		cairo_set_source_rgba(cr, GETC(1.0));
-		cairo_stroke(cr);
-		cairo_new_path(cr);
-		v = stats_mean(&sim->cold.islands[i]);
-		cairo_arc(cr, width * (i + 1) /
-			(double)(sim->islands + 1), GETY(v), 
-			3.0, 0.0, 2.0 * M_PI);
-		cairo_set_source_rgba(cr, GETC(1.0));
-		cairo_stroke_preserve(cr);
-		cairo_set_source_rgba(cr, GETC(0.5));
-		cairo_fill(cr);
-	}
 }
 
 static void
@@ -482,6 +437,9 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_POLYMINQ):
 		kplot_draw(cur->view_fitminq, width, height, cr, NULL);
 		return;
+	case (VIEW_ISLANDMEAN):
+		kplot_draw(cur->view_islands, width, height, cr, NULL);
+		return;
 	default:
 		break;
 	}
@@ -568,8 +526,8 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 			drawinfo(cr, &v, &e, "Function: %s, "
 				"x = [%g, %g], T=%zu, lambda=%g(1 + %g * pi)", 
 				sim->func, 
-				sim->continuum.xmin,
-				sim->continuum.xmax, sim->stop,
+				sim->xmin,
+				sim->xmax, sim->stop,
 				sim->alpha, sim->delta);
 			drawinfo(cr, &v, &e, "Population: %zu (%zu "
 				"islands, %suniform), m=%g (%suniform)", 
@@ -583,8 +541,8 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 				drawinfo(cr, &v, &e, "Mutants: "
 					"Gaussian (sigma=%g, "
 					"[%g, %g])", sim->mutantsigma,
-					sim->continuum.ymin,
-					sim->continuum.ymax);
+					sim->ymin,
+					sim->ymax);
 			drawinfo(cr, &v, &e, "Fit: order %zu (%s)",
 				sim->fitpoly, 0 == sim->fitpoly ?
 				"disabled" : (sim->weighted ? 
@@ -624,9 +582,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 		case (VIEW_MEANMINS):
 			draw_set(sim, b, cr, width, height, maxy, 
 				simnum, simmax, &sim->bufs.meanminst);
-			break;
-		case (VIEW_ISLANDMEAN):
-			draw_islandmean(sim, b, cr, width, height, maxy);
 			break;
 		default:
 			abort();

@@ -73,19 +73,6 @@ struct	cqueue {
 	size_t		 maxpos; /* position of maximum */
 };
 
-/*
- * Configuration for a running an n-player continuum game.
- * This is associated with a function that's executed with real-valued
- * player strategies, e.g., public goods.
- */
-struct	sim_continuum {
-	struct hnode	**exp; /* n-player function */
-	double		  xmin; /* minimum strategy */
-	double		  xmax; /* maximum strategy */
-	double		  ymin; /* minimum Gaussian mutant strategy */
-	double		  ymax; /* maximum Gaussian mutant strategy */
-};
-
 struct	simbuf {
 	struct kdata	*hot;
 	struct kdata	*hotlsb;
@@ -105,10 +92,13 @@ struct	simbufs {
 	struct kdata	*fitpolymins;
 	struct kdata	*meanminqbuf;
 	struct kdata	*fitminqbuf;
+	struct kdata	*ifractions;
 	struct hstats	 meanminst;
 	struct hstats	 fitminst;
 	struct hstats	 extmmaxst;
 	struct hstats	 extiminst;
+	struct simbuf	*imeans;
+	struct simbuf	*istddevs;
 	struct simbuf	*means;
 	struct simbuf	*stddevs;
 	struct simbuf	*mextinct;
@@ -131,8 +121,6 @@ struct	simhot {
 	uint64_t	 tgens; /* total number of generations */
 	struct stats	*stats; /* statistics per incumbent */
 	struct stats	*statslsb; /* lookaside for stats */
-	struct stats	*islands; /* statistics per island */
-	struct stats	*islandslsb; /* lookaside for islands */
 	int		 copyout; /* do we need to snapshot? */
 	int		 pause; /* should we pause? */
 	size_t		 copyblock; /* threads blocking on copy */
@@ -148,12 +136,7 @@ struct	simhot {
  * "fitmin" are set (if applicable) to the fitted polynomial.
  */
 struct	simwarm {
-	size_t		 meanmin; /* min sample mean */
-	size_t		 fitmin; /* index of min fitpoly point */
-	size_t		 extmmax; /* index of max mutant extinction */
-	size_t		 extimin; /* index of min incumb extinction */
 	struct stats	*stats; /* statistics per incumbent */
-	struct stats	*islands; /* statistics per island */
 	uint64_t	 truns; /* total number of runs */
 	uint64_t	 tgens; /* total number of generations */
 };
@@ -181,11 +164,6 @@ struct	simwork {
  * This is done in the main thread of execution, so it is not locked.
  */
 struct	simcold {
-	struct stats	*islands; /* statistics per island */
-	size_t		 extmmax; /* current mutant extinct max */
-	size_t		 extimin; /* current incumbent extinct min */
-	size_t		 fitmin; /* current fitpoly minimum */
-	size_t		 meanmin; /* current sample mean min */
 	uint64_t	 truns; /* total runs */
 	uint64_t	 tgens; /* total generations */
 };
@@ -253,7 +231,11 @@ struct	sim {
 	double		**ms; /* nonuniform migration probability */
 	struct kml	 *kml; /* KML places */
 	size_t		  colour; /* graph colour */
-	struct sim_continuum continuum;
+	struct hnode	**exp; /* n-player function */
+	double		  xmin; /* minimum strategy */
+	double		  xmax; /* maximum strategy */
+	double		  ymin; /* minimum Gaussian mutant strategy */
+	double		  ymax; /* maximum Gaussian mutant strategy */
 	struct simbufs	  bufs; /* kdata buffers */
 	struct simhot	  hot; /* current results */
 	struct simwarm	  warm; /* current results */
@@ -424,6 +406,7 @@ struct	curwin {
 	struct kplot	 *view_fitpolymins_cdf;
 	struct kplot	 *view_meanminq;
 	struct kplot	 *view_fitminq;
+	struct kplot	 *view_islands;
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */

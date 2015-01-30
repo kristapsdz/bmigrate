@@ -75,6 +75,8 @@ snapshot(struct sim *sim, struct simwarm *warm,
 		return;
 	}
 
+	simbuf_copy_warm(sim->bufs.imeans);
+	simbuf_copy_warm(sim->bufs.istddevs);
 	simbuf_copy_warm(sim->bufs.means);
 	simbuf_copy_warm(sim->bufs.stddevs);
 	simbuf_copy_warm(sim->bufs.mextinct);
@@ -82,18 +84,8 @@ snapshot(struct sim *sim, struct simwarm *warm,
 
 	memcpy(warm->stats, sim->hot.statslsb, 
 		sim->dims * sizeof(struct stats));
-	memcpy(warm->islands, sim->hot.islandslsb, 
-		sim->islands * sizeof(struct stats));
 	warm->truns = truns;
 	warm->tgens = tgens;
-
-	/* 
-	 * FIXME: be careful when we have less than the sample size
-	 * total number of observations!
-	 */
-	warm->meanmin = kdata_ymin(sim->bufs.means->warm, NULL);
-	warm->extmmax = kdata_ymax(sim->bufs.mextinct->warm, NULL);
-	warm->extimin = kdata_ymin(sim->bufs.iextinct->warm, NULL);
 
 	/*
 	 * If we're going to fit to a polynomial, set the dependent
@@ -127,9 +119,9 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	for (i = 0; i < sim->dims; i++) {
 		gsl_matrix_set(sim->work.X, i, 0, 1.0);
 		for (j = 0; j < sim->fitpoly; j++) {
-			v = sim->continuum.xmin +
-				(sim->continuum.xmax -
-				 sim->continuum.xmin) *
+			v = sim->xmin +
+				(sim->xmax -
+				 sim->xmin) *
 				(i / (double)sim->dims);
 			for (k = 0; k < j; k++)
 				v *= v;
@@ -161,17 +153,13 @@ snapshot(struct sim *sim, struct simwarm *warm,
 
 	min = DBL_MAX;
 	for (i = 0; i < sim->dims; i++) {
-		x = sim->continuum.xmin + 
-			(sim->continuum.xmax -
-			 sim->continuum.xmin) *
+		x = sim->xmin + 
+			(sim->xmax -
+			 sim->xmin) *
 			i / (double)sim->dims;
 		y = fitpoly(sim->work.coeffs, 
 			sim->fitpoly + 1, x);
 		kdata_bucket_set(sim->bufs.fitpoly, i, x, y);
-		if (y < min) {
-			warm->fitmin = i;
-			min = y;
-		}
 	}
 }
 
@@ -208,6 +196,9 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 		rc = kdata_bucket_set(sim->bufs.fractions, 
 			*incumbentidx, *incumbentp, *vp);
 		g_assert(0 != rc);
+		rc = kdata_bucket_set(sim->bufs.ifractions, 
+			*islandidx, *islandidx, *vp);
+		g_assert(0 != rc);
 		rc = kdata_bucket_set(sim->bufs.mutants, 
 			*incumbentidx, *incumbentp, 0.0 == *vp);
 		g_assert(0 != rc);
@@ -215,7 +206,6 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 			*incumbentidx, *incumbentp, 1.0 == *vp);
 		g_assert(0 != rc);
 		stats_push(&sim->hot.stats[*incumbentidx], *vp);
-		stats_push(&sim->hot.islands[*islandidx], *vp);
 		sim->hot.tgens += gen;
 		sim->hot.truns++;
 	}
@@ -236,6 +226,8 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * of the hot mutex.
 	 */
 	if (1 == sim->hot.copyout) {
+		simbuf_copy_hotlsb(sim->bufs.imeans);
+		simbuf_copy_hotlsb(sim->bufs.istddevs);
 		simbuf_copy_hotlsb(sim->bufs.means);
 		simbuf_copy_hotlsb(sim->bufs.stddevs);
 		simbuf_copy_hotlsb(sim->bufs.mextinct);
@@ -244,8 +236,6 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 		g_assert(0 != rc);*/
 		memcpy(sim->hot.statslsb, sim->hot.stats,
 			sim->dims * sizeof(struct stats));
-		memcpy(sim->hot.islandslsb, sim->hot.islands,
-			sim->islands * sizeof(struct stats));
 		truns = sim->hot.truns;
 		tgens = sim->hot.tgens;
 		sim->hot.copyout = fit = 2;
@@ -280,9 +270,9 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * The mutant is either assigned the same way or from a Gaussian
 	 * distribution around the current incumbent.
 	 */
-	*incumbentp = sim->continuum.xmin + 
-		(sim->continuum.xmax - 
-		 sim->continuum.xmin) * 
+	*incumbentp = sim->xmin + 
+		(sim->xmax - 
+		 sim->xmin) * 
 		(*incumbentidx / (double)sim->dims);
 
 	if (MUTANTS_GAUSSIAN == sim->mutants) {
@@ -290,12 +280,12 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 			*mutantp = *incumbentp + 
 				gsl_ran_gaussian
 				(rng, sim->mutantsigma);
-		} while (*mutantp < sim->continuum.ymin ||
-			 *mutantp >= sim->continuum.ymax);
+		} while (*mutantp < sim->ymin ||
+			 *mutantp >= sim->ymax);
 	} else
-		*mutantp = sim->continuum.xmin + 
-			(sim->continuum.xmax - 
-			 sim->continuum.xmin) * 
+		*mutantp = sim->xmin + 
+			(sim->xmax - 
+			 sim->xmin) * 
 			(mutant / (double)sim->dims);
 
 	/*
@@ -328,7 +318,7 @@ continuum_lambda(const struct sim *sim, double x,
 
 	v = hnode_exec
 		((const struct hnode *const *)
-		 sim->continuum.exp, x,
+		 sim->exp, x,
 		 (mutants * mutant) + ((pop - mutants) * incumbent),
 		 pop);
 	assert( ! (isnan(v) || isinf(v)));

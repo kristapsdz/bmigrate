@@ -237,9 +237,12 @@ sim_free(gpointer arg)
 
 	simbuf_free(p->bufs.means);
 	simbuf_free(p->bufs.stddevs);
+	simbuf_free(p->bufs.imeans);
+	simbuf_free(p->bufs.istddevs);
 	simbuf_free(p->bufs.mextinct);
 	simbuf_free(p->bufs.iextinct);
 	kdata_destroy(p->bufs.fractions);
+	kdata_destroy(p->bufs.ifractions);
 	kdata_destroy(p->bufs.mutants);
 	kdata_destroy(p->bufs.incumbents);
 	kdata_destroy(p->bufs.meanmins);
@@ -251,18 +254,14 @@ sim_free(gpointer arg)
 	kdata_destroy(p->bufs.meanminqbuf);
 	kdata_destroy(p->bufs.fitminqbuf);
 
-	hnode_free(p->continuum.exp);
+	hnode_free(p->exp);
 	g_mutex_clear(&p->hot.mux);
 	g_cond_clear(&p->hot.cond);
 	g_free(p->name);
 	g_free(p->func);
 	g_free(p->hot.stats);
 	g_free(p->hot.statslsb);
-	g_free(p->hot.islands);
-	g_free(p->hot.islandslsb);
 	g_free(p->warm.stats);
-	g_free(p->warm.islands);
-	g_free(p->cold.islands);
 	if (NULL != p->ms)
 		for (i = 0; i < p->islands; i++)
 			g_free(p->ms[i]);
@@ -452,6 +451,8 @@ on_sim_copyout(gpointer dat)
 		/*
 		 * Most strutures we simply copy over.
 		 */
+		simbuf_copy_cold(sim->bufs.imeans);
+		simbuf_copy_cold(sim->bufs.istddevs);
 		simbuf_copy_cold(sim->bufs.means);
 		simbuf_copy_cold(sim->bufs.stddevs);
 		simbuf_copy_cold(sim->bufs.mextinct);
@@ -461,13 +462,6 @@ on_sim_copyout(gpointer dat)
 			 sim->bufs.fitpoly);
 		g_assert(0 != rc);
 
-		memcpy(sim->cold.islands, sim->warm.islands,
-			sim->islands * sizeof(struct stats));
-
-		sim->cold.meanmin = sim->warm.meanmin;
-		sim->cold.fitmin = sim->warm.fitmin;
-		sim->cold.extmmax = sim->warm.extmmax;
-		sim->cold.extimin = sim->warm.extimin;
 		sim->cold.truns = sim->warm.truns;
 		sim->cold.tgens = sim->warm.tgens;
 
