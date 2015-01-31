@@ -573,6 +573,18 @@ on_win_redraw(struct curwin *cur)
 		rc = kdata_set(cur->winfitstddev, i, i, 
 			kdata_pmfstddev(sim->bufs.fitpolymins));
 		g_assert(0 != rc);
+		rc = kdata_set(cur->winmextinctmean, i, i, 
+			kdata_pmfmean(sim->bufs.mextinctmaxs));
+		g_assert(0 != rc);
+		rc = kdata_set(cur->winmextinctstddev, i, i, 
+			kdata_pmfstddev(sim->bufs.mextinctmaxs));
+		g_assert(0 != rc);
+		rc = kdata_set(cur->winiextinctmean, i, i, 
+			kdata_pmfmean(sim->bufs.iextinctmins));
+		g_assert(0 != rc);
+		rc = kdata_set(cur->winiextinctstddev, i, i, 
+			kdata_pmfstddev(sim->bufs.iextinctmins));
+		g_assert(0 != rc);
 	}
 
 	gtk_widget_queue_draw(GTK_WIDGET(cur->wins.window));

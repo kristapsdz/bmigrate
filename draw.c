@@ -29,291 +29,9 @@
 
 #include "extern.h"
 
-/*
- * These macros shorten the drawing routines by automatically computing
- * X and Y coordinates as well as colour.
- */
-#define GETX(_j) \
-	(width * (sim->xmin - minx) / (maxx - minx) + \
-	(_j) / (double)(sim->dims - 1) * width * \
-	 (sim->xmax - sim->xmin) / (maxx - minx))
-#define	GETY(_v) (height - ((_v) / maxy * height))
 #define	GETC(_a) b->wins.colours[sim->colour].red, \
 		 b->wins.colours[sim->colour].green, \
 		 b->wins.colours[sim->colour].blue, (_a)
-
-/* 
- * Draw a grid containing the data.
- * FIXME: snapping pixels to position for fine lines.
- */
-static void
-drawgrid(cairo_t *cr, double width, double height)
-{
-	static const double dash[] = {6.0};
-
-	/* Top line. */
-	cairo_move_to(cr, 0.0, 0.0);
-	cairo_line_to(cr, width, 0.0);
-	/* Bottom line. */
-	cairo_move_to(cr, 0.0, height);
-	cairo_line_to(cr, width, height);
-	/* Left line. */
-	cairo_move_to(cr, 0.0, 0.0);
-	cairo_line_to(cr, 0.0, height);
-	/* Right line. */
-	cairo_move_to(cr, width, 0.0);
-	cairo_line_to(cr, width, height);
-	/* Horizontal middle. */
-	cairo_move_to(cr, width * 0.5, 0.0);
-	cairo_line_to(cr, width * 0.5, height);
-	/* Vertical middle. */
-	cairo_move_to(cr, 0.0, height * 0.5);
-	cairo_line_to(cr, width, height * 0.5);
-
-	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-
-	cairo_set_line_width(cr, 0.5);
-	cairo_stroke(cr);
-
-	/* Vertical left. */
-	cairo_move_to(cr, 0.0, height * 0.25);
-	cairo_line_to(cr, width, height * 0.25);
-	/* Vertical right. */
-	cairo_move_to(cr, 0.0, height * 0.75);
-	cairo_line_to(cr, width, height * 0.75);
-	/* Horizontal top. */
-	cairo_move_to(cr, width * 0.75, 0.0);
-	cairo_line_to(cr, width * 0.75, height);
-	/* Horizontal bottom. */
-	cairo_move_to(cr, width * 0.25, 0.0);
-	cairo_line_to(cr, width * 0.25, height);
-
-	cairo_set_line_width(cr, 0.5);
-	cairo_set_dash(cr, dash, 1, 0);
-	cairo_stroke(cr);
-
-	cairo_set_dash(cr, dash, 0, 0);
-}
-
-/*
- * Draw axis labels.
- * The choice of label depends on what we're looking at.
- */
-static void
-drawlabels(const struct curwin *cur, cairo_t *cr, 
-	const char *fmt, double *widthp, double *heightp,
-	double miny, double maxy, double minx, double maxx)
-{
-	cairo_text_extents_t e;
-	char	 	 buf[1024];
-	double		 width, height;
-
-	width = *widthp;
-	height = *heightp;
-
-	cairo_text_extents(cr, "-10.00", &e);
-	cairo_set_source_rgb(cr, 0.0, 0.0, 0.0); 
-
-	/* Bottom right. */
-	cairo_move_to(cr, width - e.width, 
-		height - e.height * 3.0);
-	(void)snprintf(buf, sizeof(buf), fmt, miny);
-	cairo_show_text(cr, buf);
-
-	/* Middle-bottom right. */
-	cairo_move_to(cr, width - e.width, 
-		height * 0.75 - 1.5 * e.height);
-	(void)snprintf(buf, sizeof(buf), 
-		fmt, miny + (maxy - miny) * 0.25);
-	cairo_show_text(cr, buf);
-
-	/* Middle right. */
-	cairo_move_to(cr, width - e.width, 
-		height * 0.5 - 0.5 * e.height);
-	(void)snprintf(buf, sizeof(buf), 
-		fmt, miny + (maxy - miny) * 0.5);
-	cairo_show_text(cr, buf);
-
-	/* Middle-top right. */
-	cairo_move_to(cr, width - e.width, height * 0.25);
-	(void)snprintf(buf, sizeof(buf), 
-		fmt, miny + (maxy - miny) * 0.75);
-	cairo_show_text(cr, buf);
-
-	/* Top right. */
-	cairo_move_to(cr, width - e.width, e.height * 1.5);
-	(void)snprintf(buf, sizeof(buf), fmt, maxy);
-	cairo_show_text(cr, buf);
-
-	*widthp -= e.width * 1.3;
-
-	switch (cur->view) {
-	case (VIEW_EXTMMAXS):
-	case (VIEW_EXTIMINS):
-		break;
-	default:
-		/* Right bottom. */
-		cairo_move_to(cr, width - e.width * 1.5, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), fmt, maxx);
-		cairo_show_text(cr, buf);
-
-		/* Middle-left bottom. */
-		cairo_move_to(cr, width * 0.25 - e.width * 0.5, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			fmt, minx + (maxx - minx) * 0.25);
-		cairo_show_text(cr, buf);
-
-		/* Middle bottom. */
-		cairo_move_to(cr, width * 0.5 - e.width * 0.75, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			fmt, minx + (maxx - minx) * 0.5);
-		cairo_show_text(cr, buf);
-
-		/* Middle-right bottom. */
-		cairo_move_to(cr, width * 0.75 - e.width, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), 
-			fmt, minx + (maxx - minx) * 0.75);
-		cairo_show_text(cr, buf);
-
-		/* Left bottom. */
-		cairo_move_to(cr, e.width * 0.25, 
-			height - e.height * 0.5);
-		(void)snprintf(buf, sizeof(buf), fmt, minx);
-		cairo_show_text(cr, buf);
-
-		*heightp -= e.height * 3.0;
-		break;
-	}
-}
-
-/*
- * For a given simulation "s", compute the maximum "y" value in a graph
- * given the type of graph we want to produce.
- */
-static void
-max_sim(const struct curwin *cur, const struct sim *s, 
-	double *xmin, double *xmax, double *maxy)
-{
-	double	 v;
-
-	switch (cur->view) {
-	case (VIEW_CONFIG):
-	case (VIEW_STATUS):
-		return;
-	case (VIEW_EXTMMAXS):
-		v = s->bufs.extmmaxst.mean + s->bufs.extmmaxst.stddev;
-		if (v > *maxy)
-			*maxy = v;
-		break;
-	case (VIEW_EXTIMINS):
-		v = s->bufs.extiminst.mean + s->bufs.extiminst.stddev;
-		if (v > *maxy)
-			*maxy = v;
-		break;
-	default:
-		abort();
-	}
-
-	if (*xmin > s->xmin)
-		*xmin = s->xmin;
-	if (*xmax < s->xmax)
-		*xmax = s->xmax;
-}
-
-static void
-drawlegendst(gchar *buf, size_t sz, 
-	const struct sim *sim, const struct hstats *st)
-{
-
-	(void)g_snprintf(buf, sz,
-		"%s: mode %g, mean %g +-%g", sim->name,
-		st->mode, st->mean, st->stddev);
-}
-
-static double
-drawlegend(struct bmigrate *b, struct curwin *cur, 
-	cairo_t *cr, GList *sims, double height)
-{
-	GList		*list;
-	gchar		 buf[1024];
-	struct sim	*sim;
-	size_t		 simmax;
-	cairo_text_extents_t e;
-	double		 v;
-
-	if (VIEW_CONFIG == cur->view || VIEW_STATUS == cur->view)
-		return(height);
-
-	/*
-	 * Create by drawing a legend.
-	 * To do so, draw the colour representing the current simulation
-	 * followed by the name of the simulation.
-	 */
-	simmax = 0;
-	cairo_text_extents(cr, "lj", &e);
-	for (list = sims; NULL != list; list = list->next, simmax++) {
-		sim = list->data;
-		/* Draw a line with the simulation's colour. */
-		cairo_set_source_rgba(cr, GETC(1.0));
-		v = height - simmax * e.height * 1.75 -
-			e.height * 0.5 + 1.0;
-		v -= e.height * 0.5;
-		cairo_move_to(cr, 0.0, v);
-		cairo_line_to(cr, 20.0, v);
-		cairo_stroke(cr);
-		/* Write the simulation name next to it. */
-		v = height - simmax * e.height * 1.75;
-		v -= e.height * 0.5;
-		cairo_move_to(cr, 25.0, v);
-		cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-		/*
-		 * What we write depends on our simulation view.
-		 * Sometimes we just write the name and number of runs.
-		 * Sometimes we write more.
-		 */
-		switch (cur->view) {
-		case (VIEW_EXTIMINS):
-			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->bufs.extiminst);
-			break;
-		case (VIEW_EXTMMAXS):
-			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->bufs.extmmaxst);
-			break;
-		default:
-			abort();
-		}
-		cairo_show_text(cr, buf);
-	}
-
-	/* Make space for our legend. */
-	return(height - simmax * e.height * 1.75 - e.height);
-}
-
-static void
-draw_set(const struct sim *sim, const struct bmigrate *b, cairo_t *cr, 
-	double width, double height, double maxy, 
-	size_t simnum, size_t simmax, const struct hstats *st)
-{
-
-	double	 v;
-
-	v = width * (simnum + 1) / (double)(simmax + 1);
-	cairo_move_to(cr, v, GETY(st->mean - st->stddev));
-	cairo_line_to(cr, v, GETY(st->mean + st->stddev));
-	cairo_set_source_rgba(cr, GETC(1.0));
-	cairo_stroke(cr);
-	cairo_new_path(cr);
-	cairo_arc(cr, v, GETY(st->mean), 4.0, 0.0, 2.0 * M_PI);
-	cairo_set_source_rgba(cr, GETC(1.0));
-	cairo_stroke_preserve(cr);
-	cairo_set_source_rgba(cr, GETC(0.5));
-	cairo_fill(cr);
-}
 
 static void
 drawinfo(cairo_t *cr, double *y, 
@@ -338,10 +56,10 @@ drawinfo(cairo_t *cr, double *y,
 void
 draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 {
-	double		 width, height, maxy, v, minx, maxx;
+	double		 width, height, v;
 	struct bmigrate	*b;
 	struct sim	*sim;
-	size_t		 simnum, simmax;
+	size_t		 simnum;
 	GList		*sims, *list;
 	cairo_text_extents_t e;
 	gchar		 buf[1024];
@@ -426,73 +144,27 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_POLYMINS):
 		kplot_draw(cur->view_winfitmeans, width, height, cr, NULL);
 		return;
+	case (VIEW_EXTMMAXS):
+		kplot_draw(cur->view_winmextinctmeans, width, height, cr, NULL);
+		return;
+	case (VIEW_EXTIMINS):
+		kplot_draw(cur->view_winiextinctmeans, width, height, cr, NULL);
+		return;
 	default:
 		break;
 	}
 
 	cairo_set_font_size(cr, 12.0);
 
-	/*
-	 * Create by drawing a legend.
-	 * To do so, draw the colour representing the current simulation
-	 * followed by the name of the simulation.
-	 */
-	height = drawlegend(b, cur, cr, sims, height);
-
-	/*
-	 * Determine the boundaries of the graph.
-	 * These will, for all graphs in our set, compute the range and
-	 * domain extrema (the range minimum is always zero).
-	 * Buffer the maximum range by 110%.
-	 */
-	minx = FLT_MAX;
-	maxx = maxy = -FLT_MAX;
-	simmax = 0;
-	for (list = sims; NULL != list; list = list->next, simmax++)
-		max_sim(cur, list->data, &minx, &maxx, &maxy);
-
-	/* 
-	 * See if we should scale the graph to be above the maximum
-	 * point, just for aesthetics.
-	 * CDFs and the configuration window don't change.
-	 */
-	switch (cur->view) {
-	case (VIEW_CONFIG):
-	case (VIEW_STATUS):
-		break;
-	default:
-		maxy += maxy * 0.1;
-	}
-
-	/*
-	 * Configure our labels.
-	 * History views show the last n updates instead of the domain
-	 * of the x-axis, and the format is for non-decimals.
-	 * Configuration has no label at all.
-	 */
 	memset(&e, 0, sizeof(cairo_text_extents_t));
-	switch (cur->view) {
-	case (VIEW_CONFIG):
-	case (VIEW_STATUS):
-		cairo_text_extents(cr, "lj", &e);
-		break;
-	default:
-		drawlabels(cur, cr, "%.2g", &width, 
-			&height, 0.0, maxy, minx, maxx);
-		break;
-	}
+	cairo_text_extents(cr, "lj", &e);
 
-	/*
-	 * Finally, draw our curves.
-	 * There are many ways of doing this.
-	 */
 	simnum = 0;
 	v = e.height;
 	cairo_save(cr);
 	for (list = sims; NULL != list; list = list->next, simnum++) {
 		sim = list->data;
 		assert(NULL != sim);
-		assert(simnum < simmax);
 		cairo_set_line_width(cr, 2.0);
 		switch (cur->view) {
 		case (VIEW_CONFIG):
@@ -553,14 +225,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 			drawinfo(cr, &v, &e, "Generations: %" 
 				PRIu64, sim->cold.tgens);
 			break;
-		case (VIEW_EXTIMINS):
-			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->bufs.extiminst);
-			break;
-		case (VIEW_EXTMMAXS):
-			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->bufs.extmmaxst);
-			break;
 		default:
 			abort();
 			break;
@@ -568,7 +232,5 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	}
 
 	cairo_restore(cr);
-	if (VIEW_CONFIG != cur->view && VIEW_STATUS != cur->view)
-		drawgrid(cr, width, height);
 }
 
