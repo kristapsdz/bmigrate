@@ -93,7 +93,6 @@ struct	simbufs {
 	struct kdata	*meanminqbuf;
 	struct kdata	*fitminqbuf;
 	struct kdata	*ifractions;
-	struct hstats	 meanminst;
 	struct hstats	 fitminst;
 	struct hstats	 extmmaxst;
 	struct hstats	 extiminst;
@@ -391,6 +390,8 @@ struct	curwin {
 	enum view	  view; /* what view are we seeing? */
 	struct kdata	 *winmean;
 	struct kdata	 *winstddev;
+	struct kdata	 *winfitmean;
+	struct kdata	 *winfitstddev;
 	struct kplot	 *view_poly;
 	struct kplot	 *view_iextinct;
 	struct kplot	 *view_mean;
@@ -410,6 +411,7 @@ struct	curwin {
 	struct kplot	 *view_fitminq;
 	struct kplot	 *view_islands;
 	struct kplot	 *view_winmeans;
+	struct kplot	 *view_winfitmeans;
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */

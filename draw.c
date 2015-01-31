@@ -148,7 +148,6 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 	*widthp -= e.width * 1.3;
 
 	switch (cur->view) {
-	case (VIEW_POLYMINS):
 	case (VIEW_EXTMMAXS):
 	case (VIEW_EXTIMINS):
 		break;
@@ -205,11 +204,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 	case (VIEW_CONFIG):
 	case (VIEW_STATUS):
 		return;
-	case (VIEW_POLYMINS):
-		v = s->bufs.fitminst.mean + s->bufs.fitminst.stddev;
-		if (v > *maxy)
-			*maxy = v;
-		break;
 	case (VIEW_EXTMMAXS):
 		v = s->bufs.extmmaxst.mean + s->bufs.extmmaxst.stddev;
 		if (v > *maxy)
@@ -289,10 +283,6 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		case (VIEW_EXTMMAXS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->bufs.extmmaxst);
-			break;
-		case (VIEW_POLYMINS):
-			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->bufs.fitminst);
 			break;
 		default:
 			abort();
@@ -433,6 +423,9 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_MEANMINS):
 		kplot_draw(cur->view_winmeans, width, height, cr, NULL);
 		return;
+	case (VIEW_POLYMINS):
+		kplot_draw(cur->view_winfitmeans, width, height, cr, NULL);
+		return;
 	default:
 		break;
 	}
@@ -559,10 +552,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 				PRIu64, sim->cold.truns);
 			drawinfo(cr, &v, &e, "Generations: %" 
 				PRIu64, sim->cold.tgens);
-			break;
-		case (VIEW_POLYMINS):
-			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->bufs.fitminst);
 			break;
 		case (VIEW_EXTIMINS):
 			draw_set(sim, b, cr, width, height, maxy, 

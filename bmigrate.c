@@ -471,7 +471,6 @@ on_sim_copyout(gpointer dat)
 		pos = kdata_ymin(sim->bufs.means->cold, &kp);
 		g_assert(pos >= 0);
 		kdata_bucket_add(sim->bufs.meanmins, pos, 1.0);
-		hstats_push(&sim->bufs.meanminst, sim->bufs.meanmins);
 		cqueue_push(&sim->bufs.meanminq, kp.x);
 		kdata_array_fill(sim->bufs.meanminqbuf, 
 			&sim->bufs.meanminq, cqueue_fill);
@@ -567,6 +566,12 @@ on_win_redraw(struct curwin *cur)
 		g_assert(0 != rc);
 		rc = kdata_set(cur->winstddev, i, i, 
 			kdata_pmfstddev(sim->bufs.meanmins));
+		g_assert(0 != rc);
+		rc = kdata_set(cur->winfitmean, i, i, 
+			kdata_pmfmean(sim->bufs.fitpolymins));
+		g_assert(0 != rc);
+		rc = kdata_set(cur->winfitstddev, i, i, 
+			kdata_pmfstddev(sim->bufs.fitpolymins));
 		g_assert(0 != rc);
 	}
 

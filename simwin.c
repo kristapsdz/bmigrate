@@ -134,6 +134,8 @@ curwin_free(gpointer dat)
 	g_debug("%p: Simwin freeing", cur);
 	kdata_destroy(cur->winmean);
 	kdata_destroy(cur->winstddev);
+	kdata_destroy(cur->winfitmean);
+	kdata_destroy(cur->winfitstddev);
 	kplot_free(cur->view_islands);
 	kplot_free(cur->view_poly);
 	kplot_free(cur->view_mean);
@@ -141,6 +143,7 @@ curwin_free(gpointer dat)
 	kplot_free(cur->view_smextinct);
 	kplot_free(cur->view_stddev);
 	kplot_free(cur->view_winmeans);
+	kplot_free(cur->view_winfitmeans);
 	kplot_free(cur->view_mextinct);
 	kplot_free(cur->view_iextinct);
 	kplot_free(cur->view_meanmins_cdf);
@@ -175,6 +178,11 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	kdata_vector_append(cur->winmean, 
 		g_list_length(cur->sims), 0.0);
 	kdata_vector_append(cur->winstddev, 
+		g_list_length(cur->sims), 0.0);
+
+	kdata_vector_append(cur->winfitmean, 
+		g_list_length(cur->sims), 0.0);
+	kdata_vector_append(cur->winfitstddev, 
 		g_list_length(cur->sims), 0.0);
 
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
@@ -371,6 +379,8 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 
 	cur->winmean = kdata_vector_alloc(1);
 	cur->winstddev = kdata_vector_alloc(1);
+	cur->winfitmean = kdata_vector_alloc(1);
+	cur->winfitstddev = kdata_vector_alloc(1);
 
 	cur->view_islands = kplot_alloc();
 	g_assert(NULL != cur->view_islands);
@@ -386,6 +396,8 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	g_assert(NULL != cur->view_stddev);
 	cur->view_winmeans = kplot_alloc();
 	g_assert(NULL != cur->view_winmeans);
+	cur->view_winfitmeans = kplot_alloc();
+	g_assert(NULL != cur->view_winfitmeans);
 	cur->view_mextinct = kplot_alloc();
 	g_assert(NULL != cur->view_mextinct);
 	cur->view_iextinct = kplot_alloc();
@@ -415,6 +427,12 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	stats[0] = cur->winmean;
 	stats[1] = cur->winstddev;
 	kplot_attach_datas(cur->view_winmeans, 2,
+		stats, ts, NULL, KPLOTS_YERRORBAR);
+
+	ts[0] = ts[1] = KPLOT_POINTS;
+	stats[0] = cur->winfitmean;
+	stats[1] = cur->winfitstddev;
+	kplot_attach_datas(cur->view_winfitmeans, 2,
 		stats, ts, NULL, KPLOTS_YERRORBAR);
 
 	cur->redraw = 1;
