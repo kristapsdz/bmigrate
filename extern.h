@@ -49,23 +49,6 @@ struct 	hnode {
 	double		  real; /* HNODE_NUMBER, if applicable */
 };
 
-/*
- * Statistics collection.
- */
-struct	stats {
-	uint64_t	n;
-	uint64_t	extm;
-	uint64_t	exti;
-	double		M1;
-	double		M2;
-};
-
-struct	hstats {
-	double		 mode;
-	double		 mean;
-	double		 stddev;
-};
-
 struct	cqueue {
 	size_t		 pos; /* current queue position */
 #define	CQUEUESZ	 256
@@ -93,9 +76,6 @@ struct	simbufs {
 	struct kdata	*meanminqbuf;
 	struct kdata	*fitminqbuf;
 	struct kdata	*ifractions;
-	struct hstats	 fitminst;
-	struct hstats	 extmmaxst;
-	struct hstats	 extiminst;
 	struct simbuf	*imeans;
 	struct simbuf	*istddevs;
 	struct simbuf	*means;
@@ -118,8 +98,6 @@ struct	simhot {
 	GCond		 cond; /* mutex for waiting on snapshot */
 	uint64_t	 truns; /* total number of runs */
 	uint64_t	 tgens; /* total number of generations */
-	struct stats	*stats; /* statistics per incumbent */
-	struct stats	*statslsb; /* lookaside for stats */
 	int		 copyout; /* do we need to snapshot? */
 	int		 pause; /* should we pause? */
 	size_t		 copyblock; /* threads blocking on copy */
@@ -135,7 +113,6 @@ struct	simhot {
  * "fitmin" are set (if applicable) to the fitted polynomial.
  */
 struct	simwarm {
-	struct stats	*stats; /* statistics per incumbent */
 	uint64_t	 truns; /* total number of runs */
 	uint64_t	 tgens; /* total number of generations */
 };
@@ -490,14 +467,6 @@ void		  simbuf_copy_hotlsb(struct simbuf *);
 void		  simbuf_free(struct simbuf *);
 struct simbuf	 *simbuf_alloc(struct kdata *, size_t);
 struct simbuf	 *simbuf_alloc_warm(struct kdata *, size_t);
-
-struct stats	 *stats_alloc0(size_t sz);
-void		  stats_push(struct stats *p, double x);
-double		  stats_mean(const struct stats *p);
-double		  stats_variance(const struct stats *p);
-double		  stats_stddev(const struct stats *p);
-double		  stats_extinctm(const struct stats *p);
-double		  stats_extincti(const struct stats *p);
 
 struct kml	 *kml_parse(const gchar *file, GError **er);
 struct kml	 *kml_rand(size_t, size_t);

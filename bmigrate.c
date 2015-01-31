@@ -259,9 +259,6 @@ sim_free(gpointer arg)
 	g_cond_clear(&p->hot.cond);
 	g_free(p->name);
 	g_free(p->func);
-	g_free(p->hot.stats);
-	g_free(p->hot.statslsb);
-	g_free(p->warm.stats);
 	if (NULL != p->ms)
 		for (i = 0; i < p->islands; i++)
 			g_free(p->ms[i]);
@@ -350,17 +347,6 @@ on_sim_pause(struct sim *sim, int dopause)
 		g_debug("Unpausing simulation %p", sim);
 	else if (pause && dopause)
 		g_debug("Pausing simulation %p", sim);
-}
-
-static void
-hstats_push(struct hstats *st, const struct kdata *d)
-{
-	struct kpair	kp;
-
-	kdata_ymax(d, &kp);
-	st->mode = kp.y;
-	st->mean = kdata_ymean(d);
-	st->stddev = kdata_ystddev(d);
 }
 
 static void
@@ -465,9 +451,6 @@ on_sim_copyout(gpointer dat)
 		sim->cold.truns = sim->warm.truns;
 		sim->cold.tgens = sim->warm.tgens;
 
-		/*
-		 * Now update our histogram and statistics.
-		 */
 		pos = kdata_ymin(sim->bufs.means->cold, &kp);
 		g_assert(pos >= 0);
 		kdata_bucket_add(sim->bufs.meanmins, pos, 1.0);
@@ -477,16 +460,13 @@ on_sim_copyout(gpointer dat)
 
 		kdata_bucket_add(sim->bufs.mextinctmaxs, 
 			kdata_ymax(sim->bufs.mextinct->cold, NULL), 1.0);
-		hstats_push(&sim->bufs.extmmaxst, sim->bufs.mextinctmaxs);
 
 		kdata_bucket_add(sim->bufs.iextinctmins, 
 			kdata_ymin(sim->bufs.iextinct->cold, NULL), 1.0);
-		hstats_push(&sim->bufs.extiminst, sim->bufs.iextinctmins);
 
 		pos = kdata_ymin(sim->bufs.fitpolybuf, &kp);
 		g_assert(pos >= 0);
 		kdata_bucket_add(sim->bufs.fitpolymins, pos, 1.0);
-		hstats_push(&sim->bufs.fitminst, sim->bufs.fitpolymins);
 		cqueue_push(&sim->bufs.fitminq, kp.x);
 		kdata_array_fill(sim->bufs.fitminqbuf, 
 			&sim->bufs.fitminq, cqueue_fill);

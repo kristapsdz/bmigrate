@@ -14,7 +14,6 @@
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
  */
-#include <assert.h>
 #include <errno.h>
 #include <math.h>
 #include <stdint.h>
@@ -63,15 +62,17 @@ static void
 snapshot(struct sim *sim, struct simwarm *warm, 
 	uint64_t truns, uint64_t tgens)
 {
-	double	 min, v, chisq, x, y;
-	size_t	 i, j, k;
+	double	 	min, v, chisq, x, y;
+	struct kpair	kp;
+	int		rc;
+	size_t	 	i, j, k;
 
 	/*
 	 * If we have the same number of runs, don't bother snapshotting
 	 * us--we're already up to date.
 	 */
 	if (warm->truns == truns) {
-		assert(warm->tgens == tgens);
+		g_assert(warm->tgens == tgens);
 		return;
 	}
 
@@ -82,8 +83,6 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	simbuf_copy_warm(sim->bufs.mextinct);
 	simbuf_copy_warm(sim->bufs.iextinct);
 
-	memcpy(warm->stats, sim->hot.statslsb, 
-		sim->dims * sizeof(struct stats));
 	warm->truns = truns;
 	warm->tgens = tgens;
 
@@ -92,18 +91,22 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	 * variable within the conditional.
 	 */
 	if (sim->fitpoly)
-		for (i = 0; i < sim->dims; i++)
-			gsl_vector_set(sim->work.y, i,
-				 stats_mean(&warm->stats[i]));
+		for (i = 0; i < sim->dims; i++) {
+			rc = kdata_get(sim->bufs.means->warm, i, &kp);
+			g_assert(0 != rc);
+			gsl_vector_set(sim->work.y, i, kp.y);
+		}
 
 	/*
 	 * If we're going to run a weighted polynomial multifit, then
 	 * use the variance as the weight.
 	 */
 	if (sim->fitpoly && sim->weighted)
-		for (i = 0; i < sim->dims; i++) 
-			gsl_vector_set(sim->work.w, i,
-				 stats_stddev(&warm->stats[i]));
+		for (i = 0; i < sim->dims; i++) {
+			rc = kdata_get(sim->bufs.stddevs->warm, i, &kp);
+			g_assert(0 != rc);
+			gsl_vector_set(sim->work.w, i, kp.y);
+		}
 
 	/*
 	 * If we're not fitting to a polynomial, simply notify that
@@ -183,8 +186,8 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 
 	truns = tgens = 0; /* Silence compiler. */
 
-	assert(*incumbentidx < sim->dims);
-	assert(*islandidx < sim->islands);
+	g_assert(*incumbentidx < sim->dims);
+	g_assert(*islandidx < sim->islands);
 	g_mutex_lock(&sim->hot.mux);
 
 	/*
@@ -205,7 +208,6 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 		rc = kdata_bucket_set(sim->bufs.incumbents, 
 			*incumbentidx, *incumbentp, 1.0 == *vp);
 		g_assert(0 != rc);
-		stats_push(&sim->hot.stats[*incumbentidx], *vp);
 		sim->hot.tgens += gen;
 		sim->hot.truns++;
 	}
@@ -232,10 +234,6 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 		simbuf_copy_hotlsb(sim->bufs.stddevs);
 		simbuf_copy_hotlsb(sim->bufs.mextinct);
 		simbuf_copy_hotlsb(sim->bufs.iextinct);
-		/*rc = kdata_buffer_copy(sim->hot.stddevs, sim->hot.stddevslsb);
-		g_assert(0 != rc);*/
-		memcpy(sim->hot.statslsb, sim->hot.stats,
-			sim->dims * sizeof(struct stats));
 		truns = sim->hot.truns;
 		tgens = sim->hot.tgens;
 		sim->hot.copyout = fit = 2;
@@ -296,7 +294,7 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	if (fit) {
 		snapshot(sim, &sim->warm, truns, tgens);
 		g_mutex_lock(&sim->hot.mux);
-		assert(2 == sim->hot.copyout);
+		g_assert(2 == sim->hot.copyout);
 		sim->hot.copyout = 0;
 		g_mutex_unlock(&sim->hot.mux);
 	}
@@ -321,7 +319,7 @@ continuum_lambda(const struct sim *sim, double x,
 		 sim->exp, x,
 		 (mutants * mutant) + ((pop - mutants) * incumbent),
 		 pop);
-	assert( ! (isnan(v) || isinf(v)));
+	g_assert( ! (isnan(v) || isinf(v)));
 	return(sim->alpha * (1.0 + sim->delta * v));
 }
 
@@ -401,7 +399,7 @@ simulation(void *arg)
 	if (NULL != sim->pops) {
 		g_debug("%p: Thread (simulation %p) has non-uniform "
 			"populations", g_thread_self(), sim);
-		assert(0 == sim->pop);
+		g_assert(0 == sim->pop);
 		icaches = g_malloc0_n(sim->islands, sizeof(double *));
 		mcaches = g_malloc0_n(sim->islands, sizeof(double *));
 		for (i = 0; i < sim->islands; i++) {
@@ -414,7 +412,7 @@ simulation(void *arg)
 		g_debug("%p: Thread (simulation %p) has "
 			"uniform populations: %zu", 
 			g_thread_self(), sim, sim->pop);
-		assert(sim->pop > 0);
+		g_assert(sim->pop > 0);
 		icache = g_malloc0_n(sim->pop + 1, sizeof(double));
 		mcache = g_malloc0_n(sim->pop + 1, sizeof(double));
 	}
@@ -494,10 +492,10 @@ again:
 		 */
 		if (NULL != sim->pops)
 			for (j = 0; j < sim->islands; j++) {
-				assert(0 == kids[0][j]);
-				assert(0 == kids[1][j]);
-				assert(0 == migrants[0][j]);
-				assert(0 == migrants[1][j]);
+				g_assert(0 == kids[0][j]);
+				g_assert(0 == kids[1][j]);
+				g_assert(0 == migrants[0][j]);
+				g_assert(0 == migrants[1][j]);
 				lambda = mcaches[j][imutants[j]];
 				for (k = 0; k < imutants[j]; k++) {
 					offs = gsl_ran_poisson
@@ -513,10 +511,10 @@ again:
 			}
 		else
 			for (j = 0; j < sim->islands; j++) {
-				assert(0 == kids[0][j]);
-				assert(0 == kids[1][j]);
-				assert(0 == migrants[0][j]);
-				assert(0 == migrants[1][j]);
+				g_assert(0 == kids[0][j]);
+				g_assert(0 == kids[1][j]);
+				g_assert(0 == migrants[0][j]);
+				g_assert(0 == migrants[1][j]);
 				lambda = mcache[imutants[j]];
 				for (k = 0; k < imutants[j]; k++) {
 					offs = gsl_ran_poisson
@@ -635,10 +633,10 @@ again:
 	 * This will be processed by on_sim_next().
 	 */
 	if (incumbents == 0) {
-		assert(mutants == sim->totalpop);
+		g_assert(mutants == sim->totalpop);
 		v = 1.0;
 	} else if (mutants == 0) {
-		assert(incumbents == sim->totalpop);
+		g_assert(incumbents == sim->totalpop);
 		v = 0.0;
 	} else
 		v = mutants / (double)sim->totalpop;

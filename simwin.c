@@ -1259,13 +1259,6 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->bufs.iextinct = simbuf_alloc
 		(kdata_mean_alloc(sim->bufs.incumbents), slices);
 
-	sim->hot.stats = g_malloc0_n
-		(sim->dims, sizeof(struct stats));
-	sim->hot.statslsb = g_malloc0_n
-		(sim->dims, sizeof(struct stats));
-	sim->warm.stats = g_malloc0_n
-		(sim->dims, sizeof(struct stats));
-
 	/*
 	 * Conditionally allocate our fitness polynomial structures.
 	 * These are per-simulation as they're only run by one thread at
