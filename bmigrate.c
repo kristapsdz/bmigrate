@@ -552,6 +552,27 @@ on_sim_autosave(gpointer dat)
 	return(TRUE);
 }
 
+static void
+on_win_redraw(struct curwin *cur)
+{
+	GList		*l;
+	struct sim	*sim;
+	size_t		 i;
+	int		 rc;
+
+	for (i = 0, l = cur->sims; NULL != l; l = g_list_next(l), i++) {
+		sim = l->data;
+		rc = kdata_set(cur->winmean, i, i, 
+			kdata_pmfmean(sim->bufs.meanmins));
+		g_assert(0 != rc);
+		rc = kdata_set(cur->winstddev, i, i, 
+			kdata_pmfstddev(sim->bufs.meanmins));
+		g_assert(0 != rc);
+	}
+
+	gtk_widget_queue_draw(GTK_WIDGET(cur->wins.window));
+}
+
 /*
  * Run this fairly often to see if we need to join any worker threads.
  * Worker threads are joined when they have zero references are in the
@@ -561,7 +582,6 @@ static gboolean
 on_sim_timer(gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	struct curwin	*cur;
 	struct sim	*sim;
 	gchar		 buf[1024];
 	GList		*list;
@@ -630,12 +650,9 @@ on_sim_timer(gpointer dat)
 	 * We do this by iterating through all simulation windows and
 	 * seeing if they have the "update" flag set to true.
 	 */
-	for (list = b->windows; list != NULL; list = list->next) {
-		cur = list->data;
-		if (0 == cur->redraw)
-			continue;
-		gtk_widget_queue_draw(GTK_WIDGET(cur->wins.window));
-	}
+	for (list = b->windows; list != NULL; list = list->next)
+		if (((struct curwin *)list->data)->redraw)
+			on_win_redraw(list->data);
 
 	return(TRUE);
 }

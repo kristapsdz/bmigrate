@@ -389,6 +389,8 @@ struct	hwin {
 struct	curwin {
 	struct swin	  wins; /* windows in view */
 	enum view	  view; /* what view are we seeing? */
+	struct kdata	 *winmean;
+	struct kdata	 *winstddev;
 	struct kplot	 *view_poly;
 	struct kplot	 *view_iextinct;
 	struct kplot	 *view_mean;
@@ -407,6 +409,7 @@ struct	curwin {
 	struct kplot	 *view_meanminq;
 	struct kplot	 *view_fitminq;
 	struct kplot	 *view_islands;
+	struct kplot	 *view_winmeans;
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */

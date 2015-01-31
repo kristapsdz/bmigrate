@@ -149,7 +149,6 @@ drawlabels(const struct curwin *cur, cairo_t *cr,
 
 	switch (cur->view) {
 	case (VIEW_POLYMINS):
-	case (VIEW_MEANMINS):
 	case (VIEW_EXTMMAXS):
 	case (VIEW_EXTIMINS):
 		break;
@@ -208,11 +207,6 @@ max_sim(const struct curwin *cur, const struct sim *s,
 		return;
 	case (VIEW_POLYMINS):
 		v = s->bufs.fitminst.mean + s->bufs.fitminst.stddev;
-		if (v > *maxy)
-			*maxy = v;
-		break;
-	case (VIEW_MEANMINS):
-		v = s->bufs.meanminst.mean + s->bufs.meanminst.stddev;
 		if (v > *maxy)
 			*maxy = v;
 		break;
@@ -295,10 +289,6 @@ drawlegend(struct bmigrate *b, struct curwin *cur,
 		case (VIEW_EXTMMAXS):
 			drawlegendst(buf, sizeof(buf), 
 				sim, &sim->bufs.extmmaxst);
-			break;
-		case (VIEW_MEANMINS):
-			drawlegendst(buf, sizeof(buf), 
-				sim, &sim->bufs.meanminst);
 			break;
 		case (VIEW_POLYMINS):
 			drawlegendst(buf, sizeof(buf), 
@@ -440,6 +430,9 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 	case (VIEW_ISLANDMEAN):
 		kplot_draw(cur->view_islands, width, height, cr, NULL);
 		return;
+	case (VIEW_MEANMINS):
+		kplot_draw(cur->view_winmeans, width, height, cr, NULL);
+		return;
 	default:
 		break;
 	}
@@ -578,10 +571,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 		case (VIEW_EXTMMAXS):
 			draw_set(sim, b, cr, width, height, maxy, 
 				simnum, simmax, &sim->bufs.extmmaxst);
-			break;
-		case (VIEW_MEANMINS):
-			draw_set(sim, b, cr, width, height, maxy, 
-				simnum, simmax, &sim->bufs.meanminst);
 			break;
 		default:
 			abort();
