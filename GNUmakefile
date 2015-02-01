@@ -12,21 +12,23 @@ VERSIONXML 	 = version_0_1_3.xml \
 DATADIR 	 = ${PREFIX}/share/bmigrate
 CFLAGS 		+= -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 GTK_OBJS 	 = bmigrate.o \
-		   parser.o \
-		   simulation.o \
-		   draw.o \
-		   save.o \
-		   kml.o \
 		   buf.o \
+		   draw.o \
+		   kml.o \
+		   parser.o \
+		   rangefind.o \
+		   save.o \
+		   simulation.o \
 		   simwin.o \
 		   widgets.o
 SRCS	 	 = bmigrate.c \
-		   parser.c \
-		   simulation.c \
-		   draw.c \
-		   save.c \
-		   kml.c \
 		   buf.c \
+		   draw.c \
+		   kml.c \
+		   parser.c \
+		   rangefind.c \
+		   save.c \
+		   simulation.c \
 		   simwin.c \
 		   widgets.c
 IMAGES 		 = screen-config.png

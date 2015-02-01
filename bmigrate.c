@@ -50,7 +50,6 @@ static	const char *const colours[SIZE_COLOURS] = {
 };
 
 static	const char *const views[VIEW__MAX] = {
-	"config", /* VIEW_CONFIG */
 	"raw-mean-stddev", /* VIEW_DEV */
 	"extinct-incumbent", /* VIEW_EXTI */
 	"extinct-incumbent-min-cdf", /* VIEW_EXTIMINCDF */
@@ -314,6 +313,7 @@ sim_stop(gpointer arg, gpointer unused)
 static void
 bmigrate_free(struct bmigrate *p)
 {
+	size_t	 i;
 
 	g_debug("Freeing main");
 	g_list_foreach(p->sims, sim_stop, NULL);
@@ -324,6 +324,11 @@ bmigrate_free(struct bmigrate *p)
 	if (NULL != p->status_elapsed)
 		g_timer_destroy(p->status_elapsed);
 	p->status_elapsed = NULL;
+	for (i = 0; i < p->clrsz; i++)
+		cairo_pattern_destroy(p->clrs[i]);
+	p->clrsz = 0;
+	free(p->clrs);
+	p->clrs = NULL;
 }
 
 /*
@@ -1187,9 +1192,13 @@ main(int argc, char *argv[])
 {
 	GtkBuilder	*builder;
 	struct bmigrate	 b;
+	int		 rc;
 
 	memset(&b, 0, sizeof(struct bmigrate));
 	gtk_init(&argc, &argv);
+
+	rc = kplotcfg_default_palette(&b.clrs, &b.clrsz);
+	g_assert(0 != rc);
 
 	/*
 	 * Sanity-check to make sure that the hnode expression evaluator

@@ -233,7 +233,6 @@ struct	simthr {
  * Different views of simulation data.
  */
 enum	view {
-	VIEW_CONFIG,
 	VIEW_DEV, 
 	VIEW_EXTI,
 	VIEW_EXTIMINCDF,
@@ -432,6 +431,8 @@ struct	bmigrate {
 	GtkWidget	 *current; /* the current window or NULL */
 	guint		  rangeid; /* range-finding process */
 	struct range	  range; /* range-finding data */
+	cairo_pattern_t	**clrs;
+	size_t		  clrsz;
 };
 
 struct	kmlplace {
@@ -458,6 +459,8 @@ void		  draw(GtkWidget *, cairo_t *, struct curwin *);
 void		  save(FILE *, struct curwin *);
 void		  savewin(FILE *, const GList *, const struct curwin *);
 void		 *simulation(void *);
+
+int		  rangefind(struct bmigrate *);
 
 void		  sim_stop(gpointer, gpointer);
 

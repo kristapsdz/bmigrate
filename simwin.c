@@ -38,7 +38,7 @@ swin_init(struct swin *c, enum view view, GtkBuilder *b)
 	c->window = win_init_window(b, "window1");
 	c->menu = win_init_menubar(b, "menubar1");
 	c->draw = win_init_draw(b, "drawingarea1");
-	c->boxconfig = win_init_box(b, "box2");
+	c->boxconfig = win_init_box(b, "box3");
 	c->menufile = win_init_menuitem(b, "menuitem1");
 	c->menuview = win_init_menuitem(b, "menuitem2");
 	c->menutools = win_init_menuitem(b, "menuitem3");
@@ -67,7 +67,6 @@ swin_init(struct swin *c, enum view view, GtkBuilder *b)
 	c->views[VIEW_POLYMINS] = win_init_menucheck(b, "menuitem31");
 	c->views[VIEW_EXTMMAXS] = win_init_menucheck(b, "menuitem33");
 	c->views[VIEW_POLYMINQ] = win_init_menucheck(b, "menuitem14");
-	c->views[VIEW_CONFIG] = win_init_menucheck(b, "menuitem36");
 	c->views[VIEW_STATUS] = win_init_menucheck(b, "menuitem46");
 	c->menuquit = win_init_menuitem(b, "menuitem5");
 	c->menuautoexport = win_init_menuitem(b, "menuitem49");
@@ -174,111 +173,189 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	GtkWidget	*box, *w;
 	struct kdata	*stats[2];
 	enum kplottype	 ts[2];
-	struct kdatacfg	 cfg;
+	struct kdatacfg	 solidcfg, transcfg;
 	struct kdatacfg	*cfgs[2];
+	cairo_pattern_t	*solid, *trans;
+	cairo_status_t	 st;
+	double		 r, g, b;
+	gchar		 buf[1024];
 
-	kdatacfg_defaults(&cfg);
-	cfg.extrema = EXTREMA_YMIN;
-	cfg.extrema_ymin = 0.0;
-
+	/* Append to the per-window simulation views. */
 	kdata_vector_append(cur->winmean, 
 		g_list_length(cur->sims), 0.0);
 	kdata_vector_append(cur->winstddev, 
 		g_list_length(cur->sims), 0.0);
-
 	kdata_vector_append(cur->winfitmean, 
 		g_list_length(cur->sims), 0.0);
 	kdata_vector_append(cur->winfitstddev, 
 		g_list_length(cur->sims), 0.0);
-
 	kdata_vector_append(cur->winmextinctmean, 
 		g_list_length(cur->sims), 0.0);
 	kdata_vector_append(cur->winmextinctstddev, 
 		g_list_length(cur->sims), 0.0);
-
 	kdata_vector_append(cur->winiextinctmean, 
 		g_list_length(cur->sims), 0.0);
 	kdata_vector_append(cur->winiextinctstddev, 
 		g_list_length(cur->sims), 0.0);
 
+	/* Append our configuration. */
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-
-	w = gtk_label_new(sim->name);
+	g_snprintf(buf, sizeof(buf), "Name: %s", sim->name);
+	w = gtk_label_new(buf);
+	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
 	gtk_container_add(GTK_CONTAINER(box), w);
+
+	g_snprintf(buf, sizeof(buf), "Function: %s, "
+		"x = [%g, %g], T=%zu, lambda=%g(1 + %g * pi)", 
+		sim->func, sim->xmin, sim->xmax, 
+		sim->stop, sim->alpha, sim->delta);
+	w = gtk_label_new(buf);
+	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
+	gtk_container_add(GTK_CONTAINER(box), w);
+
+	g_snprintf(buf, sizeof(buf), 
+		"Population: %zu (%zu islands, %suniform), "
+		"m=%g (%suniform)", sim->totalpop, sim->islands, 
+		NULL != sim->pops ? "non-" : "", sim->m, 
+		NULL != sim->ms ? "non-" : "");
+	w = gtk_label_new(buf);
+	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
+	gtk_container_add(GTK_CONTAINER(box), w);
+
+	if (MUTANTS_DISCRETE == sim->mutants)
+		g_snprintf(buf, sizeof(buf), 
+			"Mutants: discrete (%zu)", sim->dims);
+	else
+		g_snprintf(buf, sizeof(buf), 
+			"Mutants: Gaussian (sigma=%g, "
+			"[%g, %g])", sim->mutantsigma,
+			sim->ymin, sim->ymax);
+	w = gtk_label_new(buf);
+	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
+	gtk_container_add(GTK_CONTAINER(box), w);
+
+	g_snprintf(buf, sizeof(buf), "Fit: order %zu (%s)",
+		sim->fitpoly, 0 == sim->fitpoly ?  "disabled" : 
+		(sim->weighted ?  "weighted" : "unweighted"));
+	w = gtk_label_new(buf);
+	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
+	gtk_container_add(GTK_CONTAINER(box), w);
+
 	gtk_container_add(GTK_CONTAINER(cur->wins.boxconfig), box);
 	gtk_widget_show_all(GTK_WIDGET(cur->wins.boxconfig));
 
+	/* Configure our line and point style. */
+	solid = cur->b->clrs[sim->colour % cur->b->clrsz];
+	st = cairo_pattern_get_rgba(solid, &r, &g, &b, NULL);
+	g_assert(CAIRO_STATUS_SUCCESS == st);
+	trans = cairo_pattern_create_rgba(r, g, b, 0.4);
+	st = cairo_pattern_status(trans);
+	g_assert(CAIRO_STATUS_SUCCESS == st);
+
+	kdatacfg_defaults(&solidcfg);
+	solidcfg.point.clr.type = KPLOTCTYPE_PATTERN;
+	solidcfg.point.clr.pattern = solid;
+
+	kdatacfg_defaults(&transcfg);
+	transcfg.line.clr.type = KPLOTCTYPE_PATTERN;
+	transcfg.line.clr.pattern = trans;
+
+	solidcfg.extrema_ymin = 0.0;
+	transcfg.extrema_ymin = 0.0;
+
+	/* Mean view. */
 	kplot_attach_data(cur->view_mean, 
-		sim->bufs.means->cold, KPLOT_LINES, NULL);
+		sim->bufs.means->cold, KPLOT_LINES, &solidcfg);
 
-	kplot_attach_data(cur->view_poly, 
-		sim->bufs.means->cold, KPLOT_LINES, NULL);
-	kplot_attach_data(cur->view_poly, 
-		sim->bufs.fitpolybuf, KPLOT_LINES, &cfg);
+	/* Mutant mean view. */
+	kplot_attach_data(cur->view_mextinct, 
+		sim->bufs.mextinct->cold, KPLOT_LINES, &solidcfg);
 
-	kplot_attach_data(cur->view_smextinct, 
-		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
+	/* Incumbent mean view. */
+	kplot_attach_data(cur->view_iextinct, 
+		sim->bufs.iextinct->cold, KPLOT_LINES, &solidcfg);
+
+	/* Mean and poly-fitted line. */
+	transcfg.extrema = EXTREMA_YMIN;
+	kplot_attach_data(cur->view_poly, 
+		sim->bufs.fitpolybuf, KPLOT_LINES, &solidcfg);
+	transcfg.extrema = 0;
+	kplot_attach_data(cur->view_poly, 
+		sim->bufs.means->cold, KPLOT_LINES, &transcfg);
+
+	/* Mutant mean and smoothed line. */
 	kplot_attach_smooth(cur->view_smextinct, 
-		sim->bufs.mextinct->cold, KPLOT_LINES, NULL,
+		sim->bufs.mextinct->cold, KPLOT_LINES, &solidcfg,
 		KSMOOTH_MOVAVG, NULL);
+	kplot_attach_data(cur->view_smextinct, 
+		sim->bufs.mextinct->cold, KPLOT_LINES, &transcfg);
 
-	kplot_attach_data(cur->view_smean, 
-		sim->bufs.means->cold, KPLOT_LINES, NULL);
+	/* Mean and smoothed lines. */
 	kplot_attach_smooth(cur->view_smean, 
-		sim->bufs.means->cold, KPLOT_LINES, NULL,
+		sim->bufs.means->cold, KPLOT_LINES, &solidcfg,
 		KSMOOTH_MOVAVG, NULL);
+	kplot_attach_data(cur->view_smean, 
+		sim->bufs.means->cold, KPLOT_LINES, &transcfg);
 
+	/* Mean and stddev.  */
 	ts[0] = ts[1] = KPLOT_LINES;
 	stats[0] = sim->bufs.means->cold;
 	stats[1] = sim->bufs.stddevs->cold;
-	cfgs[0] = cfgs[1] = &cfg;
-	kplot_attach_datas(cur->view_stddev, 2,
-		stats, ts, (const struct kdatacfg *const *)cfgs, 
+	cfgs[0] = &solidcfg;
+	cfgs[1] = &transcfg;
+	solidcfg.extrema = EXTREMA_YMIN;
+	kplot_attach_datas(cur->view_stddev, 2, stats, ts, 
+		(const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORLINE);
+	solidcfg.extrema = 0;
 
+	/* Island mean and stddev. */
 	ts[0] = ts[1] = KPLOT_POINTS;
 	stats[0] = sim->bufs.imeans->cold;
 	stats[1] = sim->bufs.istddevs->cold;
-	cfgs[0] = cfgs[1] = &cfg;
-	kplot_attach_datas(cur->view_islands, 2,
-		stats, ts, (const struct kdatacfg *const *)cfgs, 
+	cfgs[0] = &solidcfg;
+	cfgs[1] = &transcfg;
+	transcfg.extrema = EXTREMA_YMIN;
+	kplot_attach_datas(cur->view_islands, 2, stats, ts, 
+		(const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORBAR);
+	transcfg.extrema = 0;
 
-	kplot_attach_data(cur->view_mextinct, 
-		sim->bufs.mextinct->cold, KPLOT_LINES, NULL);
-
-	kplot_attach_data(cur->view_iextinct, 
-		sim->bufs.iextinct->cold, KPLOT_LINES, NULL);
-
+	/* Mean PMF views. */
 	kplot_attach_data(cur->view_meanmins_pdf, 
-		sim->bufs.meanmins, KPLOT_LINES, NULL);
+		sim->bufs.meanmins, KPLOT_LINES, &solidcfg);
 	kplot_attach_smooth(cur->view_meanmins_cdf, 
-		sim->bufs.meanmins, KPLOT_LINES, NULL,
+		sim->bufs.meanmins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
+	/* Mutant PMF views. */
 	kplot_attach_data(cur->view_mextinctmaxs_pdf, 
-		sim->bufs.mextinctmaxs, KPLOT_LINES, NULL);
+		sim->bufs.mextinctmaxs, KPLOT_LINES, &solidcfg);
 	kplot_attach_smooth(cur->view_mextinctmaxs_cdf, 
-		sim->bufs.mextinctmaxs, KPLOT_LINES, NULL,
+		sim->bufs.mextinctmaxs, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
+	/* Incumbent PMF views. */
 	kplot_attach_data(cur->view_iextinctmins_pdf, 
-		sim->bufs.iextinctmins, KPLOT_LINES, NULL);
+		sim->bufs.iextinctmins, KPLOT_LINES, &solidcfg);
 	kplot_attach_smooth(cur->view_iextinctmins_cdf, 
-		sim->bufs.iextinctmins, KPLOT_LINES, NULL,
+		sim->bufs.iextinctmins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
+	/* Fit poly PMF views. */
 	kplot_attach_data(cur->view_fitpolymins_pdf, 
-		sim->bufs.fitpolymins, KPLOT_LINES, NULL);
+		sim->bufs.fitpolymins, KPLOT_LINES, &solidcfg);
 	kplot_attach_smooth(cur->view_fitpolymins_cdf, 
-		sim->bufs.fitpolymins, KPLOT_LINES, NULL,
+		sim->bufs.fitpolymins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
 	kplot_attach_data(cur->view_meanminq, 
-		sim->bufs.meanminqbuf, KPLOT_LINES, NULL);
+		sim->bufs.meanminqbuf, KPLOT_LINES, &solidcfg);
 
 	kplot_attach_data(cur->view_fitminq, 
-		sim->bufs.fitminqbuf, KPLOT_LINES, NULL);
+		sim->bufs.fitminqbuf, KPLOT_LINES, &solidcfg);
+
+	cairo_pattern_destroy(trans);
 }
 
 /*
@@ -524,116 +601,8 @@ onclone(GtkMenuItem *menuitem, gpointer dat)
 static gboolean
 on_rangefind_idle(gpointer dat)
 {
-	struct bmigrate	*b = dat;
-	size_t		 mutants;
-	double		 mstrat, istrat, v;
-	gchar		 buf[22];
 
-	g_assert(b->rangeid);
-
-	/*
-	 * Set the number of mutants on a given island, then see what
-	 * the utility function would yield given that number of mutants
-	 * and incumbents, setting the current player to be one or the
-	 * other..
-	 */
-	mstrat = istrat = 0.0;
-	for (mutants = 0; mutants <= b->range.n; mutants++) {
-		mstrat = b->range.ymin + 
-			(b->range.slicey / (double)b->range.slices) * 
-			(b->range.ymax - b->range.ymin);
-		istrat = b->range.xmin + 
-			(b->range.slicex / (double)b->range.slices) * 
-			(b->range.xmax - b->range.xmin);
-		/*
-		 * Only check for a given mutant/incumbent individual's
-		 * strategy if the population is going to support the
-		 * existence of that individual.
-		 */
-		if (mutants > 0) {
-			v = hnode_exec
-				((const struct hnode *const *) 
-				 b->range.exp, 
-				 istrat, mstrat * mutants + istrat * 
-				 (b->range.n - mutants), b->range.n);
-			if (0.0 != v && ! isnormal(v))
-				break;
-			if (v < b->range.pimin)
-				b->range.pimin = v;
-			if (v > b->range.pimax)
-				b->range.pimax = v;
-			b->range.piaggr += v;
-			b->range.picount++;
-		}
-		if (mutants != b->range.n) {
-			v = hnode_exec
-				((const struct hnode *const *) 
-				 b->range.exp, 
-				 mstrat, mstrat * mutants + istrat * 
-				 (b->range.n - mutants), b->range.n);
-			if (0.0 != v && ! isnormal(v))
-				break;
-			if (v < b->range.pimin)
-				b->range.pimin = v;
-			if (v > b->range.pimax)
-				b->range.pimax = v;
-			b->range.piaggr += v;
-			b->range.picount++;
-		}
-	}
-
-	/*
-	 * We might have hit a discontinuous number.
-	 * If we did, then print out an error and don't continue.
-	 * If not, update to the next mutant and incumbent.
-	 */
-	if (mutants <= b->range.n) {
-		g_snprintf(buf, sizeof(buf), 
-			"%zu mutants, mutant=%g, incumbent=%g",
-			mutants, mstrat, istrat);
-		gtk_label_set_text(b->wins.rangeerror, buf);
-		gtk_widget_show_all(GTK_WIDGET(b->wins.rangeerrorbox));
-		g_debug("Range-finder idle event complete (error)");
-		b->rangeid = 0;
-	} else {
-		if (++b->range.slicey == b->range.slices) {
-			b->range.slicey = 0;
-			b->range.slicex++;
-		}
-		if (b->range.slicex == b->range.slices) {
-			g_debug("Range-finder idle event complete");
-			b->rangeid = 0;
-		}
-	}
-
-	/*
-	 * Set our current extrema.
-	 */
-	g_snprintf(buf, sizeof(buf), "%g", b->range.pimin);
-	gtk_label_set_text(b->wins.rangemin, buf);
-	g_snprintf(buf, sizeof(buf), "%g", b->range.alpha * 
-		(1.0 + b->range.delta * b->range.pimin));
-	gtk_label_set_text(b->wins.rangeminlambda, buf);
-
-	g_snprintf(buf, sizeof(buf), "%g", b->range.pimax);
-	gtk_label_set_text(b->wins.rangemax, buf);
-	g_snprintf(buf, sizeof(buf), "%g", b->range.alpha * 
-		(1.0 + b->range.delta * b->range.pimax));
-	gtk_label_set_text(b->wins.rangemaxlambda, buf);
-
-	v = b->range.piaggr / (double)b->range.picount;
-	g_snprintf(buf, sizeof(buf), "%g", v);
-	gtk_label_set_text(b->wins.rangemean, buf);
-	g_snprintf(buf, sizeof(buf), "%g", b->range.alpha * 
-		(1.0 + b->range.delta * v));
-	gtk_label_set_text(b->wins.rangemeanlambda, buf);
-
-	v = (b->range.slicex * b->range.slices + b->range.slicey) /
-		(double)(b->range.slices * b->range.slices);
-	g_snprintf(buf, sizeof(buf), "%.1f%%", v * 100.0);
-	gtk_label_set_text(b->wins.rangestatus, buf);
-
-	return(0 != b->rangeid);
+	return(rangefind(dat));
 }
 
 static int
@@ -1282,8 +1251,7 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->totalpop = totalpop;
 	sim->stop = stop;
 	sim->alpha = alpha;
-	sim->colour = b->nextcolour;
-	b->nextcolour = (b->nextcolour + 1) % SIZE_COLOURS;
+	sim->colour = b->nextcolour++;
 	sim->delta = delta;
 	sim->m = m;
 	sim->ms = ms;

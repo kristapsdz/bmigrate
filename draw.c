@@ -167,45 +167,6 @@ draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 		assert(NULL != sim);
 		cairo_set_line_width(cr, 2.0);
 		switch (cur->view) {
-		case (VIEW_CONFIG):
-			v += e.height;
-			cairo_move_to(cr, 0.0, v - e.height * 0.5 - 1.0);
-			/* Draw a line with the simulation's colour. */
-			cairo_set_source_rgba(cr, GETC(1.0));
-			cairo_rel_line_to(cr, 20.0, 0.0);
-			cairo_stroke(cr);
-			/* Write the simulation name next to it. */
-			cairo_set_source_rgb(cr, 0.0, 0.0, 0.0);
-			(void)g_snprintf(buf, sizeof(buf),
-				"Name: %s", sim->name);
-			cairo_move_to(cr, 25.0, v);
-			cairo_show_text(cr, buf);
-			v += e.height * 1.5;
-			drawinfo(cr, &v, &e, "Function: %s, "
-				"x = [%g, %g], T=%zu, lambda=%g(1 + %g * pi)", 
-				sim->func, 
-				sim->xmin,
-				sim->xmax, sim->stop,
-				sim->alpha, sim->delta);
-			drawinfo(cr, &v, &e, "Population: %zu (%zu "
-				"islands, %suniform), m=%g (%suniform)", 
-				sim->totalpop, sim->islands, 
-				NULL != sim->pops ? "non-" : "", 
-				sim->m, NULL != sim->ms ? "non-" : "");
-			if (MUTANTS_DISCRETE == sim->mutants)
-				drawinfo(cr, &v, &e, "Mutants: "
-					"discrete (%zu)", sim->dims);
-			else
-				drawinfo(cr, &v, &e, "Mutants: "
-					"Gaussian (sigma=%g, "
-					"[%g, %g])", sim->mutantsigma,
-					sim->ymin,
-					sim->ymax);
-			drawinfo(cr, &v, &e, "Fit: order %zu (%s)",
-				sim->fitpoly, 0 == sim->fitpoly ?
-				"disabled" : (sim->weighted ? 
-				"weighted" : "unweighted"));
-			break;
 		case (VIEW_STATUS):
 			v += e.height;
 			cairo_move_to(cr, 0.0, v - e.height * 0.5 - 1.0);
