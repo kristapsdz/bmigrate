@@ -67,7 +67,6 @@ swin_init(struct swin *c, enum view view, GtkBuilder *b)
 	c->views[VIEW_POLYMINS] = win_init_menucheck(b, "menuitem31");
 	c->views[VIEW_EXTMMAXS] = win_init_menucheck(b, "menuitem33");
 	c->views[VIEW_POLYMINQ] = win_init_menucheck(b, "menuitem14");
-	c->views[VIEW_STATUS] = win_init_menucheck(b, "menuitem46");
 	c->menuquit = win_init_menuitem(b, "menuitem5");
 	c->menuautoexport = win_init_menuitem(b, "menuitem49");
 	c->menuunautoexport = win_init_menuitem(b, "menuitem50");
@@ -129,6 +128,7 @@ static void
 curwin_free(gpointer dat)
 {
 	struct curwin	*cur = dat;
+	size_t		 i;
 
 	g_debug("%p: Simwin freeing", cur);
 	kdata_destroy(cur->winmean);
@@ -139,28 +139,8 @@ curwin_free(gpointer dat)
 	kdata_destroy(cur->winmextinctstddev);
 	kdata_destroy(cur->winiextinctmean);
 	kdata_destroy(cur->winiextinctstddev);
-	kplot_free(cur->view_islands);
-	kplot_free(cur->view_poly);
-	kplot_free(cur->view_mean);
-	kplot_free(cur->view_smean);
-	kplot_free(cur->view_smextinct);
-	kplot_free(cur->view_stddev);
-	kplot_free(cur->view_winmeans);
-	kplot_free(cur->view_winfitmeans);
-	kplot_free(cur->view_winmextinctmeans);
-	kplot_free(cur->view_winiextinctmeans);
-	kplot_free(cur->view_mextinct);
-	kplot_free(cur->view_iextinct);
-	kplot_free(cur->view_meanmins_cdf);
-	kplot_free(cur->view_meanmins_pdf);
-	kplot_free(cur->view_mextinctmaxs_cdf);
-	kplot_free(cur->view_mextinctmaxs_pdf);
-	kplot_free(cur->view_iextinctmins_cdf);
-	kplot_free(cur->view_iextinctmins_pdf);
-	kplot_free(cur->view_fitpolymins_cdf);
-	kplot_free(cur->view_fitpolymins_pdf);
-	kplot_free(cur->view_meanminq);
-	kplot_free(cur->view_fitminq);
+	for (i = 0; i < VIEW__MAX; i++)
+		kplot_free(cur->views[i]);
 	cur->b->windows = g_list_remove(cur->b->windows, cur);
 	on_sims_deref(cur->sims);
 	g_free(cur->autosave);
@@ -264,37 +244,37 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	transcfg.extrema_ymin = 0.0;
 
 	/* Mean view. */
-	kplot_attach_data(cur->view_mean, 
+	kplot_attach_data(cur->views[VIEW_MEAN], 
 		sim->bufs.means->cold, KPLOT_LINES, &solidcfg);
 
 	/* Mutant mean view. */
-	kplot_attach_data(cur->view_mextinct, 
+	kplot_attach_data(cur->views[VIEW_EXTM], 
 		sim->bufs.mextinct->cold, KPLOT_LINES, &solidcfg);
 
 	/* Incumbent mean view. */
-	kplot_attach_data(cur->view_iextinct, 
+	kplot_attach_data(cur->views[VIEW_EXTI], 
 		sim->bufs.iextinct->cold, KPLOT_LINES, &solidcfg);
 
 	/* Mean and poly-fitted line. */
 	transcfg.extrema = EXTREMA_YMIN;
-	kplot_attach_data(cur->view_poly, 
+	kplot_attach_data(cur->views[VIEW_POLY], 
 		sim->bufs.fitpolybuf, KPLOT_LINES, &solidcfg);
 	transcfg.extrema = 0;
-	kplot_attach_data(cur->view_poly, 
+	kplot_attach_data(cur->views[VIEW_POLY], 
 		sim->bufs.means->cold, KPLOT_LINES, &transcfg);
 
 	/* Mutant mean and smoothed line. */
-	kplot_attach_smooth(cur->view_smextinct, 
+	kplot_attach_smooth(cur->views[VIEW_SEXTM], 
 		sim->bufs.mextinct->cold, KPLOT_LINES, &solidcfg,
 		KSMOOTH_MOVAVG, NULL);
-	kplot_attach_data(cur->view_smextinct, 
+	kplot_attach_data(cur->views[VIEW_SEXTM], 
 		sim->bufs.mextinct->cold, KPLOT_LINES, &transcfg);
 
 	/* Mean and smoothed lines. */
-	kplot_attach_smooth(cur->view_smean, 
+	kplot_attach_smooth(cur->views[VIEW_SMEAN], 
 		sim->bufs.means->cold, KPLOT_LINES, &solidcfg,
 		KSMOOTH_MOVAVG, NULL);
-	kplot_attach_data(cur->view_smean, 
+	kplot_attach_data(cur->views[VIEW_SMEAN], 
 		sim->bufs.means->cold, KPLOT_LINES, &transcfg);
 
 	/* Mean and stddev.  */
@@ -304,7 +284,7 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	cfgs[0] = &solidcfg;
 	cfgs[1] = &transcfg;
 	solidcfg.extrema = EXTREMA_YMIN;
-	kplot_attach_datas(cur->view_stddev, 2, stats, ts, 
+	kplot_attach_datas(cur->views[VIEW_DEV], 2, stats, ts, 
 		(const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORLINE);
 	solidcfg.extrema = 0;
@@ -316,43 +296,43 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	cfgs[0] = &solidcfg;
 	cfgs[1] = &transcfg;
 	transcfg.extrema = EXTREMA_YMIN;
-	kplot_attach_datas(cur->view_islands, 2, stats, ts, 
+	kplot_attach_datas(cur->views[VIEW_ISLANDMEAN], 2, stats, ts, 
 		(const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORBAR);
 	transcfg.extrema = 0;
 
 	/* Mean PMF views. */
-	kplot_attach_data(cur->view_meanmins_pdf, 
+	kplot_attach_data(cur->views[VIEW_MEANMINPDF], 
 		sim->bufs.meanmins, KPLOT_LINES, &solidcfg);
-	kplot_attach_smooth(cur->view_meanmins_cdf, 
+	kplot_attach_smooth(cur->views[VIEW_MEANMINCDF], 
 		sim->bufs.meanmins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
 	/* Mutant PMF views. */
-	kplot_attach_data(cur->view_mextinctmaxs_pdf, 
+	kplot_attach_data(cur->views[VIEW_EXTMMAXPDF], 
 		sim->bufs.mextinctmaxs, KPLOT_LINES, &solidcfg);
-	kplot_attach_smooth(cur->view_mextinctmaxs_cdf, 
+	kplot_attach_smooth(cur->views[VIEW_EXTMMAXCDF], 
 		sim->bufs.mextinctmaxs, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
 	/* Incumbent PMF views. */
-	kplot_attach_data(cur->view_iextinctmins_pdf, 
+	kplot_attach_data(cur->views[VIEW_EXTIMINPDF], 
 		sim->bufs.iextinctmins, KPLOT_LINES, &solidcfg);
-	kplot_attach_smooth(cur->view_iextinctmins_cdf, 
+	kplot_attach_smooth(cur->views[VIEW_EXTIMINCDF], 
 		sim->bufs.iextinctmins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
 	/* Fit poly PMF views. */
-	kplot_attach_data(cur->view_fitpolymins_pdf, 
+	kplot_attach_data(cur->views[VIEW_POLYMINPDF], 
 		sim->bufs.fitpolymins, KPLOT_LINES, &solidcfg);
-	kplot_attach_smooth(cur->view_fitpolymins_cdf, 
+	kplot_attach_smooth(cur->views[VIEW_POLYMINCDF], 
 		sim->bufs.fitpolymins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
-	kplot_attach_data(cur->view_meanminq, 
+	kplot_attach_data(cur->views[VIEW_MEANMINQ], 
 		sim->bufs.meanminqbuf, KPLOT_LINES, &solidcfg);
 
-	kplot_attach_data(cur->view_fitminq, 
+	kplot_attach_data(cur->views[VIEW_POLYMINQ], 
 		sim->bufs.fitminqbuf, KPLOT_LINES, &solidcfg);
 
 	cairo_pattern_destroy(trans);
@@ -463,6 +443,7 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	GList		*l;
 	struct kdata	*stats[2];
 	enum kplottype	 ts[2];
+	size_t		 i;
 
 	builder = builder_get("simwin.glade");
 	g_assert(NULL != builder);
@@ -479,73 +460,33 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	cur->winiextinctmean = kdata_vector_alloc(1);
 	cur->winiextinctstddev = kdata_vector_alloc(1);
 
-	cur->view_islands = kplot_alloc();
-	g_assert(NULL != cur->view_islands);
-	cur->view_poly = kplot_alloc();
-	g_assert(NULL != cur->view_poly);
-	cur->view_mean = kplot_alloc();
-	g_assert(NULL != cur->view_mean);
-	cur->view_smean = kplot_alloc();
-	g_assert(NULL != cur->view_smean);
-	cur->view_smextinct = kplot_alloc();
-	g_assert(NULL != cur->view_smextinct);
-	cur->view_stddev = kplot_alloc();
-	g_assert(NULL != cur->view_stddev);
-	cur->view_winmeans = kplot_alloc();
-	g_assert(NULL != cur->view_winmeans);
-	cur->view_winfitmeans = kplot_alloc();
-	g_assert(NULL != cur->view_winfitmeans);
-	cur->view_winmextinctmeans = kplot_alloc();
-	g_assert(NULL != cur->view_winmextinctmeans);
-	cur->view_winiextinctmeans = kplot_alloc();
-	g_assert(NULL != cur->view_winiextinctmeans);
-	cur->view_mextinct = kplot_alloc();
-	g_assert(NULL != cur->view_mextinct);
-	cur->view_iextinct = kplot_alloc();
-	g_assert(NULL != cur->view_iextinct);
-	cur->view_meanmins_pdf = kplot_alloc();
-	g_assert(NULL != cur->view_meanmins_pdf);
-	cur->view_meanmins_cdf = kplot_alloc();
-	g_assert(NULL != cur->view_meanmins_cdf);
-	cur->view_mextinctmaxs_cdf = kplot_alloc();
-	g_assert(NULL != cur->view_mextinctmaxs_cdf);
-	cur->view_mextinctmaxs_pdf = kplot_alloc();
-	g_assert(NULL != cur->view_mextinctmaxs_pdf);
-	cur->view_iextinctmins_cdf = kplot_alloc();
-	g_assert(NULL != cur->view_iextinctmins_cdf);
-	cur->view_iextinctmins_pdf = kplot_alloc();
-	g_assert(NULL != cur->view_iextinctmins_pdf);
-	cur->view_fitpolymins_cdf = kplot_alloc();
-	g_assert(NULL != cur->view_fitpolymins_cdf);
-	cur->view_fitpolymins_pdf = kplot_alloc();
-	g_assert(NULL != cur->view_fitpolymins_pdf);
-	cur->view_meanminq = kplot_alloc();
-	g_assert(NULL != cur->view_meanminq);
-	cur->view_fitminq = kplot_alloc();
-	g_assert(NULL != cur->view_fitminq);
+	for (i = 0; i < VIEW__MAX; i++) {
+		cur->views[i] = kplot_alloc();
+		g_assert(NULL != cur->views[i]);
+	}
 
 	ts[0] = ts[1] = KPLOT_POINTS;
 	stats[0] = cur->winmean;
 	stats[1] = cur->winstddev;
-	kplot_attach_datas(cur->view_winmeans, 2,
+	kplot_attach_datas(cur->views[VIEW_MEANMINS], 2,
 		stats, ts, NULL, KPLOTS_YERRORBAR);
 
 	ts[0] = ts[1] = KPLOT_POINTS;
 	stats[0] = cur->winfitmean;
 	stats[1] = cur->winfitstddev;
-	kplot_attach_datas(cur->view_winfitmeans, 2,
+	kplot_attach_datas(cur->views[VIEW_POLYMINS], 2,
 		stats, ts, NULL, KPLOTS_YERRORBAR);
 
 	ts[0] = ts[1] = KPLOT_POINTS;
 	stats[0] = cur->winmextinctmean;
 	stats[1] = cur->winmextinctstddev;
-	kplot_attach_datas(cur->view_winmextinctmeans, 2,
+	kplot_attach_datas(cur->views[VIEW_EXTMMAXS], 2,
 		stats, ts, NULL, KPLOTS_YERRORBAR);
 
 	ts[0] = ts[1] = KPLOT_POINTS;
 	stats[0] = cur->winiextinctmean;
 	stats[1] = cur->winiextinctstddev;
-	kplot_attach_datas(cur->view_winiextinctmeans, 2,
+	kplot_attach_datas(cur->views[VIEW_EXTIMINS], 2,
 		stats, ts, NULL, KPLOTS_YERRORBAR);
 
 	cur->redraw = 1;

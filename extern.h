@@ -255,7 +255,6 @@ enum	view {
 	VIEW_POLYMINS,
 	VIEW_SEXTM,
 	VIEW_SMEAN,
-	VIEW_STATUS,
 	VIEW__MAX
 };
 
@@ -368,28 +367,7 @@ struct	curwin {
 	struct kdata	 *winmextinctstddev;
 	struct kdata	 *winiextinctmean;
 	struct kdata	 *winiextinctstddev;
-	struct kplot	 *view_poly;
-	struct kplot	 *view_iextinct;
-	struct kplot	 *view_mean;
-	struct kplot	 *view_mextinct;
-	struct kplot	 *view_smean;
-	struct kplot	 *view_smextinct;
-	struct kplot	 *view_stddev;
-	struct kplot	 *view_meanmins_pdf;
-	struct kplot	 *view_meanmins_cdf;
-	struct kplot	 *view_mextinctmaxs_pdf;
-	struct kplot	 *view_mextinctmaxs_cdf;
-	struct kplot	 *view_iextinctmins_pdf;
-	struct kplot	 *view_iextinctmins_cdf;
-	struct kplot	 *view_fitpolymins_pdf;
-	struct kplot	 *view_fitpolymins_cdf;
-	struct kplot	 *view_meanminq;
-	struct kplot	 *view_fitminq;
-	struct kplot	 *view_islands;
-	struct kplot	 *view_winmeans;
-	struct kplot	 *view_winfitmeans;
-	struct kplot	 *view_winmextinctmeans;
-	struct kplot	 *view_winiextinctmeans;
+	struct kplot	 *views[VIEW__MAX];
 	int		  redraw; /* window is stale? */
 	GList		 *sims; /* simulations in window */
 	gchar		 *autosave; /* directory or NULL */
