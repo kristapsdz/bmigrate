@@ -31,14 +31,12 @@ void
 draw(GtkWidget *w, cairo_t *cr, struct curwin *cur)
 {
 	double		 x, y;
-	struct bmigrate	*b;
 	GList		*sims;
 	int		 rc;
 
 	cur->redraw = 0;
 	sims = cur->sims;
 	assert(NULL != sims);
-	b = cur->b;
 
 	/* White-out the view. */
 	x = gtk_widget_get_allocated_width(w);

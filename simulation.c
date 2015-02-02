@@ -62,7 +62,7 @@ static void
 snapshot(struct sim *sim, struct simwarm *warm, 
 	uint64_t truns, uint64_t tgens)
 {
-	double	 	min, v, chisq, x, y;
+	double	 	v, chisq, x, y;
 	struct kpair	kp;
 	int		rc;
 	size_t	 	i, j, k;
@@ -154,7 +154,6 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	for (i = 0; i < sim->fitpoly + 1; i++)
 		sim->work.coeffs[i] = gsl_vector_get(sim->work.c, i);
 
-	min = DBL_MAX;
 	for (i = 0; i < sim->dims; i++) {
 		x = sim->xmin + 
 			(sim->xmax -
@@ -386,6 +385,7 @@ simulation(void *arg)
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 	vp = NULL;
 	incumbentidx = islandidx = 0;
+	mutant = incumbent = 0.0;
 	t = 0;
 
 	/*
