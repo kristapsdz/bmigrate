@@ -148,6 +148,24 @@ curwin_free(gpointer dat)
 }
 
 static void
+window_add_configmarkup(GtkWidget *box, const gchar *fmt, ...)
+{
+	gchar		 buf[1024];
+	GtkWidget	*w;
+	va_list		 ap;
+
+	va_start(ap, fmt);
+	g_vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	w = gtk_label_new(NULL);
+	gtk_label_set_markup(GTK_LABEL(w), buf);
+	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
+	gtk_container_add(GTK_CONTAINER(box), w);
+}
+
+
+static void
 window_add_config(GtkWidget *box, const gchar *fmt, ...)
 {
 	gchar		 buf[1024];
@@ -166,14 +184,23 @@ window_add_config(GtkWidget *box, const gchar *fmt, ...)
 static void
 window_add_sim(struct curwin *cur, struct sim *sim)
 {
-	GtkWidget	*box;
+	GtkWidget	*box, *outbox, *leftbox;
 	struct kdata	*stats[2];
 	enum kplottype	 ts[2];
 	struct kdatacfg	 solidcfg, transcfg;
 	struct kdatacfg	*cfgs[2];
 	cairo_pattern_t	*solid, *trans;
 	cairo_status_t	 st;
+	GdkRGBA		 gdkc;
 	double		 r, g, b;
+
+	/* Get our colours. */
+	solid = cur->b->clrs[sim->colour % cur->b->clrsz];
+	st = cairo_pattern_get_rgba(solid, &r, &g, &b, NULL);
+	g_assert(CAIRO_STATUS_SUCCESS == st);
+	trans = cairo_pattern_create_rgba(r, g, b, 0.4);
+	st = cairo_pattern_status(trans);
+	g_assert(CAIRO_STATUS_SUCCESS == st);
 
 	/* Append to the per-window simulation views. */
 	kdata_vector_append(cur->winmean, 
@@ -194,30 +221,69 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		g_list_length(cur->sims), 0.0);
 
 	/* Append our configuration. */
+	outbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
+
+	leftbox = gtk_label_new("  ");
+	gtk_container_add(GTK_CONTAINER(outbox), leftbox);
+	gdkc.red = r;
+	gdkc.green = g;
+	gdkc.blue = b;
+	gdkc.alpha = 1.0;
+	gtk_widget_override_background_color
+		(leftbox, GTK_STATE_NORMAL, &gdkc);
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
+	gtk_container_add(GTK_CONTAINER(outbox), box);
+
 	window_add_config(box, "Name: %s", sim->name);
-	window_add_config(box, "Function: %s, "
-		"x = [%g, %g], T=%zu, lambda=%g(1 + %g * pi)", 
-		sim->func, sim->xmin, sim->xmax, 
-		sim->stop, sim->alpha, sim->delta);
+	window_add_configmarkup(box, "Payoffs: &#x03c0; = %s; "
+		"T = %zu", sim->func, sim->stop);
+	window_add_configmarkup(box, "Poisson offspring: "
+		"&#x03bb; = %g(1 + %g * &#x03c0;)", 
+		sim->alpha, sim->delta);
+	window_add_config(box, "Incumbents: "
+		"x = [%g, %g), %zu slices", 
+		sim->xmin, sim->xmax, sim->dims);
+	if (MUTANTS_DISCRETE == sim->mutants)
+		window_add_config(box, "Mutants: y = [%g, %g), "
+			"%zu slices", sim->ymin, sim->ymax, sim->dims);
+	else
+		window_add_configmarkup(box, "Mutants: "
+			"Gaussian &#x03c3; = %g, Y = [%g, %g)", 
+			sim->mutantsigma, sim->ymin, sim->ymax);
 
 	switch (sim->input) {
 	case (INPUT_UNIFORM):
 		window_add_config(box, "Population: uniform %zu "
-			"islands, %zu islanders (%zu total), m=%g",
+			"islands, %zu islanders (%zu total), m = %g",
 			sim->pop, sim->islands, sim->totalpop, sim->m);
 		break;
 	case (INPUT_VARIABLE):
 		window_add_config(box, "Population: variable %zu "
-			"islands (%zu total, %suniform), m=%g", 
+			"islands (%zu total, %suniform), m = %g", 
 			sim->totalpop, sim->islands, 
 			NULL != sim->ms ? "non-" : "", sim->m);
 		break;
 	case (INPUT_MAPPED):
 		window_add_config(box, "Population: mapped %zu "
-			"islands (%zu total, %suniform), m=%g", 
+			"islands (%zu total, %suniform), m = %g", 
 			sim->totalpop, sim->islands, 
 			NULL != sim->ms ? "non-" : "", sim->m);
+		switch (sim->maptop) {
+		case (MAPTOP_RECORD):
+			window_add_config(box, "Map topology: "
+				"KML records");
+			break;
+		case (MAPTOP_RAND):
+			window_add_config(box, "Map topology: "
+				"random records");
+			break;
+		case (MAPTOP_TORUS):
+			window_add_config(box, "Map topology: "
+				"toroidal records");
+			break;
+		default:
+			abort();
+		}
 		switch (sim->migrant) {
 		case (MAPMIGRANT_UNIFORM):
 			window_add_config(box, "Map migration: "
@@ -243,14 +309,6 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		abort();
 	}
 
-	if (MUTANTS_DISCRETE == sim->mutants)
-		window_add_config(box, "Mutants: "
-			"discrete (%zu)", sim->dims);
-	else
-		window_add_config(box, "Mutants: "
-			"Gaussian (sigma=%g, [%g, %g])", 
-			sim->mutantsigma, sim->ymin, sim->ymax);
-
 	if (0 == sim->fitpoly) 
 		window_add_config(box, "Polynomial fitting: disabled");
 	else
@@ -258,22 +316,19 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 			"%zu (%sweighted)", sim->fitpoly, 
 			sim->weighted ?  "" : "un");
 
-	gtk_container_add(GTK_CONTAINER(cur->wins.boxconfig), box);
+	gtk_container_add(GTK_CONTAINER(cur->wins.boxconfig), outbox);
 	gtk_widget_show_all(GTK_WIDGET(cur->wins.boxconfig));
 
 	/* Configure our line and point style. */
-	solid = cur->b->clrs[sim->colour % cur->b->clrsz];
-	st = cairo_pattern_get_rgba(solid, &r, &g, &b, NULL);
-	g_assert(CAIRO_STATUS_SUCCESS == st);
-	trans = cairo_pattern_create_rgba(r, g, b, 0.4);
-	st = cairo_pattern_status(trans);
-	g_assert(CAIRO_STATUS_SUCCESS == st);
-
 	kdatacfg_defaults(&solidcfg);
 	solidcfg.point.clr.type = KPLOTCTYPE_PATTERN;
 	solidcfg.point.clr.pattern = solid;
+	solidcfg.line.clr.type = KPLOTCTYPE_PATTERN;
+	solidcfg.line.clr.pattern = solid;
 
 	kdatacfg_defaults(&transcfg);
+	transcfg.point.clr.type = KPLOTCTYPE_PATTERN;
+	transcfg.point.clr.pattern = trans;
 	transcfg.line.clr.type = KPLOTCTYPE_PATTERN;
 	transcfg.line.clr.pattern = trans;
 
@@ -421,7 +476,7 @@ on_drag_recv(GtkWidget *widget, GdkDragContext *ctx,
 	/* Concatenate the simulation lists. */
 	/* XXX: use g_list_concat? */
 	for (l = srcsims; NULL != l; l = l->next) {
-		g_debug("Copying simulation %p", l->data);
+		g_debug("%p: Copying simulation", l->data);
 		for (ll = cur->sims; NULL != ll; ll = ll->next)
 			if (ll->data == l->data)
 				break;
@@ -1059,6 +1114,8 @@ onactivate(GtkButton *button, gpointer dat)
 		goto cleanup;
 	if ( ! entryworder(b->wins.xmin, b->wins.xmax, xmin, xmax, err))
 		goto cleanup;
+	ymin = xmin;
+	ymax = xmax;
 	if (MUTANTS_GAUSSIAN == mutants) {
 		if ( ! entry2double(b->wins.ymin, &ymin, err))
 			goto cleanup;

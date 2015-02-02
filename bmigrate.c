@@ -315,7 +315,7 @@ bmigrate_free(struct bmigrate *p)
 {
 	size_t	 i;
 
-	g_debug("Freeing main");
+	g_debug("%p: Freeing main", p);
 	g_list_foreach(p->sims, sim_stop, NULL);
 	g_list_free_full(p->sims, sim_free);
 	p->sims = NULL;
@@ -604,8 +604,8 @@ on_sim_timer(gpointer dat)
 			for (i = 0; i < sim->nprocs; i++)  {
 				if (NULL == sim->threads[i].thread)
 					continue;
-				g_debug("Timeout handler joining "
-					"thread %p (simulation %p)", 
+				g_debug("%p: Timeout handler joining "
+					"thread (simulation %p)", 
 					sim->threads[i].thread, sim);
 				g_thread_join(sim->threads[i].thread);
 				sim->threads[i].thread = NULL;
