@@ -160,13 +160,15 @@ enum	input {
 enum	maptop {
 	MAPTOP_RECORD,
 	MAPTOP_RAND,
-	MAPTOP_TORUS
+	MAPTOP_TORUS,
+	MAPTOP__MAX
 };
 
 enum	mapmigrant {
 	MAPMIGRANT_UNIFORM = 0,
 	MAPMIGRANT_DISTANCE,
 	MAPMIGRANT_NEAREST,
+	MAPMIGRANT_TWONEAREST,
 	MAPMIGRANT__MAX
 };
 
@@ -206,6 +208,8 @@ struct	sim {
 	double		  m; /* migration probability */
 	double		**ms; /* nonuniform migration probability */
 	struct kml	 *kml; /* KML places */
+	enum mapmigrant	  migrant;
+	enum maptop	  maptop;
 	size_t		  colour; /* graph colour */
 	struct hnode	**exp; /* n-player function */
 	double		  xmin; /* minimum strategy */
@@ -332,9 +336,7 @@ struct	hwin {
 	GtkAdjustment	 *fitpoly;
 	GtkAdjustment	 *pop;
 	GtkAdjustment	 *islands;
-	GtkToggleButton	 *mapfromfile;
-	GtkToggleButton	 *mapfromrand;
-	GtkToggleButton	 *mapfromtorus;
+	GtkToggleButton	 *maptop[MAPTOP__MAX];
 	GtkAdjustment	 *maprandislands;
 	GtkAdjustment	 *maprandislanders;
 	GtkAdjustment	 *maptorusislands;
@@ -454,8 +456,9 @@ struct kml	 *kml_rand(size_t, size_t);
 struct kml	 *kml_torus(size_t, size_t);
 void		  kml_free(struct kml *kml);
 void		  kml_save(FILE *file, struct sim *sim);
-double		**kml_migration_distance(GList *);
-double		**kml_migration_nearest(GList *);
+double		**kml_migration_distance(GList *, enum maptop);
+double		**kml_migration_nearest(GList *, enum maptop);
+double		**kml_migration_twonearest(GList *, enum maptop);
 
 GtkAdjustment	 *win_init_adjustment(GtkBuilder *, const gchar *);
 GtkStatusbar	 *win_init_status(GtkBuilder *, const gchar *);

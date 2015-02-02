@@ -84,9 +84,9 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	GTimeVal	 gt;
 	size_t		 i, nprocs;
 
-	c->mapfromfile = win_init_toggle(b, "radiobutton10");
-	c->mapfromrand = win_init_toggle(b, "radiobutton11");
-	c->mapfromtorus = win_init_toggle(b, "radiobutton13");
+	c->maptop[MAPTOP_RECORD] = win_init_toggle(b, "radiobutton10");
+	c->maptop[MAPTOP_RAND] = win_init_toggle(b, "radiobutton11");
+	c->maptop[MAPTOP_TORUS] = win_init_toggle(b, "radiobutton13");
 	c->rangeminlambda = win_init_label(b, "label55");
 	c->rangemaxlambda = win_init_label(b, "label52");
 	c->rangemeanlambda = win_init_label(b, "label58");
@@ -140,6 +140,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->mapmigrants[MAPMIGRANT_UNIFORM] = win_init_toggle(b, "radiobutton5");
 	c->mapmigrants[MAPMIGRANT_DISTANCE] = win_init_toggle(b, "radiobutton6");
 	c->mapmigrants[MAPMIGRANT_NEAREST] = win_init_toggle(b, "radiobutton12");
+	c->mapmigrants[MAPMIGRANT_TWONEAREST] = win_init_toggle(b, "radiobutton14");
 	c->maprandislands = win_init_adjustment(b, "adjustment6");
 	c->maprandislanders = win_init_adjustment(b, "adjustment7");
 	c->maptorusislands = win_init_adjustment(b, "adjustment8");

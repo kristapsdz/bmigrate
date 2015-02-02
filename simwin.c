@@ -148,9 +148,25 @@ curwin_free(gpointer dat)
 }
 
 static void
+window_add_config(GtkWidget *box, const gchar *fmt, ...)
+{
+	gchar		 buf[1024];
+	GtkWidget	*w;
+	va_list		 ap;
+
+	va_start(ap, fmt);
+	g_vsnprintf(buf, sizeof(buf), fmt, ap);
+	va_end(ap);
+
+	w = gtk_label_new(buf);
+	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
+	gtk_container_add(GTK_CONTAINER(box), w);
+}
+
+static void
 window_add_sim(struct curwin *cur, struct sim *sim)
 {
-	GtkWidget	*box, *w;
+	GtkWidget	*box;
 	struct kdata	*stats[2];
 	enum kplottype	 ts[2];
 	struct kdatacfg	 solidcfg, transcfg;
@@ -158,7 +174,6 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	cairo_pattern_t	*solid, *trans;
 	cairo_status_t	 st;
 	double		 r, g, b;
-	gchar		 buf[1024];
 
 	/* Append to the per-window simulation views. */
 	kdata_vector_append(cur->winmean, 
@@ -180,46 +195,68 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 
 	/* Append our configuration. */
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
-	g_snprintf(buf, sizeof(buf), "Name: %s", sim->name);
-	w = gtk_label_new(buf);
-	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
-	gtk_container_add(GTK_CONTAINER(box), w);
-
-	g_snprintf(buf, sizeof(buf), "Function: %s, "
+	window_add_config(box, "Name: %s", sim->name);
+	window_add_config(box, "Function: %s, "
 		"x = [%g, %g], T=%zu, lambda=%g(1 + %g * pi)", 
 		sim->func, sim->xmin, sim->xmax, 
 		sim->stop, sim->alpha, sim->delta);
-	w = gtk_label_new(buf);
-	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
-	gtk_container_add(GTK_CONTAINER(box), w);
 
-	g_snprintf(buf, sizeof(buf), 
-		"Population: %zu (%zu islands, %suniform), "
-		"m=%g (%suniform)", sim->totalpop, sim->islands, 
-		NULL != sim->pops ? "non-" : "", sim->m, 
-		NULL != sim->ms ? "non-" : "");
-	w = gtk_label_new(buf);
-	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
-	gtk_container_add(GTK_CONTAINER(box), w);
+	switch (sim->input) {
+	case (INPUT_UNIFORM):
+		window_add_config(box, "Population: uniform %zu "
+			"islands, %zu islanders (%zu total), m=%g",
+			sim->pop, sim->islands, sim->totalpop, sim->m);
+		break;
+	case (INPUT_VARIABLE):
+		window_add_config(box, "Population: variable %zu "
+			"islands (%zu total, %suniform), m=%g", 
+			sim->totalpop, sim->islands, 
+			NULL != sim->ms ? "non-" : "", sim->m);
+		break;
+	case (INPUT_MAPPED):
+		window_add_config(box, "Population: mapped %zu "
+			"islands (%zu total, %suniform), m=%g", 
+			sim->totalpop, sim->islands, 
+			NULL != sim->ms ? "non-" : "", sim->m);
+		switch (sim->migrant) {
+		case (MAPMIGRANT_UNIFORM):
+			window_add_config(box, "Map migration: "
+				"uniform random");
+			break;
+		case (MAPMIGRANT_DISTANCE):
+			window_add_config(box, "Map migration: "
+				"inverse square distance");
+			break;
+		case (MAPMIGRANT_NEAREST):
+			window_add_config(box, "Map migration: "
+				"first nearest neighbour");
+			break;
+		case (MAPMIGRANT_TWONEAREST):
+			window_add_config(box, "Map migration: "
+				"two-nearest neighbours");
+			break;
+		default:
+			abort();
+		}
+		break;
+	default:
+		abort();
+	}
 
 	if (MUTANTS_DISCRETE == sim->mutants)
-		g_snprintf(buf, sizeof(buf), 
-			"Mutants: discrete (%zu)", sim->dims);
+		window_add_config(box, "Mutants: "
+			"discrete (%zu)", sim->dims);
 	else
-		g_snprintf(buf, sizeof(buf), 
-			"Mutants: Gaussian (sigma=%g, "
-			"[%g, %g])", sim->mutantsigma,
-			sim->ymin, sim->ymax);
-	w = gtk_label_new(buf);
-	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
-	gtk_container_add(GTK_CONTAINER(box), w);
+		window_add_config(box, "Mutants: "
+			"Gaussian (sigma=%g, [%g, %g])", 
+			sim->mutantsigma, sim->ymin, sim->ymax);
 
-	g_snprintf(buf, sizeof(buf), "Fit: order %zu (%s)",
-		sim->fitpoly, 0 == sim->fitpoly ?  "disabled" : 
-		(sim->weighted ?  "weighted" : "unweighted"));
-	w = gtk_label_new(buf);
-	gtk_misc_set_alignment(GTK_MISC(w), 0.0, 0.5);
-	gtk_container_add(GTK_CONTAINER(box), w);
+	if (0 == sim->fitpoly) 
+		window_add_config(box, "Polynomial fitting: disabled");
+	else
+		window_add_config(box, "Polynomial fitting: order "
+			"%zu (%sweighted)", sim->fitpoly, 
+			sim->weighted ?  "" : "un");
 
 	gtk_container_add(GTK_CONTAINER(cur->wins.boxconfig), box);
 	gtk_widget_show_all(GTK_WIDGET(cur->wins.boxconfig));
@@ -825,23 +862,24 @@ onactivate(GtkButton *button, gpointer dat)
 	islandpop = 0;
 	ms = NULL;
 	kml = NULL;
+	exp = NULL;
 
 	if ( ! entry2size(b->wins.stop, &stop, err, 1))
 		goto cleanup;
 
+	for (migrants = 0; migrants < MAPMIGRANT__MAX; migrants++)
+		if (gtk_toggle_button_get_active
+			 (b->wins.mapmigrants[migrants]))
+			break;
+	g_assert(migrants < MAPMIGRANT__MAX);
+
+	for (maptop = 0; maptop < MAPTOP__MAX; maptop++)
+		if (gtk_toggle_button_get_active
+			 (b->wins.maptop[maptop]))
+			break;
+	g_assert(maptop < MAPTOP__MAX);
+
 	input = gtk_notebook_get_current_page(b->wins.inputs);
-	migrants = MAPMIGRANT_UNIFORM;
-	if (gtk_toggle_button_get_active
-		(b->wins.mapmigrants[MAPMIGRANT_DISTANCE]))
-		migrants = MAPMIGRANT_DISTANCE;
-
-	if (gtk_toggle_button_get_active(b->wins.mapfromfile)) 
-		maptop = MAPTOP_RECORD;
-	else if (gtk_toggle_button_get_active(b->wins.mapfromrand)) 
-		maptop = MAPTOP_RAND;
-	else 
-		maptop = MAPTOP_TORUS;
-
 	switch (input) {
 	case (INPUT_UNIFORM):
 		/*
@@ -916,6 +954,8 @@ onactivate(GtkButton *button, gpointer dat)
 			kml = kml_torus(islands, islandpop);
 			islandpop = islands = 0;
 			break;
+		default:
+			abort();
 		}
 
 		/*
@@ -938,10 +978,10 @@ onactivate(GtkButton *button, gpointer dat)
 		 */
 		switch (migrants) {
 		case (MAPMIGRANT_UNIFORM):
-			ms = kml_migration_distance(kml->kmls);
+			ms = kml_migration_distance(kml->kmls, maptop);
 			break;
 		case (MAPMIGRANT_NEAREST):
-			ms = kml_migration_nearest(kml->kmls);
+			ms = kml_migration_nearest(kml->kmls, maptop);
 			break;
 		default:
 			break;
@@ -1115,6 +1155,8 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	sim->kml = kml;
+	sim->migrant = migrants;
+	sim->maptop = maptop;
 	g_mutex_init(&sim->hot.mux);
 	g_cond_init(&sim->hot.cond);
 
@@ -1207,32 +1249,7 @@ onactivate(GtkButton *button, gpointer dat)
 	b->sims = g_list_append(b->sims, sim);
 	sim_ref(sim, NULL);
 	sim->threads = g_malloc0_n(sim->nprocs, sizeof(struct simthr));
-	g_debug("New simulation: %zu islands, %zu total members "
-		"(%s per island) (%zu generations)", 
-		sim->islands, sim->totalpop, 
-		NULL != sim->pops ? "variable" : "uniform", 
-		sim->stop);
-	g_debug("New %s migration, %g probability, %g(1 + %g pi)", 
-		NULL != sim->ms ? "variable" : "uniform", 
-		sim->m, sim->alpha, sim->delta);
-	if (INPUT_MAPPED == input)
-		g_debug("New mapped migration: %s",
-			MAPTOP_RECORD == maptop ?
-			"KML input" : 
-			MAPTOP_RAND == maptop ?
-			"random islands" : "toroidal islands");
-	g_debug("New function %s, x = [%g, %g)", sim->func,
-		sim->xmin, sim->xmax);
-	g_debug("New threads: %zu", sim->nprocs);
-	g_debug("New polynomial: %zu (%s)", 
-		sim->fitpoly, sim->weighted ? 
-		"weighted" : "unweighted");
-	if (MUTANTS_GAUSSIAN == sim->mutants)
-		g_debug("New Gaussian mutants: "
-			"%g in [%g, %g]", sim->mutantsigma,
-			sim->ymin, sim->ymax);
-	else
-		g_debug("New discrete mutants");
+	g_debug("%p: Simulation created", sim);
 
 	/* Create the simulation threads. */
 	for (i = 0; i < sim->nprocs; i++) {
@@ -1247,9 +1264,7 @@ onactivate(GtkButton *button, gpointer dat)
 	cur->view = VIEW_MEAN;
 	window_init(b, cur, g_list_append(NULL, sim));
 
-	/* 
-	 * Initialise the name of our simulation. 
-	 */
+	/* Initialise the name of our simulation. */
 	donamefill(&b->wins);
 	return;
 cleanup:

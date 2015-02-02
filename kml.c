@@ -650,7 +650,70 @@ kml_parse(const gchar *file, GError **er)
 }
 
 double **
-kml_migration_nearest(GList *list)
+kml_migration_twonearest(GList *list, enum maptop map)
+{
+	double		**p;
+	double		  dist, min;
+	size_t		  i, j, len, minj, min2j;
+	struct kmlplace	 *pl1, *pl2;
+
+	len = (size_t)g_list_length(list);
+	g_assert(len > 0);
+	if (1 == len) {
+		g_debug("Request for two nearest falling "
+			"back to nearest");
+		return(kml_migration_nearest(list, map));
+	}
+
+	p = g_malloc0_n(len, sizeof(double *));
+
+	if (MAPTOP_TORUS == map) {
+		for (i = 0; i < len; i++) {
+			p[i] = g_malloc0_n(len, sizeof(double));
+			if (i < len - 1)
+				p[i][i + 1] = 0.5;
+			else
+				p[i][0] = 0.5;
+			if (i > 0)
+				p[i][i - 1] = 0.5;
+			else
+				p[i][len - 1] = 0.5;
+		}
+		return(p);
+	}
+
+	for (i = 0; i < len; i++) {
+		pl1 = g_list_nth_data(list, i);
+		p[i] = g_malloc0_n(len, sizeof(double));
+		for (minj = j = 0, min = DBL_MAX; j < len; j++) {
+			if (i == j)
+				continue;
+			pl2 = g_list_nth_data(list, j);
+			if ((dist = kml_dist(pl1, pl2)) < min) {
+				min = dist;
+				minj = j;
+			}
+		}
+		p[i][minj] = 0.5;
+		for (min2j = j = 0, min = DBL_MAX; j < len; j++) {
+			if (i == j || j == minj)
+				continue;
+			pl2 = g_list_nth_data(list, j);
+			if ((dist = kml_dist(pl1, pl2)) < min) {
+				min = dist;
+				min2j = j;
+			}
+		}
+		p[i][min2j] = 0.5;
+		g_assert(min2j != minj);
+		g_assert(i != min2j);
+	}
+
+	return(p);
+}
+
+double **
+kml_migration_nearest(GList *list, enum maptop map)
 {
 	double		**p;
 	double		  dist, min;
@@ -658,7 +721,17 @@ kml_migration_nearest(GList *list)
 	struct kmlplace	 *pl1, *pl2;
 
 	len = (size_t)g_list_length(list);
+	g_assert(len > 0);
 	p = g_malloc0_n(len, sizeof(double *));
+
+	if (MAPTOP_TORUS == map) {
+		for (i = 0; i < len; i++) {
+			p[i] = g_malloc0_n(len, sizeof(double));
+			p[i][(i + 1) % len] = 1.0;
+		}
+		return(p);
+	}
+
 	for (i = 0; i < len; i++) {
 		pl1 = g_list_nth_data(list, i);
 		p[i] = g_malloc0_n(len, sizeof(double));
@@ -681,7 +754,7 @@ kml_migration_nearest(GList *list)
  * Probabilities being the normalised inverse square distance.
  */
 double **
-kml_migration_distance(GList *list)
+kml_migration_distance(GList *list, enum maptop map)
 {
 	double		**p;
 	double		  dist, sum;
@@ -689,6 +762,7 @@ kml_migration_distance(GList *list)
 	struct kmlplace	 *pl1, *pl2;
 
 	len = (size_t)g_list_length(list);
+	g_assert(len > 0);
 	p = g_malloc0_n(len, sizeof(double *));
 	for (i = 0; i < len; i++) {
 		pl1 = g_list_nth_data(list, i);
