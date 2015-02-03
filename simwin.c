@@ -49,6 +49,7 @@ swin_init(struct swin *c, enum view view, GtkBuilder *b)
 	c->views[VIEW_MEAN] = win_init_menucheck(b, "menuitem8");
 	c->views[VIEW_SMEAN] = win_init_menucheck(b, "menuitem37");
 	c->views[VIEW_SEXTM] = win_init_menucheck(b, "menuitem43");
+	c->views[VIEW_SEXTI] = win_init_menucheck(b, "menuitem44");
 	c->views[VIEW_EXTM] = win_init_menucheck(b, "menuitem25");
 	c->views[VIEW_EXTMMAXPDF] = win_init_menucheck(b, "menuitem28");
 	c->views[VIEW_EXTMMAXCDF] = win_init_menucheck(b, "menuitem29");
@@ -361,6 +362,13 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		KSMOOTH_MOVAVG, NULL);
 	kplot_attach_data(cur->views[VIEW_SEXTM], 
 		sim->bufs.mextinct->cold, KPLOT_LINES, &transcfg);
+
+	/* Mutant mean and smoothed line. */
+	kplot_attach_smooth(cur->views[VIEW_SEXTI], 
+		sim->bufs.iextinct->cold, KPLOT_LINES, &solidcfg,
+		KSMOOTH_MOVAVG, NULL);
+	kplot_attach_data(cur->views[VIEW_SEXTI], 
+		sim->bufs.iextinct->cold, KPLOT_LINES, &transcfg);
 
 	/* Mean and smoothed lines. */
 	kplot_attach_smooth(cur->views[VIEW_SMEAN], 

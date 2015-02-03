@@ -71,6 +71,7 @@ static	const char *const views[VIEW__MAX] = {
 	"fitted-mean-min-history", /* VIEW_POLYMINQ */
 	"fitted-mean-min-mean", /* VIEW_POLYMINS */
 	"extinct-mutant-smooth", /* VIEW_SEXTM */
+	"extinct-incunmbent-smooth", /* VIEW_SEXTI */
 	"raw-mean-smooth", /* VIEW_SMEAN */
 };
 

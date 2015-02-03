@@ -21,11 +21,18 @@
 
 #include <cairo.h>
 #include <cairo-pdf.h>
+#include <cairo-ps.h>
 #include <gtk/gtk.h>
 #include <gsl/gsl_multifit.h>
 #include <kplot.h>
 
 #include "extern.h"
+
+enum	savetype {
+	SAVE_PDF,
+	SAVE_PS,
+	SAVE_EPS
+};
 
 static int
 savepng(const gchar *fname, const struct curwin *c)
@@ -75,7 +82,7 @@ savepng(const gchar *fname, const struct curwin *c)
 }
 
 static int
-savepdf(const gchar *fname, const struct curwin *c)
+savepdf(const gchar *fname, const struct curwin *c, enum savetype type)
 {
 	cairo_surface_t	*surf;
 	cairo_t		*cr;
@@ -84,7 +91,20 @@ savepdf(const gchar *fname, const struct curwin *c)
 	int		 rc;
 
 	g_debug("%p: Saving: %s", c, fname);
-	surf = cairo_pdf_surface_create(fname, w, h);
+	switch (type) {
+	case (SAVE_PDF):
+		surf = cairo_pdf_surface_create(fname, w, h);
+		break;
+	case (SAVE_EPS):
+		surf = cairo_ps_surface_create(fname, w, h);
+		cairo_ps_surface_set_eps(surf, 1);
+		break;
+	case (SAVE_PS):
+		surf = cairo_ps_surface_create(fname, w, h);
+		cairo_ps_surface_set_eps(surf, 0);
+		break;
+	}
+
 	st = cairo_surface_status(surf);
 	if (CAIRO_STATUS_SUCCESS != st) {
 		g_debug("%s", cairo_status_to_string(st));
@@ -117,7 +137,11 @@ save(const gchar *fname, const struct curwin *cur)
 {
 
 	if (g_str_has_suffix(fname, ".pdf")) 
-		return(savepdf(fname, cur));
+		return(savepdf(fname, cur, SAVE_PDF));
+	else if (g_str_has_suffix(fname, ".ps")) 
+		return(savepdf(fname, cur, SAVE_PS));
+	else if (g_str_has_suffix(fname, ".eps")) 
+		return(savepdf(fname, cur, SAVE_EPS));
 	else
 		return(savepng(fname, cur));
 }
