@@ -489,50 +489,51 @@ on_sim_copyout(gpointer dat)
 static gboolean
 on_sim_autosave(gpointer dat)
 {
-	struct curwin	*cur;
 	struct bmigrate	*b = dat;
-	GList		*list;
+	struct curwin	*cur;
+	GList		*l;
 	GtkWidget	*dialog;
 	enum view	 sv, view;
 	gchar		*file;
-	FILE		*f;
+	int		 rc;
 
-	for (list = b->windows; list != NULL; list = list->next) {
-		cur = list->data;
+	for (l = b->windows; l != NULL; l = l->next) {
+		cur = l->data;
 		if (NULL == cur->autosave)
 			continue;
+		sv = cur->view;
 		for (view = 0; view < VIEW__MAX; view++) {
 			file = g_strdup_printf
-				("%s" G_DIR_SEPARATOR_S "%s",
+				("%s" G_DIR_SEPARATOR_S "%s.pdf",
 				 cur->autosave, views[view]);
-			if (NULL != (f = fopen(file, "w+"))) {
-				sv = cur->view;
-				cur->view = view;
-				savewin(f, cur->sims, cur);
-				cur->view = sv;
-				fclose(f);
-				g_free(file);
-				continue;
-			} 
-			dialog = gtk_message_dialog_new
-				(GTK_WINDOW(cur->wins.window),
-				 GTK_DIALOG_DESTROY_WITH_PARENT, 
-				 GTK_MESSAGE_ERROR, 
-				 GTK_BUTTONS_CLOSE, 
-				 "Error auto-saving %s: %s", 
-				 file, strerror(errno));
-			gtk_dialog_run(GTK_DIALOG(dialog));
-			gtk_widget_destroy(dialog);
+			cur->view = view;
+			rc = save(file, cur);
 			g_free(file);
-			g_free(cur->autosave);
-			cur->autosave = NULL;
-			gtk_widget_hide(GTK_WIDGET
-				(cur->wins.menuunautoexport));
-			gtk_widget_show(GTK_WIDGET
-				(cur->wins.menuautoexport));
-			break;
+			if (0 == rc)
+				break;
 		}
+		cur->view = sv;
+		if (view == VIEW__MAX)
+			break;
 	}
+	if (NULL == l)
+		return(TRUE);
+
+	dialog = gtk_message_dialog_new
+		(GTK_WINDOW(cur->wins.window),
+		 GTK_DIALOG_DESTROY_WITH_PARENT, 
+		 GTK_MESSAGE_ERROR, 
+		 GTK_BUTTONS_CLOSE, 
+		 "Error auto-saving: %s", 
+		 strerror(errno));
+	gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
+	g_free(cur->autosave);
+	cur->autosave = NULL;
+	gtk_widget_hide(GTK_WIDGET
+		(cur->wins.menuunautoexport));
+	gtk_widget_show(GTK_WIDGET
+		(cur->wins.menuautoexport));
 	return(TRUE);
 }
 
@@ -952,7 +953,7 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 	GtkFileChooser	*chooser;
 	char 		*dir, *file;
 	enum view	 view, sv;
-	FILE		*f;
+	int		 rc;
 
 	dialog = gtk_file_chooser_dialog_new
 		("Create View Data Folder", cur->wins.window,
@@ -975,36 +976,29 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 	sv = cur->view;
 	for (view = 0; view < VIEW__MAX; view++) {
 		file = g_strdup_printf
-			("%s" G_DIR_SEPARATOR_S "%s",
+			("%s" G_DIR_SEPARATOR_S "%s.pdf",
 			 dir, views[view]);
 		cur->view = view;
-		if (NULL != (f = fopen(file, "w+"))) {
-			save(f, cur);
-			g_debug("Saved View: %s", file);
-			fclose(f);
-		} else {
-			dialog = gtk_message_dialog_new
-				(GTK_WINDOW(cur->wins.window),
-				 GTK_DIALOG_DESTROY_WITH_PARENT, 
-				 GTK_MESSAGE_ERROR, 
-				 GTK_BUTTONS_CLOSE, 
-				 "Error saving %s: %s", 
-				 file, strerror(errno));
-			gtk_dialog_run(GTK_DIALOG(dialog));
-			gtk_widget_destroy(dialog);
-			g_free(file);
-			break;
-		}
+		rc = save(file, cur);
 		g_free(file);
+		if (0 == rc)
+			break;
 	}
-
 	cur->view = sv;
 	g_free(dir);
+	if (view == VIEW__MAX)
+		return;
+	dialog = gtk_message_dialog_new
+		(GTK_WINDOW(cur->wins.window),
+		 GTK_DIALOG_DESTROY_WITH_PARENT, 
+		 GTK_MESSAGE_ERROR, 
+		 GTK_BUTTONS_CLOSE, 
+		 "Error saving: %s", 
+		 strerror(errno));
+	gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
 }
 
-/*
- * Run when we quit from a simulation window.
- */
 void
 onsave(GtkMenuItem *menuitem, gpointer dat)
 {
@@ -1012,7 +1006,7 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	GtkWidget	*dialog;
 	gint		 res;
 	GtkFileChooser	*chooser;
-	FILE		*f;
+	int		 rc;
 	char 		*file;
 
 	dialog = gtk_file_chooser_dialog_new
@@ -1022,7 +1016,7 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 		 "_Save", GTK_RESPONSE_ACCEPT, NULL);
 	chooser = GTK_FILE_CHOOSER(dialog);
 	gtk_file_chooser_set_do_overwrite_confirmation(chooser, TRUE);
-	gtk_file_chooser_set_current_name(chooser, "bmigrate.dat");
+	gtk_file_chooser_set_current_name(chooser, "bmigrate.pdf");
 	res = gtk_dialog_run(GTK_DIALOG(dialog));
 	if (res != GTK_RESPONSE_ACCEPT) {
 		gtk_widget_destroy(dialog);
@@ -1032,23 +1026,19 @@ onsave(GtkMenuItem *menuitem, gpointer dat)
 	gtk_widget_destroy(dialog);
 	g_assert(NULL != file);
 	g_assert('\0' != *file);
-
-	if (NULL != (f = fopen(file, "w+"))) {
-		save(f, cur);
-		g_debug("Saved View: %s", file);
-		fclose(f);
-	} else {
-		dialog = gtk_message_dialog_new
-			(GTK_WINDOW(cur->wins.window),
-			 GTK_DIALOG_DESTROY_WITH_PARENT, 
-			 GTK_MESSAGE_ERROR, 
-			 GTK_BUTTONS_CLOSE, 
-			 "Error saving %s: %s", 
-			 file, strerror(errno));
-		gtk_dialog_run(GTK_DIALOG(dialog));
-		gtk_widget_destroy(dialog);
-	}
+	rc = save(file, cur);
 	g_free(file);
+	if (0 != rc)
+		return;
+	dialog = gtk_message_dialog_new
+		(GTK_WINDOW(cur->wins.window),
+		 GTK_DIALOG_DESTROY_WITH_PARENT, 
+		 GTK_MESSAGE_ERROR, 
+		 GTK_BUTTONS_CLOSE, 
+		 "Error saving: %s", 
+		 strerror(errno));
+	gtk_dialog_run(GTK_DIALOG(dialog));
+	gtk_widget_destroy(dialog);
 }
 
 #ifdef MAC_INTEGRATION

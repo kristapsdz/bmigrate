@@ -260,13 +260,13 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	case (INPUT_VARIABLE):
 		window_add_config(box, "Population: variable %zu "
 			"islands (%zu total, %suniform), m = %g", 
-			sim->totalpop, sim->islands, 
+			sim->islands, sim->totalpop, 
 			NULL != sim->ms ? "non-" : "", sim->m);
 		break;
 	case (INPUT_MAPPED):
 		window_add_config(box, "Population: mapped %zu "
 			"islands (%zu total, %suniform), m = %g", 
-			sim->totalpop, sim->islands, 
+			sim->islands, sim->totalpop, 
 			NULL != sim->ms ? "non-" : "", sim->m);
 		switch (sim->maptop) {
 		case (MAPTOP_RECORD):
