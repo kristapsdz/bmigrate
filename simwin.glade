@@ -106,7 +106,7 @@
                       <object class="GtkRadioMenuItem" id="menuitem8">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean</property>
+                        <property name="label" translatable="yes">Mutant Mean</property>
                         <property name="active">True</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -115,7 +115,7 @@
                       <object class="GtkRadioMenuItem" id="menuitem6">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean and Sigma</property>
+                        <property name="label" translatable="yes">Mutant Mean and Standard Deviation</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -124,7 +124,7 @@
                       <object class="GtkRadioMenuItem" id="menuitem7">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean and Fitted Polynomial</property>
+                        <property name="label" translatable="yes">Fitted Polynomial</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -157,7 +157,7 @@
                       <object class="GtkRadioMenuItem" id="menuitem37">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Smoothed Sample Mean</property>
+                        <property name="label" translatable="yes">Smoothed Mutant Mean</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -208,7 +208,7 @@
                       <object class="GtkRadioMenuItem" id="menuitem10">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean Minimum (PDF)</property>
+                        <property name="label" translatable="yes">Mutant Mean Minimum (PDF)</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -217,7 +217,7 @@
                       <object class="GtkRadioMenuItem" id="menuitem12">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean Minimum (CDF)</property>
+                        <property name="label" translatable="yes">Mutant Mean Minimum (CDF)</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -259,6 +259,24 @@
                       </object>
                     </child>
                     <child>
+                      <object class="GtkRadioMenuItem" id="menuitem38">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Exit Times (PDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem39">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Exit Times (CDF)</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
                       <object class="GtkSeparatorMenuItem" id="menuitem23">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
@@ -277,7 +295,7 @@
                       <object class="GtkRadioMenuItem" id="menuitem13">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean Minimum History</property>
+                        <property name="label" translatable="yes">Mutant Mean Minimum History</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -301,7 +319,7 @@
                       <object class="GtkRadioMenuItem" id="menuitem22">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Sample Mean Minimum Mean</property>
+                        <property name="label" translatable="yes">Mutant Mean Minimum Mean</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>
                       </object>
@@ -334,7 +352,17 @@
                       <object class="GtkRadioMenuItem" id="menuitem45">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Island Sample Mean and Sigma</property>
+                        <property name="label" translatable="yes">Island Index Case Mutant Mean</property>
+                        <property name="use_underline">True</property>
+                        <property name="group">menuitem8</property>
+                        <signal name="activate" handler="onviewtoggle" swapped="no"/>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioMenuItem" id="menuitem46">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label" translatable="yes">Island Mutant Mean</property>
                         <property name="use_underline">True</property>
                         <property name="group">menuitem8</property>
                         <signal name="activate" handler="onviewtoggle" swapped="no"/>

@@ -50,6 +50,8 @@ static	const char *const colours[SIZE_COLOURS] = {
 };
 
 static	const char *const views[VIEW__MAX] = {
+	"times-cdf", /* VIEW_TIMEESCDF */
+	"times-pdf", /* VIEW_TIMEESPDF */
 	"raw-mean-stddev", /* VIEW_DEV */
 	"extinct-incumbent", /* VIEW_EXTI */
 	"extinct-incumbent-min-cdf", /* VIEW_EXTIMINCDF */
@@ -60,6 +62,7 @@ static	const char *const views[VIEW__MAX] = {
 	"extinct-mutant-max-pdf", /* VIEW_EXTMMAXPDF */
 	"extinct-mutant-max-mean", /* VIEW_EXTMMAXS */
 	"island-mean", /* VIEW_ISLANDMEAN */
+	"islander-mean", /* VIEW_ISLANDERMEAN */
 	"raw-mean", /* VIEW_MEAN */
 	"raw-mean-min-cdf", /* VIEW_MEANMINCDF */
 	"raw-mean-min-pdf", /* VIEW_MEANMINPDF */
@@ -238,13 +241,17 @@ sim_free(gpointer arg)
 	simbuf_free(p->bufs.means);
 	simbuf_free(p->bufs.stddevs);
 	simbuf_free(p->bufs.imeans);
+	simbuf_free(p->bufs.times);
 	simbuf_free(p->bufs.istddevs);
+	simbuf_free(p->bufs.islandmeans);
+	simbuf_free(p->bufs.islandstddevs);
 	simbuf_free(p->bufs.mextinct);
 	simbuf_free(p->bufs.iextinct);
 	kdata_destroy(p->bufs.fractions);
 	kdata_destroy(p->bufs.ifractions);
 	kdata_destroy(p->bufs.mutants);
 	kdata_destroy(p->bufs.incumbents);
+	kdata_destroy(p->bufs.islands);
 	kdata_destroy(p->bufs.meanmins);
 	kdata_destroy(p->bufs.mextinctmaxs);
 	kdata_destroy(p->bufs.iextinctmins);
@@ -440,11 +447,12 @@ on_sim_copyout(gpointer dat)
 				}
 		}
 
-		/*
-		 * Most strutures we simply copy over.
-		 */
+		/* Most strutures we simply copy over. */
+		simbuf_copy_cold(sim->bufs.times);
 		simbuf_copy_cold(sim->bufs.imeans);
 		simbuf_copy_cold(sim->bufs.istddevs);
+		simbuf_copy_cold(sim->bufs.islandmeans);
+		simbuf_copy_cold(sim->bufs.islandstddevs);
 		simbuf_copy_cold(sim->bufs.means);
 		simbuf_copy_cold(sim->bufs.stddevs);
 		simbuf_copy_cold(sim->bufs.mextinct);
@@ -459,20 +467,20 @@ on_sim_copyout(gpointer dat)
 
 		pos = kdata_ymin(sim->bufs.means->cold, &kp);
 		g_assert(pos >= 0);
-		kdata_bucket_add(sim->bufs.meanmins, pos, 1.0);
+		kdata_array_add(sim->bufs.meanmins, pos, 1.0);
 		cqueue_push(&sim->bufs.meanminq, kp.x);
 		kdata_array_fill(sim->bufs.meanminqbuf, 
 			&sim->bufs.meanminq, cqueue_fill);
 
-		kdata_bucket_add(sim->bufs.mextinctmaxs, 
+		kdata_array_add(sim->bufs.mextinctmaxs, 
 			kdata_ymax(sim->bufs.mextinct->cold, NULL), 1.0);
 
-		kdata_bucket_add(sim->bufs.iextinctmins, 
+		kdata_array_add(sim->bufs.iextinctmins, 
 			kdata_ymin(sim->bufs.iextinct->cold, NULL), 1.0);
 
 		pos = kdata_ymin(sim->bufs.fitpolybuf, &kp);
 		g_assert(pos >= 0);
-		kdata_bucket_add(sim->bufs.fitpolymins, pos, 1.0);
+		kdata_array_add(sim->bufs.fitpolymins, pos, 1.0);
 		cqueue_push(&sim->bufs.fitminq, kp.x);
 		kdata_array_fill(sim->bufs.fitminqbuf, 
 			&sim->bufs.fitminq, cqueue_fill);
@@ -548,28 +556,28 @@ on_win_redraw(struct curwin *cur)
 
 	for (i = 0, l = cur->sims; NULL != l; l = g_list_next(l), i++) {
 		sim = l->data;
-		rc = kdata_set(cur->winmean, i, i, 
+		rc = kdata_vector_set(cur->winmean, i, i, 
 			kdata_pmfmean(sim->bufs.meanmins));
 		g_assert(0 != rc);
-		rc = kdata_set(cur->winstddev, i, i, 
+		rc = kdata_vector_set(cur->winstddev, i, i, 
 			kdata_pmfstddev(sim->bufs.meanmins));
 		g_assert(0 != rc);
-		rc = kdata_set(cur->winfitmean, i, i, 
+		rc = kdata_vector_set(cur->winfitmean, i, i, 
 			kdata_pmfmean(sim->bufs.fitpolymins));
 		g_assert(0 != rc);
-		rc = kdata_set(cur->winfitstddev, i, i, 
+		rc = kdata_vector_set(cur->winfitstddev, i, i, 
 			kdata_pmfstddev(sim->bufs.fitpolymins));
 		g_assert(0 != rc);
-		rc = kdata_set(cur->winmextinctmean, i, i, 
+		rc = kdata_vector_set(cur->winmextinctmean, i, i, 
 			kdata_pmfmean(sim->bufs.mextinctmaxs));
 		g_assert(0 != rc);
-		rc = kdata_set(cur->winmextinctstddev, i, i, 
+		rc = kdata_vector_set(cur->winmextinctstddev, i, i, 
 			kdata_pmfstddev(sim->bufs.mextinctmaxs));
 		g_assert(0 != rc);
-		rc = kdata_set(cur->winiextinctmean, i, i, 
+		rc = kdata_vector_set(cur->winiextinctmean, i, i, 
 			kdata_pmfmean(sim->bufs.iextinctmins));
 		g_assert(0 != rc);
-		rc = kdata_set(cur->winiextinctstddev, i, i, 
+		rc = kdata_vector_set(cur->winiextinctstddev, i, i, 
 			kdata_pmfstddev(sim->bufs.iextinctmins));
 		g_assert(0 != rc);
 	}

@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2014 Kristaps Dzonsons <kristaps@kcons.eu>
+ * Copyright (c) 2014, 2015 Kristaps Dzonsons <kristaps@kcons.eu>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -27,7 +27,6 @@
 #include <gsl/gsl_multifit.h>
 #include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
-#include <gsl/gsl_histogram.h>
 #include <kplot.h>
 
 #include "extern.h"
@@ -52,11 +51,11 @@ fitpoly(const double *fits, size_t poly, double x)
 }
 
 /*
- * Copy the "hot" data into "warm" holding.
+ * Copy the "hotlsb" data into "warm" holding.
  * While here, set our simulation's "work" parameter (if "fitpoly" is
  * set) to contain the necessary dependent variable.
- * Do this all as quickly as possible, as we're holding both the
- * simulation "hot" lock and the "warm" lock as well.
+ * We're guaranteed to be the only ones in here, and the only ones with
+ * a lock on the LBS data.
  */
 static void
 snapshot(struct sim *sim, struct simwarm *warm, 
@@ -67,22 +66,22 @@ snapshot(struct sim *sim, struct simwarm *warm,
 	int		rc;
 	size_t	 	i, j, k;
 
-	/*
-	 * If we have the same number of runs, don't bother snapshotting
-	 * us--we're already up to date.
-	 */
+	/* Warm copy is already up to date. */
 	if (warm->truns == truns) {
 		g_assert(warm->tgens == tgens);
 		return;
 	}
 
+	/* Copy out: we have a lock. */
+	simbuf_copy_warm(sim->bufs.times);
 	simbuf_copy_warm(sim->bufs.imeans);
 	simbuf_copy_warm(sim->bufs.istddevs);
+	simbuf_copy_warm(sim->bufs.islandmeans);
+	simbuf_copy_warm(sim->bufs.islandstddevs);
 	simbuf_copy_warm(sim->bufs.means);
 	simbuf_copy_warm(sim->bufs.stddevs);
 	simbuf_copy_warm(sim->bufs.mextinct);
 	simbuf_copy_warm(sim->bufs.iextinct);
-
 	warm->truns = truns;
 	warm->tgens = tgens;
 
@@ -155,13 +154,11 @@ snapshot(struct sim *sim, struct simwarm *warm,
 		sim->work.coeffs[i] = gsl_vector_get(sim->work.c, i);
 
 	for (i = 0; i < sim->dims; i++) {
-		x = sim->xmin + 
-			(sim->xmax -
-			 sim->xmin) *
+		x = sim->xmin + (sim->xmax - sim->xmin) *
 			i / (double)sim->dims;
 		y = fitpoly(sim->work.coeffs, 
 			sim->fitpoly + 1, x);
-		kdata_bucket_set(sim->bufs.fitpoly, i, x, y);
+		kdata_array_set(sim->bufs.fitpoly, i, x, y);
 	}
 }
 
@@ -174,9 +171,10 @@ snapshot(struct sim *sim, struct simwarm *warm,
 static int
 on_sim_next(struct sim *sim, const gsl_rng *rng, 
 	size_t *islandidx, double *mutantp, double *incumbentp, 
-	size_t *incumbentidx, double *vp, size_t gen)
+	size_t *incumbentidx, double *vp, const size_t *islands,
+	size_t gen)
 {
-	int		 fit = 0, rc;
+	int		 dosnap, rc;
 	size_t		 mutant;
 	uint64_t	 truns, tgens;
 
@@ -184,6 +182,9 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 		return(0);
 
 	truns = tgens = 0; /* Silence compiler. */
+
+	/* This is set if we "own" the LSB->warm process. */
+	dosnap = 0;
 
 	g_assert(*incumbentidx < sim->dims);
 	g_assert(*islandidx < sim->islands);
@@ -195,16 +196,22 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * This prevents us from overwriting others' results.
 	 */
 	if (NULL != vp) {
-		rc = kdata_bucket_set(sim->bufs.fractions, 
+		rc = kdata_array_add
+			(sim->bufs.times->hot, gen, 1.0);
+		g_assert(0 != rc);
+		rc = kdata_array_fill_ysizes
+			(sim->bufs.islands, islands);
+		g_assert(0 != rc);
+		rc = kdata_array_set(sim->bufs.fractions, 
 			*incumbentidx, *incumbentp, *vp);
 		g_assert(0 != rc);
-		rc = kdata_bucket_set(sim->bufs.ifractions, 
+		rc = kdata_array_set(sim->bufs.ifractions, 
 			*islandidx, *islandidx, *vp);
 		g_assert(0 != rc);
-		rc = kdata_bucket_set(sim->bufs.mutants, 
+		rc = kdata_array_set(sim->bufs.mutants, 
 			*incumbentidx, *incumbentp, 0.0 == *vp);
 		g_assert(0 != rc);
-		rc = kdata_bucket_set(sim->bufs.incumbents, 
+		rc = kdata_array_set(sim->bufs.incumbents, 
 			*incumbentidx, *incumbentp, 1.0 == *vp);
 		g_assert(0 != rc);
 		sim->hot.tgens += gen;
@@ -227,6 +234,9 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * of the hot mutex.
 	 */
 	if (1 == sim->hot.copyout) {
+		simbuf_copy_hotlsb(sim->bufs.times);
+		simbuf_copy_hotlsb(sim->bufs.islandmeans);
+		simbuf_copy_hotlsb(sim->bufs.islandstddevs);
 		simbuf_copy_hotlsb(sim->bufs.imeans);
 		simbuf_copy_hotlsb(sim->bufs.istddevs);
 		simbuf_copy_hotlsb(sim->bufs.means);
@@ -235,7 +245,7 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 		simbuf_copy_hotlsb(sim->bufs.iextinct);
 		truns = sim->hot.truns;
 		tgens = sim->hot.tgens;
-		sim->hot.copyout = fit = 2;
+		sim->hot.copyout = dosnap = 2;
 	} 
 
 	/*
@@ -267,9 +277,7 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * The mutant is either assigned the same way or from a Gaussian
 	 * distribution around the current incumbent.
 	 */
-	*incumbentp = sim->xmin + 
-		(sim->xmax - 
-		 sim->xmin) * 
+	*incumbentp = sim->xmin + (sim->xmax - sim->xmin) * 
 		(*incumbentidx / (double)sim->dims);
 
 	if (MUTANTS_GAUSSIAN == sim->mutants) {
@@ -290,7 +298,7 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 	 * copyout right now.
 	 * When we're finished, lower the copyout semaphor.
 	 */
-	if (fit) {
+	if (dosnap) {
 		snapshot(sim, &sim->warm, truns, tgens);
 		g_mutex_lock(&sim->hot.mux);
 		g_assert(2 == sim->hot.copyout);
@@ -308,7 +316,7 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
  * a(1 + delta(pi(x, X)) function.
  */
 static double
-continuum_lambda(const struct sim *sim, double x, 
+reproduce(const struct sim *sim, double x, 
 	double mutant, double incumbent, size_t mutants, size_t pop)
 {
 	double	 v;
@@ -371,10 +379,8 @@ simulation(void *arg)
 	seed = arc4random();
 	gsl_rng_set(rng, seed);
 
-	g_debug("%p: Thread (simulation %p) using RNG %s, "
-		"seed %lu, initial %lu", 
-		g_thread_self(), sim, gsl_rng_name(rng),
-		seed, gsl_rng_get(rng));
+	g_debug("%p: Thread (simulation %p) "
+		"start", g_thread_self(), sim);
 
 	icache = mcache = NULL;
 	icaches = mcaches = NULL;
@@ -397,8 +403,6 @@ simulation(void *arg)
 	 * notice the singular).
 	 */
 	if (NULL != sim->pops) {
-		g_debug("%p: Thread (simulation %p) has non-uniform "
-			"populations", g_thread_self(), sim);
 		g_assert(0 == sim->pop);
 		icaches = g_malloc0_n(sim->islands, sizeof(double *));
 		mcaches = g_malloc0_n(sim->islands, sizeof(double *));
@@ -409,9 +413,6 @@ simulation(void *arg)
 				(sim->pops[i] + 1, sizeof(double));
 		}
 	} else {
-		g_debug("%p: Thread (simulation %p) has "
-			"uniform populations: %zu", 
-			g_thread_self(), sim, sim->pop);
 		g_assert(sim->pop > 0);
 		icache = g_malloc0_n(sim->pop + 1, sizeof(double));
 		mcache = g_malloc0_n(sim->pop + 1, sizeof(double));
@@ -422,7 +423,7 @@ again:
 	 * We also pass in our last result for processing.
 	 */
 	if ( ! on_sim_next(sim, rng, &islandidx, &mutant, 
-		&incumbent, &incumbentidx, vp, t)) {
+		&incumbent, &incumbentidx, vp, imutants, t)) {
 		g_debug("%p: Thread (simulation %p) exiting", 
 			g_thread_self(), sim);
 		/*
@@ -465,19 +466,19 @@ again:
 	if (NULL != sim->pops)
 		for (i = 0; i < sim->islands; i++) {
 			for (j = 0; j <= sim->pops[i]; j++) {
-				mcaches[i][j] = continuum_lambda
+				mcaches[i][j] = reproduce
 					(sim, mutant, mutant, 
 					 incumbent, j, sim->pops[i]);
-				icaches[i][j] = continuum_lambda
+				icaches[i][j] = reproduce
 					(sim, incumbent, mutant, 
 					 incumbent, j, sim->pops[i]);
 			}
 		}
 	else
 		for (i = 0; i <= sim->pop; i++) {
-			mcache[i] = continuum_lambda(sim, mutant,
+			mcache[i] = reproduce(sim, mutant,
 				mutant, incumbent, i, sim->pop);
-			icache[i] = continuum_lambda(sim, incumbent,
+			icache[i] = reproduce(sim, incumbent,
 				mutant, incumbent, i, sim->pop);
 		}
 
@@ -640,7 +641,7 @@ again:
 		v = 0.0;
 	} else
 		v = mutants / (double)sim->totalpop;
-
+	
 	vp = &v;
 	goto again;
 }

@@ -64,20 +64,38 @@ struct	simbuf {
 };
 
 struct	simbufs {
+	/* Mutant fraction per incumbent. */
 	struct kdata	*fractions;
+	/* Mutant extinction per incumbent. */
 	struct kdata	*mutants;
+	/* Incumbent extinction per incumbent. */
 	struct kdata	*incumbents;
+	/* PMF of "fractions" minimum. */
 	struct kdata	*meanmins;
+	/* PMF of "mutants" maximum. */
 	struct kdata	*mextinctmaxs;
+	/* PMF of "incumbents" minimum. */
 	struct kdata	*iextinctmins;
+	/* "Hot" poly-smoothed mutant fraction per incumbent. */
 	struct kdata	*fitpoly;
+	/* "Cold" poly-smoothed mutant fraction per incumbent. */
 	struct kdata	*fitpolybuf;
+	/* PMF of "fitpolybuf" minimum. */
 	struct kdata	*fitpolymins;
+	/* Serialisation of "meanminq". */
 	struct kdata	*meanminqbuf;
+	/* Serialisation of "fitminq". */
 	struct kdata	*fitminqbuf;
+	/* Mutant fraction when starting on an island. */
 	struct kdata	*ifractions;
+	/* Mutant fraction per island (all incumbents). */
+	struct kdata	*islands;
+
+	struct simbuf	*times;
 	struct simbuf	*imeans;
 	struct simbuf	*istddevs;
+	struct simbuf	*islandmeans;
+	struct simbuf	*islandstddevs;
 	struct simbuf	*means;
 	struct simbuf	*stddevs;
 	struct simbuf	*mextinct;
@@ -237,6 +255,8 @@ struct	simthr {
  * Different views of simulation data.
  */
 enum	view {
+	VIEW_TIMESCDF,
+	VIEW_TIMESPDF,
 	VIEW_DEV, 
 	VIEW_EXTI,
 	VIEW_EXTIMINCDF,
@@ -247,6 +267,7 @@ enum	view {
 	VIEW_EXTMMAXPDF,
 	VIEW_EXTMMAXS,
 	VIEW_ISLANDMEAN,
+	VIEW_ISLANDERMEAN,
 	VIEW_MEAN,
 	VIEW_MEANMINCDF,
 	VIEW_MEANMINPDF,

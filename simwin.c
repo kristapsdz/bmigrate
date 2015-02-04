@@ -46,11 +46,14 @@ swin_init(struct swin *c, enum view view, GtkBuilder *b)
 	c->viewpause = win_init_menuitem(b, "menuitem20");
 	c->viewunpause = win_init_menuitem(b, "menuitem21");
 	c->views[VIEW_ISLANDMEAN] = win_init_menucheck(b, "menuitem45");
+	c->views[VIEW_ISLANDERMEAN] = win_init_menucheck(b, "menuitem46");
 	c->views[VIEW_MEAN] = win_init_menucheck(b, "menuitem8");
 	c->views[VIEW_SMEAN] = win_init_menucheck(b, "menuitem37");
 	c->views[VIEW_SEXTM] = win_init_menucheck(b, "menuitem43");
 	c->views[VIEW_SEXTI] = win_init_menucheck(b, "menuitem44");
 	c->views[VIEW_EXTM] = win_init_menucheck(b, "menuitem25");
+	c->views[VIEW_TIMESPDF] = win_init_menucheck(b, "menuitem38");
+	c->views[VIEW_TIMESCDF] = win_init_menucheck(b, "menuitem39");
 	c->views[VIEW_EXTMMAXPDF] = win_init_menucheck(b, "menuitem28");
 	c->views[VIEW_EXTMMAXCDF] = win_init_menucheck(b, "menuitem29");
 	c->views[VIEW_EXTI] = win_init_menucheck(b, "menuitem26");
@@ -391,6 +394,18 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 
 	/* Island mean and stddev. */
 	ts[0] = ts[1] = KPLOT_POINTS;
+	stats[0] = sim->bufs.islandmeans->cold;
+	stats[1] = sim->bufs.islandstddevs->cold;
+	cfgs[0] = &solidcfg;
+	cfgs[1] = &transcfg;
+	transcfg.extrema = EXTREMA_YMIN;
+	kplot_attach_datas(cur->views[VIEW_ISLANDERMEAN], 2, stats, ts, 
+		(const struct kdatacfg *const *)cfgs, 
+		KPLOTS_YERRORBAR);
+	transcfg.extrema = 0;
+
+	/* Island mean and stddev. */
+	ts[0] = ts[1] = KPLOT_POINTS;
 	stats[0] = sim->bufs.imeans->cold;
 	stats[1] = sim->bufs.istddevs->cold;
 	cfgs[0] = &solidcfg;
@@ -400,6 +415,13 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		(const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORBAR);
 	transcfg.extrema = 0;
+
+	/* Time PMF views. */
+	kplot_attach_data(cur->views[VIEW_TIMESPDF], 
+		sim->bufs.times->cold, KPLOT_LINES, &solidcfg);
+	kplot_attach_smooth(cur->views[VIEW_TIMESCDF], 
+		sim->bufs.times->cold, KPLOT_LINES, &solidcfg,
+		KSMOOTH_CDF, NULL);
 
 	/* Mean PMF views. */
 	kplot_attach_data(cur->views[VIEW_MEANMINPDF], 
@@ -1226,25 +1248,27 @@ onactivate(GtkButton *button, gpointer dat)
 	g_cond_init(&sim->hot.cond);
 
 	/* Source for the fraction of mutants. */
-	sim->bufs.fractions = kdata_bucket_alloc(0, slices);
+	sim->bufs.fractions = kdata_array_alloc(NULL, slices);
 	g_assert(NULL != sim->bufs.fractions);
-	sim->bufs.ifractions = kdata_bucket_alloc(0, islands);
+	sim->bufs.ifractions = kdata_array_alloc(NULL, islands);
 	g_assert(NULL != sim->bufs.ifractions);
-	sim->bufs.mutants = kdata_bucket_alloc(0, slices);
+	sim->bufs.mutants = kdata_array_alloc(NULL, slices);
 	g_assert(NULL != sim->bufs.mutants);
-	sim->bufs.incumbents = kdata_bucket_alloc(0, slices);
+	sim->bufs.incumbents = kdata_array_alloc(NULL, slices);
 	g_assert(NULL != sim->bufs.incumbents);
-	sim->bufs.meanmins = kdata_bucket_alloc(0, slices);
+	sim->bufs.islands = kdata_array_alloc(NULL, islands);
+	g_assert(NULL != sim->bufs.islands);
+	sim->bufs.meanmins = kdata_array_alloc(NULL, slices);
 	g_assert(NULL != sim->bufs.meanmins);
-	sim->bufs.mextinctmaxs = kdata_bucket_alloc(0, slices);
+	sim->bufs.mextinctmaxs = kdata_array_alloc(NULL, slices);
 	g_assert(NULL != sim->bufs.mextinctmaxs);
-	sim->bufs.iextinctmins = kdata_bucket_alloc(0, slices);
+	sim->bufs.iextinctmins = kdata_array_alloc(NULL, slices);
 	g_assert(NULL != sim->bufs.iextinctmins);
-	sim->bufs.fitpoly = kdata_bucket_alloc(0, slices);
+	sim->bufs.fitpoly = kdata_array_alloc(NULL, slices);
 	g_assert(NULL != sim->bufs.fitpoly);
 	sim->bufs.fitpolybuf = kdata_buffer_alloc(slices);
 	g_assert(NULL != sim->bufs.fitpolybuf);
-	sim->bufs.fitpolymins = kdata_bucket_alloc(0, slices);
+	sim->bufs.fitpolymins = kdata_array_alloc(NULL, slices);
 	g_assert(NULL != sim->bufs.fitpolymins);
 	sim->bufs.meanminqbuf = kdata_array_alloc(NULL, CQUEUESZ);
 	g_assert(NULL != sim->bufs.meanminqbuf);
@@ -1253,16 +1277,22 @@ onactivate(GtkButton *button, gpointer dat)
 
 	for (i = 0; i < slices; i++) {
 		strat = xmin + (xmax - xmin) * (i / (double)slices);
-		kdata_bucket_set(sim->bufs.fractions, i, strat, 0);
-		kdata_bucket_set(sim->bufs.mutants, i, strat, 0);
-		kdata_bucket_set(sim->bufs.incumbents, i, strat, 0);
-		kdata_bucket_set(sim->bufs.meanmins, i, strat, 0);
-		kdata_bucket_set(sim->bufs.mextinctmaxs, i, strat, 0);
-		kdata_bucket_set(sim->bufs.iextinctmins, i, strat, 0);
-		kdata_bucket_set(sim->bufs.fitpoly, i, strat, 0);
-		kdata_bucket_set(sim->bufs.fitpolymins, i, strat, 0);
+		kdata_array_set(sim->bufs.fractions, i, strat, 0);
+		kdata_array_set(sim->bufs.mutants, i, strat, 0);
+		kdata_array_set(sim->bufs.incumbents, i, strat, 0);
+		kdata_array_set(sim->bufs.meanmins, i, strat, 0);
+		kdata_array_set(sim->bufs.mextinctmaxs, i, strat, 0);
+		kdata_array_set(sim->bufs.iextinctmins, i, strat, 0);
+		kdata_array_set(sim->bufs.fitpoly, i, strat, 0);
+		kdata_array_set(sim->bufs.fitpolymins, i, strat, 0);
 	}
 
+	sim->bufs.times = simbuf_alloc
+		(kdata_array_alloc(NULL, stop + 1), stop + 1);
+	sim->bufs.islandmeans = simbuf_alloc
+		(kdata_mean_alloc(sim->bufs.islands), islands);
+	sim->bufs.islandstddevs = simbuf_alloc
+		(kdata_stddev_alloc(sim->bufs.islands), islands);
 	sim->bufs.imeans = simbuf_alloc
 		(kdata_mean_alloc(sim->bufs.ifractions), islands);
 	sim->bufs.istddevs = simbuf_alloc
