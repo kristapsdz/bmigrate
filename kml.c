@@ -206,157 +206,6 @@ kml_placemark(const gchar *buf, struct kmlplace *place)
 	return(1);
 }
 
-static void
-kml_replacekey(FILE *f, enum kmlkey key, 
-	const struct sim *sim, size_t island)
-{
-#if 0
-	double	 v, sum;
-	size_t	 i;
-
-	switch (key) {
-	case (KMLKEY_MEAN):
-		fprintf(f, "%g", stats_mean
-			(&sim->cold.islands[island]));
-		break;
-	case (KMLKEY_MEAN_PERCENT):
-		v = stats_mean(&sim->cold.islands[island]);
-		for (sum = 0.0, i = 0; i < sim->islands; i++)
-			sum += stats_mean(&sim->cold.islands[i]);
-		fprintf(f, "%.2f", v / sum * 100.0);
-		break;
-	case (KMLKEY_STDDEV):
-		fprintf(f, "%g", stats_stddev
-			(&sim->cold.islands[island]));
-		break;
-	case (KMLKEY_POPULATION):
-		assert(NULL != sim->pops);
-		fprintf(f, "%zu", sim->pops[island]);
-		break;
-	default:
-		break;
-	}
-#endif
-}
-
-static void
-kml_replace(const gchar *buf, gsize sz, struct kmlsave *p)
-{
-	gsize		 i, len, start, end, vend;
-	void		*cp;
-	enum kmlkey	 j;
-
-	for (i = 0; i < sz - 1; i++) {
-		/* Look for the starting "@@" marker. */
-		if ('@' != buf[i]) {
-			fputc(buf[i], p->f);
-			continue;
-		} else if ('@' != buf[i + 1]) {
-			fputc(buf[i], p->f);
-			continue;
-		} 
-
-		/* Seek to find the end "@@" marker. */
-		start = i + 2;
-		for (end = start + 2; end < sz - 1; end++)
-			if ('@' == buf[end] && '@' == buf[end + 1])
-				break;
-
-		/* Continue printing if not found of 0-length. */
-		if (end == sz - 1 || end == start) {
-			fputc(buf[i], p->f);
-			continue;
-		}
-
-		vend = end;
-		if (NULL != (cp = memchr(&buf[start], '=', vend)))
-			vend = start + (cp - (void *)&buf[start]);
-
-		/* Look for a matching key. */
-		for (j = 0; j < KMLKEY__MAX; j++) {
-			len = strlen(kmlkeys[j]);
-			if (len != vend - start)
-				continue;
-			else if (memcmp(&buf[start], kmlkeys[j], len))
-				continue;
-			kml_replacekey(p->f, j, 
-				p->cursim, p->curisland);
-			break;
-		}
-
-		/* Didn't find it... */
-		if (j == KMLKEY__MAX)
-			fputc(buf[i], p->f);
-		else
-			i = end + 1;
-	}
-
-	if (i < sz)
-		fputc(buf[i], p->f);
-}
-
-static void	
-kml_save_elem_end(GMarkupParseContext *ctx, 
-	const gchar *name, gpointer dat, GError **er)
-{
-	struct kmlsave	*p = dat;
-
-	if (p->buffering) {
-		kml_replace(p->buf, p->bufsz, p);
-		p->bufsz = 0;
-	}
-
-	if (0 == g_strcmp0(name, kmltypes[KML_PLACEMARK])) {
-		g_assert(p->buffering);
-		p->curisland++;
-		p->buffering = 0;
-	}
-
-	fprintf(p->f, "</%s>", name);
-}
-
-static void
-kml_save_elem_start(GMarkupParseContext *ctx, 
-	const gchar *name, const gchar **attrn, 
-	const gchar **attrv, gpointer dat, GError **er)
-{
-	struct kmlsave	*p = dat;
-
-	if (p->buffering) {
-		kml_replace(p->buf, p->bufsz, p);
-		p->bufsz = 0;
-	}
-
-	if (0 == g_strcmp0(name, kmltypes[KML_PLACEMARK])) {
-		g_assert(p->curisland < p->cursim->islands);
-		p->buffering = 1;
-	}
-
-	fputc('<', p->f);
-	fputs(name, p->f);
-	while (NULL != *attrn) {
-		g_assert(NULL != *attrv);
-		fprintf(p->f, " %s=\"%s\"", *attrn, *attrv);
-		attrn++;
-		attrv++;
-	}
-	fputc('>', p->f);
-}
-
-static void
-kml_save_text(GMarkupParseContext *ctx, 
-	const gchar *txt, gsize sz, gpointer dat, GError **er)
-{
-	struct kmlsave	*p = dat;
-
-	if ( ! p->buffering) {
-		fwrite(txt, sz, 1, p->f);
-		return;
-	}
-
-	kml_append(&p->buf, &p->bufsz, &p->bufmax, txt, sz);
-}
-
 static void	
 kml_elem_end(GMarkupParseContext *ctx, 
 	const gchar *name, gpointer dat, GError **er)
@@ -524,39 +373,6 @@ kml_error(GMarkupParseContext *ctx, GError *er, gpointer dat)
 	g_warning("%s", er->message);
 }
 
-void
-kml_save(FILE *f, struct sim *sim)
-{
-	GMarkupParseContext	*ctx;
-	GMarkupParser	  	 parse;
-	struct kmlsave		 data;
-	struct kml		*kml;
-	int			 rc;
-
-	if (NULL == (kml = sim->kml))
-		return;
-
-	memset(&parse, 0, sizeof(GMarkupParser));
-	memset(&data, 0, sizeof(struct kmlsave));
-
-	data.f = f;
-	parse.end_element = kml_save_elem_end;
-	parse.start_element = kml_save_elem_start;
-	parse.text = kml_save_text;
-	ctx = g_markup_parse_context_new(&parse, 0, &data, NULL);
-	g_assert(NULL != ctx);
-
-	data.cursim = sim;
-	data.curisland = 0;
-	rc = g_markup_parse_context_parse
-		(ctx, g_mapped_file_get_contents(kml->file),
-		 g_mapped_file_get_length(kml->file), NULL);
-	g_assert(0 != rc);
-
-	g_markup_parse_context_free(ctx);
-	g_free(data.buf);
-}
-
 struct kml *
 kml_torus(size_t islands, size_t islanders)
 {
@@ -667,6 +483,11 @@ kml_migration_twonearest(GList *list, enum maptop map)
 
 	p = g_malloc0_n(len, sizeof(double *));
 
+	/* 
+	 * Special case the torus, which has a well-defined layout
+	 * between nodes, such that the next ("right") and previous
+	 * ("left") islands, wrapping around, get the migrants.
+	 */
 	if (MAPTOP_TORUS == map) {
 		for (i = 0; i < len; i++) {
 			p[i] = g_malloc0_n(len, sizeof(double));
@@ -724,6 +545,11 @@ kml_migration_nearest(GList *list, enum maptop map)
 	g_assert(len > 0);
 	p = g_malloc0_n(len, sizeof(double *));
 
+	/* 
+	 * Special case the torus, which has a well-defined layout
+	 * between nodes, such that the next ("right") island, wrapping
+	 * around, gets the migrant.
+	 */
 	if (MAPTOP_TORUS == map) {
 		for (i = 0; i < len; i++) {
 			p[i] = g_malloc0_n(len, sizeof(double));
@@ -750,9 +576,6 @@ kml_migration_nearest(GList *list, enum maptop map)
 	return(p);
 }
 
-/*
- * Probabilities being the normalised inverse square distance.
- */
 double **
 kml_migration_distance(GList *list, enum maptop map)
 {
@@ -773,10 +596,7 @@ kml_migration_distance(GList *list, enum maptop map)
 				continue;
 			}
 			pl2 = g_list_nth_data(list, j);
-			dist = sqrt((pl1->lat - pl2->lat) * 
-				(pl1->lat - pl2->lat) + 
-				(pl1->lng - pl2->lng) * 
-				(pl1->lng - pl2->lng));
+			dist = kml_dist(pl1, pl2);
 			p[i][j] = 1.0 / (dist * dist);
 			sum += p[i][j];
 		}

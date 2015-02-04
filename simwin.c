@@ -76,7 +76,6 @@ swin_init(struct swin *c, enum view view, GtkBuilder *b)
 	c->menuunautoexport = win_init_menuitem(b, "menuitem50");
 	c->menuclose = win_init_menuitem(b, "menuitem24");
 	c->menusave = win_init_menuitem(b, "menuitem34");
-	c->menusavekml = win_init_menuitem(b, "menuitem17");
 	c->menusaveall = win_init_menuitem(b, "menuitem47");
 
 	gtk_widget_show_all(GTK_WIDGET(c->window));
@@ -197,6 +196,7 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	cairo_status_t	 st;
 	GdkRGBA		 gdkc;
 	double		 r, g, b;
+	struct ksmthcfg	 smth;
 
 	/* Get our colours. */
 	solid = cur->b->clrs[sim->colour % cur->b->clrsz];
@@ -324,6 +324,8 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	gtk_widget_show_all(GTK_WIDGET(cur->wins.boxconfig));
 
 	/* Configure our line and point style. */
+	ksmthcfg_defaults(&smth);
+	smth.movsamples = sim->smoothing;
 	kdatacfg_defaults(&solidcfg);
 	solidcfg.point.clr.type = KPLOTCTYPE_PATTERN;
 	solidcfg.point.clr.pattern = solid;
@@ -362,21 +364,21 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	/* Mutant mean and smoothed line. */
 	kplot_attach_smooth(cur->views[VIEW_SEXTM], 
 		sim->bufs.mextinct->cold, KPLOT_LINES, &solidcfg,
-		KSMOOTH_MOVAVG, NULL);
+		KSMOOTH_MOVAVG, &smth);
 	kplot_attach_data(cur->views[VIEW_SEXTM], 
 		sim->bufs.mextinct->cold, KPLOT_LINES, &transcfg);
 
 	/* Mutant mean and smoothed line. */
 	kplot_attach_smooth(cur->views[VIEW_SEXTI], 
 		sim->bufs.iextinct->cold, KPLOT_LINES, &solidcfg,
-		KSMOOTH_MOVAVG, NULL);
+		KSMOOTH_MOVAVG, &smth);
 	kplot_attach_data(cur->views[VIEW_SEXTI], 
 		sim->bufs.iextinct->cold, KPLOT_LINES, &transcfg);
 
 	/* Mean and smoothed lines. */
 	kplot_attach_smooth(cur->views[VIEW_SMEAN], 
 		sim->bufs.means->cold, KPLOT_LINES, &solidcfg,
-		KSMOOTH_MOVAVG, NULL);
+		KSMOOTH_MOVAVG, &smth);
 	kplot_attach_data(cur->views[VIEW_SMEAN], 
 		sim->bufs.means->cold, KPLOT_LINES, &transcfg);
 
@@ -1241,6 +1243,7 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->name = g_strdup(name);
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
+	sim->smoothing = gtk_adjustment_get_value(b->wins.smoothing);
 	sim->kml = kml;
 	sim->migrant = migrants;
 	sim->maptop = maptop;

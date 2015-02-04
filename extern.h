@@ -219,6 +219,7 @@ struct	sim {
 	enum input	  input; /* input structure type */
 	double		  mutantsigma; /* mutant gaussian sigma */
 	size_t		  stop; /* when to stop */
+	size_t		  smoothing;
 	gchar		 *name; /* name of simulation */
 	gchar		 *func; /* payoff function */
 	double		  alpha; /* outer multiplier */
@@ -363,6 +364,7 @@ struct	hwin {
 	GtkAdjustment	 *maprandislanders;
 	GtkAdjustment	 *maptorusislands;
 	GtkAdjustment	 *maptorusislanders;
+	GtkAdjustment	 *smoothing;
 	GtkEntry	 *totalpop;
 	GtkEntry	 *alpha;
 	GtkEntry	 *delta;
@@ -476,7 +478,6 @@ struct kml	 *kml_parse(const gchar *file, GError **er);
 struct kml	 *kml_rand(size_t, size_t);
 struct kml	 *kml_torus(size_t, size_t);
 void		  kml_free(struct kml *kml);
-void		  kml_save(FILE *file, struct sim *sim);
 double		**kml_migration_distance(GList *, enum maptop);
 double		**kml_migration_nearest(GList *, enum maptop);
 double		**kml_migration_twonearest(GList *, enum maptop);

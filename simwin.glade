@@ -35,11 +35,11 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkMenuItem" id="menuitem15">
+                      <object class="GtkMenuItem" id="menuitem47">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label">Clone View</property>
-                        <signal name="activate" handler="onclone" swapped="no"/>
+                        <property name="label" translatable="yes">Save All Views</property>
+                        <signal name="activate" handler="onsaveall" swapped="no"/>
                       </object>
                     </child>
                     <child>
@@ -49,19 +49,11 @@
                       </object>
                     </child>
                     <child>
-                      <object class="GtkMenuItem" id="menuitem17">
+                      <object class="GtkMenuItem" id="menuitem15">
                         <property name="visible">True</property>
                         <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Export KMLs</property>
-                        <signal name="activate" handler="onsavekml" swapped="no"/>
-                      </object>
-                    </child>
-                    <child>
-                      <object class="GtkMenuItem" id="menuitem47">
-                        <property name="visible">True</property>
-                        <property name="can_focus">False</property>
-                        <property name="label" translatable="yes">Export Views</property>
-                        <signal name="activate" handler="onsaveall" swapped="no"/>
+                        <property name="label">Clone Window</property>
+                        <signal name="activate" handler="onclone" swapped="no"/>
                       </object>
                     </child>
                     <child>

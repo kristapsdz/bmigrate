@@ -127,6 +127,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->inputs = win_init_notebook(b, "notebook1");
 	c->error = win_init_label(b, "label8");
 	c->func = win_init_entry(b, "entry2");
+	c->smoothing = win_init_adjustment(b, "adjustment10");
 	c->nthreads = win_init_adjustment(b, "adjustment3");
 	c->fitpoly = win_init_adjustment(b, "adjustment4");
 	c->pop = win_init_adjustment(b, "adjustment1");
@@ -893,64 +894,6 @@ on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
 		"%g", gtk_adjustment_get_value(b->wins.pop) *
 		gtk_adjustment_get_value(b->wins.islands));
 	gtk_entry_set_text(b->wins.totalpop, buf);
-}
-
-void
-onsavekml(GtkMenuItem *menuitem, gpointer dat)
-{
-	struct curwin	*cur = dat;
-	GtkWidget	*dialog;
-	gint		 res;
-	GtkFileChooser	*chooser;
-	FILE		*f;
-	struct sim	*sim;
-	char 		*file, *dir;
-	GList		*sims;
-
-	dialog = gtk_file_chooser_dialog_new
-		("Create KML Data Folder", cur->wins.window,
-		 GTK_FILE_CHOOSER_ACTION_CREATE_FOLDER,
-		 "_Cancel", GTK_RESPONSE_CANCEL,
-		 "_Create", GTK_RESPONSE_ACCEPT, NULL);
-
-	chooser = GTK_FILE_CHOOSER(dialog);
-	gtk_file_chooser_set_current_name(chooser, "bmigrate");
-	res = gtk_dialog_run(GTK_DIALOG(dialog));
-	if (res != GTK_RESPONSE_ACCEPT) {
-		gtk_widget_destroy(dialog);
-		return;
-	}
-	dir = gtk_file_chooser_get_filename(chooser);
-	gtk_widget_destroy(dialog);
-	g_assert(NULL != dir);
-	g_assert('\0' != *dir);
-
-	sims = cur->sims;
-	for ( ; NULL != sims; sims = g_list_next(sims)) {
-		sim = sims->data;
-		file = g_strdup_printf
-			("%s" G_DIR_SEPARATOR_S "%s.kml",
-			 dir, sim->name);
-		if (NULL != (f = fopen(file, "w+"))) {
-			kml_save(f, sim);
-			g_debug("Saved KML: %s", file);
-			fclose(f);
-		} else {
-			dialog = gtk_message_dialog_new
-				(GTK_WINDOW(cur->wins.window),
-				 GTK_DIALOG_DESTROY_WITH_PARENT, 
-				 GTK_MESSAGE_ERROR, 
-				 GTK_BUTTONS_CLOSE, 
-				 "Error saving %s: %s", 
-				 file, strerror(errno));
-			gtk_dialog_run(GTK_DIALOG(dialog));
-			gtk_widget_destroy(dialog);
-			g_free(file);
-			break;
-		}
-		g_free(file);
-	}
-	g_free(dir);
 }
 
 void
