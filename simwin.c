@@ -1037,6 +1037,9 @@ onactivate(GtkButton *button, gpointer dat)
 		case (MAPMIGRANT_NEAREST):
 			ms = kml_migration_nearest(kml->kmls, maptop);
 			break;
+		case (MAPMIGRANT_TWONEAREST):
+			ms = kml_migration_twonearest(kml->kmls, maptop);
+			break;
 		default:
 			break;
 		}
