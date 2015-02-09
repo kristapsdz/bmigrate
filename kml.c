@@ -423,7 +423,8 @@ kml_parse(const gchar *file, GError **er)
 	struct kmlparse		 data;
 	struct kml		*kml;
 
-	*er = NULL;
+	if (NULL != er)
+		*er = NULL;
 
 	memset(&parse, 0, sizeof(GMarkupParser));
 	memset(&data, 0, sizeof(struct kmlparse));
@@ -452,7 +453,6 @@ kml_parse(const gchar *file, GError **er)
 	kmlparse_free(data.cur);
 
 	if (0 == rc) {
-		g_assert(NULL != er);
 		g_list_free_full(data.places, kmlparse_free);
 		g_mapped_file_unref(f);
 		return(NULL);

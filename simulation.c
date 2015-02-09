@@ -262,8 +262,10 @@ on_sim_next(struct sim *sim, const gsl_rng *rng,
 		sim->hot.incumbent++;
 		if (sim->hot.incumbent == sim->dims) {
 			sim->hot.incumbent = 0;
-			sim->hot.island = (sim->hot.island + 1) % 
-				sim->islands;
+			if (MAPINDEX_STRIPED == sim->mapindex)
+				sim->hot.island = 
+					(sim->hot.island + 1) % 
+					sim->islands;
 		}
 		sim->hot.mutant = 0;
 	}
@@ -390,7 +392,9 @@ simulation(void *arg)
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 	vp = NULL;
-	incumbentidx = islandidx = 0;
+	incumbentidx = 0;
+	islandidx = MAPINDEX_FIXED == sim->mapindex ? 
+		sim->mapindexfix : 0;
 	mutant = incumbent = 0.0;
 	t = 0;
 

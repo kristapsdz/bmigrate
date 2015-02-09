@@ -190,6 +190,12 @@ enum	mapmigrant {
 	MAPMIGRANT__MAX
 };
 
+enum	mapindex {
+	MAPINDEX_STRIPED = 0,
+	MAPINDEX_FIXED,
+	MAPINDEX__MAX
+};
+
 enum	mutants {
 	MUTANTS_DISCRETE = 0,
 	MUTANTS_GAUSSIAN,
@@ -228,6 +234,8 @@ struct	sim {
 	double		**ms; /* nonuniform migration probability */
 	struct kml	 *kml; /* KML places */
 	enum mapmigrant	  migrant;
+	enum mapindex	  mapindex;
+	size_t		  mapindexfix;
 	enum maptop	  maptop;
 	size_t		  colour; /* graph colour */
 	struct hnode	**exp; /* n-player function */
@@ -333,8 +341,10 @@ struct	hwin {
 	GtkToggleButton	 *namefill[NAMEFILL__MAX];
 	GtkToggleButton	 *mapmigrants[MAPMIGRANT__MAX];
 	GtkToggleButton	 *weighted;
+	GtkToggleButton	 *mapindices[MAPINDEX__MAX];
+	GtkAdjustment	 *mapindexfix;
 	GtkEntry	 *stop;
-	GtkEntry	 *input;
+	GtkLabel	 *input;
 	GtkButton	 *buttonrange;
 	GtkLabel	 *rangemax;
 	GtkLabel	 *rangemin;
@@ -365,7 +375,7 @@ struct	hwin {
 	GtkAdjustment	 *maptorusislands;
 	GtkAdjustment	 *maptorusislanders;
 	GtkAdjustment	 *smoothing;
-	GtkEntry	 *totalpop;
+	GtkLabel	 *totalpop;
 	GtkEntry	 *alpha;
 	GtkEntry	 *delta;
 	GtkEntry	 *migrate[INPUT__MAX];

@@ -102,6 +102,9 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->rangestatus = win_init_label(b, "label46");
 	c->rangefunc = win_init_label(b, "label50");
 	c->buttonrange = win_init_button(b, "button4");
+	c->mapindices[MAPINDEX_STRIPED] = win_init_toggle(b, "radiobutton15");
+	c->mapindices[MAPINDEX_FIXED] = win_init_toggle(b, "radiobutton16");
+	c->mapindexfix = win_init_adjustment(b, "adjustment11");
 	c->namefill[NAMEFILL_DATE] = win_init_toggle(b, "radiobutton3");
 	c->namefill[NAMEFILL_M] = win_init_toggle(b, "radiobutton4");
 	c->namefill[NAMEFILL_T] = win_init_toggle(b, "radiobutton7");
@@ -116,7 +119,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->mutants[MUTANTS_GAUSSIAN] = win_init_radio(b, "radiobutton2");
 	c->weighted = win_init_toggle(b, "checkbutton1");
 	c->menuquit = win_init_menuitem(b, "menuitem5");
-	c->input = win_init_entry(b, "entry3");
+	c->input = win_init_label(b, "label19");
 	c->mutantsigma = win_init_entry(b, "entry17");
 	c->name = win_init_entry(b, "entry16");
 	c->stop = win_init_entry(b, "entry9");
@@ -131,7 +134,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->nthreads = win_init_adjustment(b, "adjustment3");
 	c->fitpoly = win_init_adjustment(b, "adjustment4");
 	c->pop = win_init_adjustment(b, "adjustment1");
-	c->totalpop = win_init_entry(b, "entry12");
+	c->totalpop = win_init_label(b, "label68");
 	c->islands = win_init_adjustment(b, "adjustment2");
 	c->resprocs = win_init_label(b, "label3");
 	c->onprocs = win_init_label(b, "label36");
@@ -157,7 +160,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	gtk_widget_hide(GTK_WIDGET(c->error));
 
 	/* Set the initially-selected notebooks. */
-	gtk_entry_set_text(c->input, inputs
+	gtk_label_set_text(c->input, inputs
 		[gtk_notebook_get_current_page(c->inputs)]);
 
 	/* XXX: builder doesn't do this. */
@@ -180,7 +183,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	(void)g_snprintf(buf, sizeof(buf),
 		"%g", gtk_adjustment_get_value(c->pop) *
 		gtk_adjustment_get_value(c->islands));
-	gtk_entry_set_text(c->totalpop, buf);
+	gtk_label_set_text(c->totalpop, buf);
 
 	g_get_current_time(&gt);
 	bufp = g_time_val_to_iso8601(&gt);
@@ -865,35 +868,117 @@ onpreset(GtkComboBox *widget, gpointer dat)
 	}
 }
 
-/*
- * Run this whenever we select a page from the configuration notebook.
- * This sets (for the user) the current configuration in an entry.
- */
-gboolean
+static void
+on_totalpop(struct bmigrate *b, gint pnum)
+{
+	GList		*l, *cl, *sv;
+	gchar	 	 buf[32];
+	double		 v = 0.0;
+	enum maptop	 maptop;
+	struct kml	*kml;
+	struct kmlplace	*kmlp;
+	gchar		*file;
+
+	switch (pnum) {
+	case (INPUT_UNIFORM):
+		gtk_label_set_text(b->wins.input, "uniform");
+		v = gtk_adjustment_get_value(b->wins.pop) *
+			gtk_adjustment_get_value(b->wins.islands);
+		break;
+	case (INPUT_VARIABLE):
+		gtk_label_set_text(b->wins.input, "variable");
+		l = sv = gtk_container_get_children
+			(GTK_CONTAINER(b->wins.mapbox));
+		for (; NULL != l; l = g_list_next(l)) {
+			cl = gtk_container_get_children
+				(GTK_CONTAINER(l->data));
+			v += gtk_spin_button_get_value_as_int
+				(GTK_SPIN_BUTTON(g_list_next(cl)->data));
+			g_list_free(cl);
+		}
+		g_list_free(sv);
+		break;
+	case (INPUT_MAPPED):
+		for (maptop = 0; maptop < MAPTOP__MAX; maptop++)
+			if (gtk_toggle_button_get_active
+				 (b->wins.maptop[maptop]))
+				break;
+		switch (maptop) {
+		case (MAPTOP_RECORD):
+			gtk_label_set_text(b->wins.input, 
+				"KML islands");
+			file = gtk_file_chooser_get_filename
+				(b->wins.mapfile);
+			if (NULL == file)
+				break;
+			kml = kml_parse(file, NULL);
+			if (NULL == kml)
+				break;
+			l = kml->kmls;
+			for ( ; NULL != l; l = g_list_next(l)) {
+				kmlp = l->data;
+				v += kmlp->pop;
+			}
+			kml_free(kml);
+			break;
+		case (MAPTOP_RAND):
+			gtk_label_set_text(b->wins.input, 
+				"random islands");
+			v = gtk_adjustment_get_value
+				(b->wins.maprandislands) *
+				gtk_adjustment_get_value
+				(b->wins.maprandislanders);
+			break;
+		case (MAPTOP_TORUS):
+			gtk_label_set_text(b->wins.input, 
+				"toroidal islands");
+			v = gtk_adjustment_get_value
+				(b->wins.maptorusislands) *
+				gtk_adjustment_get_value
+				(b->wins.maptorusislanders);
+			break;
+		default:
+			abort();
+		}
+		break;
+	default:
+		abort();
+	}
+
+	g_snprintf(buf, sizeof(buf), "%g", v);
+	gtk_label_set_text(b->wins.totalpop, buf);
+}
+
+void
 on_change_input(GtkNotebook *notebook, 
 	GtkWidget *page, gint pnum, gpointer dat)
 {
-	struct bmigrate	*b = dat;
 
-	assert(pnum < INPUT__MAX);
-	gtk_entry_set_text(b->wins.input, inputs[pnum]);
-	return(TRUE);
+	on_totalpop(dat, pnum);
 }
 
-/*
- * We've changed either the island population or the number of islands,
- * so set our unmodifiable "total population" field.
- */
+void
+on_change_mapfile(GtkFileChooserButton *widget, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	on_totalpop(b, gtk_notebook_get_current_page(b->wins.inputs));
+}
+
+void
+on_change_maptype(GtkToggleButton *togglebutton, gpointer dat)
+{
+	struct bmigrate	*b = dat;
+
+	on_totalpop(b, gtk_notebook_get_current_page(b->wins.inputs));
+}
+
 void
 on_change_totalpop(GtkSpinButton *spinbutton, gpointer dat)
 {
 	struct bmigrate	*b = dat;
-	gchar	 	 buf[1024];
 
-	(void)g_snprintf(buf, sizeof(buf),
-		"%g", gtk_adjustment_get_value(b->wins.pop) *
-		gtk_adjustment_get_value(b->wins.islands));
-	gtk_entry_set_text(b->wins.totalpop, buf);
+	on_totalpop(b, gtk_notebook_get_current_page(b->wins.inputs));
 }
 
 void
@@ -1070,7 +1155,8 @@ on_deactivate(GtkButton *button, gpointer dat)
 static void
 mapbox_add(struct bmigrate *b, size_t sz)
 {
-	GtkWidget	*box, *entry, *label;
+	GtkWidget	*box, *label, *btn;
+	GtkAdjustment	*adj;
 	gchar		 buf[64];
 
 	box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
@@ -1081,11 +1167,13 @@ mapbox_add(struct bmigrate *b, size_t sz)
 	gtk_label_set_width_chars(GTK_LABEL(label), 18);
 	gtk_container_add(GTK_CONTAINER(box), label);
 
-	entry = gtk_entry_new();
-	gtk_entry_set_text(GTK_ENTRY(entry), "10");
-	gtk_entry_set_width_chars(GTK_ENTRY(entry), 7);
-	gtk_container_add(GTK_CONTAINER(box), entry);
-
+	adj = gtk_adjustment_new(2.0, 2.0, 1000.0, 1.0, 10.0, 0.0);
+	btn = gtk_spin_button_new(adj, 1.0, 0);
+	g_signal_connect(btn, "value-changed", 
+		G_CALLBACK(on_change_totalpop), b);
+	gtk_spin_button_set_numeric(GTK_SPIN_BUTTON(btn), TRUE);
+	gtk_spin_button_set_snap_to_ticks(GTK_SPIN_BUTTON(btn), TRUE);
+	gtk_container_add(GTK_CONTAINER(box), btn);
 	gtk_container_add(GTK_CONTAINER(b->wins.mapbox), box);
 	gtk_widget_show_all(box);
 }
@@ -1127,6 +1215,7 @@ onislandspin(GtkSpinButton *spinbutton, gpointer dat)
 			mapbox_rem(b);
 	}
 
+	on_totalpop(b, gtk_notebook_get_current_page(b->wins.inputs));
 }
 
 int 

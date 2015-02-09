@@ -338,9 +338,6 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	transcfg.line.clr.type = KPLOTCTYPE_PATTERN;
 	transcfg.line.clr.pattern = trans;
 
-	solidcfg.extrema_ymin = 0.0;
-	transcfg.extrema_ymin = 0.0;
-
 	/* Mean view. */
 	kplot_attach_data(cur->views[VIEW_MEAN], 
 		sim->bufs.means->cold, KPLOT_LINES, &solidcfg);
@@ -354,10 +351,8 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		sim->bufs.iextinct->cold, KPLOT_LINES, &solidcfg);
 
 	/* Mean and poly-fitted line. */
-	transcfg.extrema = EXTREMA_YMIN;
 	kplot_attach_data(cur->views[VIEW_POLY], 
 		sim->bufs.fitpolybuf, KPLOT_LINES, &solidcfg);
-	transcfg.extrema = 0;
 	kplot_attach_data(cur->views[VIEW_POLY], 
 		sim->bufs.means->cold, KPLOT_LINES, &transcfg);
 
@@ -388,11 +383,9 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	stats[1] = sim->bufs.stddevs->cold;
 	cfgs[0] = &solidcfg;
 	cfgs[1] = &transcfg;
-	solidcfg.extrema = EXTREMA_YMIN;
 	kplot_attach_datas(cur->views[VIEW_DEV], 2, stats, ts, 
 		(const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORLINE);
-	solidcfg.extrema = 0;
 
 	/* Island mean and stddev. */
 	ts[0] = ts[1] = KPLOT_POINTS;
@@ -400,11 +393,9 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	stats[1] = sim->bufs.islandstddevs->cold;
 	cfgs[0] = &solidcfg;
 	cfgs[1] = &transcfg;
-	transcfg.extrema = EXTREMA_YMIN;
 	kplot_attach_datas(cur->views[VIEW_ISLANDERMEAN], 2, stats, ts, 
 		(const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORBAR);
-	transcfg.extrema = 0;
 
 	/* Island mean and stddev. */
 	ts[0] = ts[1] = KPLOT_POINTS;
@@ -412,11 +403,9 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	stats[1] = sim->bufs.istddevs->cold;
 	cfgs[0] = &solidcfg;
 	cfgs[1] = &transcfg;
-	transcfg.extrema = EXTREMA_YMIN;
 	kplot_attach_datas(cur->views[VIEW_ISLANDMEAN], 2, stats, ts, 
 		(const struct kdatacfg *const *)cfgs, 
 		KPLOTS_YERRORBAR);
-	transcfg.extrema = 0;
 
 	/* Time PMF views. */
 	kplot_attach_data(cur->views[VIEW_TIMESPDF], 
@@ -798,39 +787,6 @@ entry2size(GtkEntry *entry, size_t *sz, GtkLabel *error, size_t min)
 }
 
 /*
- * Validate the contents of a "mapbox", that is, an island
- * configuration.
- * For the moment, this simply checks the island population.
- */
-static int
-mapbox2pair(GtkLabel *err, GtkWidget *w, size_t *n)
-{
-	GList		*list, *cur;
-
-	list = gtk_container_get_children(GTK_CONTAINER(w));
-	g_assert(NULL != list);
-	cur = list->next;
-	g_assert(NULL != cur);
-#if 0
-	if ( ! entry2double(GTK_ENTRY(cur->data), m, err)) {
-		g_list_free(list);
-		return(0);
-	}
-	cur = cur->next;
-	g_assert(NULL != cur);
-	cur = cur->next;
-	g_assert(NULL != cur);
-#endif
-	if ( ! entry2size(GTK_ENTRY(cur->data), n, err, 2))  {
-		g_list_free(list);
-		return(0);
-	}
-
-	g_list_free(list);
-	return(1);
-}
-
-/*
  * We have various ways of auto-setting the name of the simulation.
  * By default, it's set to the current date-time.
  */
@@ -927,7 +883,7 @@ onactivate(GtkButton *button, gpointer dat)
 	enum mapmigrant	  migrants;
 	GtkWidget	 *w;
 	struct kml	 *kml;
-	GList		 *list;
+	GList		 *l, *cl;
 	GtkLabel	 *err = b->wins.error;
 	const gchar	 *name, *func;
 	gchar	  	 *file;
@@ -936,7 +892,7 @@ onactivate(GtkButton *button, gpointer dat)
 			  ymin, ymax;
 	enum mutants	  mutants;
 	size_t		  i, totalpop, islands, stop, 
-			  slices, islandpop;
+			  slices, islandpop, mapindexfix;
 	size_t		 *islandpops;
 	struct sim	 *sim;
 	struct curwin	 *cur;
@@ -944,6 +900,7 @@ onactivate(GtkButton *button, gpointer dat)
 	GError		 *er;
 	double		  strat;
 	enum maptop	  maptop;
+	enum mapindex	  mapindex;
 
 	islandpops = NULL;
 	islandpop = 0;
@@ -959,6 +916,14 @@ onactivate(GtkButton *button, gpointer dat)
 			 (b->wins.mapmigrants[migrants]))
 			break;
 	g_assert(migrants < MAPMIGRANT__MAX);
+
+	for (mapindex = 0; mapindex < MAPINDEX__MAX; mapindex++)
+		if (gtk_toggle_button_get_active
+			 (b->wins.mapindices[mapindex]))
+			break;
+	g_assert(mapindex < MAPINDEX__MAX);
+	mapindexfix = MAPINDEX_FIXED != mapindex ? 0 :
+		gtk_adjustment_get_value(b->wins.mapindexfix);
 
 	for (maptop = 0; maptop < MAPTOP__MAX; maptop++)
 		if (gtk_toggle_button_get_active
@@ -983,16 +948,18 @@ onactivate(GtkButton *button, gpointer dat)
 		 * We also add a check to see if we're really running
 		 * with different island sizes or not.
 		 */
-		list = gtk_container_get_children
+		l = gtk_container_get_children
 			(GTK_CONTAINER(b->wins.mapbox));
-		islands = g_list_length(list);
+		islands = g_list_length(l);
 		islandpops = g_malloc0_n(islands, sizeof(size_t));
 		for (i = 0; i < islands; i++) {
-			w = GTK_WIDGET(g_list_nth_data(list, i));
-			if ( ! mapbox2pair(err, w, &islandpops[i]))
-				goto cleanup;
+			w = GTK_WIDGET(g_list_nth_data(l, i));
+			cl = gtk_container_get_children(GTK_CONTAINER(w));
+			islandpops[i] = gtk_spin_button_get_value_as_int
+				(GTK_SPIN_BUTTON(g_list_next(cl)->data));
+			g_list_free(cl);
 		}
-		g_list_free(list);
+		g_list_free(l);
 		break;
 	case (INPUT_MAPPED):
 		/*
@@ -1247,6 +1214,11 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->kml = kml;
 	sim->migrant = migrants;
 	sim->maptop = maptop;
+	sim->mapindex = mapindex;
+	if ((sim->mapindexfix = mapindexfix) > sim->islands) {
+		g_debug("Clamping map index to %zu", sim->islands - 1);
+		sim->mapindexfix = sim->islands - 1;
+	}
 	g_mutex_init(&sim->hot.mux);
 	g_cond_init(&sim->hot.cond);
 
