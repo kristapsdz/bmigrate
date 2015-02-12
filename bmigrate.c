@@ -325,7 +325,6 @@ sim_stop(gpointer arg, gpointer unused)
 static void
 bmigrate_free(struct bmigrate *p)
 {
-	size_t	 i;
 
 	g_debug("%p: Freeing main", p);
 	g_list_foreach(p->sims, sim_stop, NULL);
@@ -336,8 +335,6 @@ bmigrate_free(struct bmigrate *p)
 	if (NULL != p->status_elapsed)
 		g_timer_destroy(p->status_elapsed);
 	p->status_elapsed = NULL;
-	for (i = 0; i < p->clrsz; i++)
-		cairo_pattern_destroy(p->clrs[i]);
 	p->clrsz = 0;
 	free(p->clrs);
 	p->clrs = NULL;

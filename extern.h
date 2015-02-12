@@ -445,8 +445,8 @@ struct	bmigrate {
 	GtkWidget	 *current; /* the current window or NULL */
 	guint		  rangeid; /* range-finding process */
 	struct range	  range; /* range-finding data */
-	cairo_pattern_t	**clrs;
-	size_t		  clrsz;
+	struct kplotccfg *clrs; /* default colour palette */
+	size_t		  clrsz; /* elements in clrs */
 };
 
 struct	kmlplace {

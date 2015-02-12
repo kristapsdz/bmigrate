@@ -40,7 +40,6 @@ savepng(const gchar *fname, const struct curwin *c)
 	cairo_surface_t	*surf;
 	cairo_t		*cr;
 	cairo_status_t	 st;
-	int		 rc;
 
 	g_debug("%p: Saving: %s", c, fname);
 	surf = cairo_image_surface_create
@@ -66,8 +65,7 @@ savepng(const gchar *fname, const struct curwin *c)
 	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
 	cairo_rectangle(cr, 0.0, 0.0, 600.0, 400.0);
 	cairo_fill(cr);
-	rc = kplot_draw(c->views[c->view], 600.0, 400.0, cr, NULL);
-	g_assert(0 != rc);
+	kplot_draw(c->views[c->view], 600.0, 400.0, cr);
 
 	st = cairo_surface_write_to_png(cairo_get_target(cr), fname);
 
@@ -88,7 +86,6 @@ savepdf(const gchar *fname, const struct curwin *c, enum savetype type)
 	cairo_t		*cr;
 	cairo_status_t	 st;
 	const double	 w = 72 * 6, h = 72 * 4;
-	int		 rc;
 
 	g_debug("%p: Saving: %s", c, fname);
 	switch (type) {
@@ -126,8 +123,7 @@ savepdf(const gchar *fname, const struct curwin *c, enum savetype type)
 	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
 	cairo_rectangle(cr, 0.0, 0.0, w, h);
 	cairo_fill(cr);
-	rc = kplot_draw(c->views[c->view], w, h, cr, NULL);
-	g_assert(0 != rc);
+	kplot_draw(c->views[c->view], w, h, cr);
 	cairo_destroy(cr);
 	return(1);
 }

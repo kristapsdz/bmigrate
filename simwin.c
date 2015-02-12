@@ -192,19 +192,16 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	enum kplottype	 ts[2];
 	struct kdatacfg	 solidcfg, transcfg;
 	struct kdatacfg	*cfgs[2];
-	cairo_pattern_t	*solid, *trans;
-	cairo_status_t	 st;
+	double		 solid[4], trans[4];
 	GdkRGBA		 gdkc;
-	double		 r, g, b;
 	struct ksmthcfg	 smth;
 
 	/* Get our colours. */
-	solid = cur->b->clrs[sim->colour % cur->b->clrsz];
-	st = cairo_pattern_get_rgba(solid, &r, &g, &b, NULL);
-	g_assert(CAIRO_STATUS_SUCCESS == st);
-	trans = cairo_pattern_create_rgba(r, g, b, 0.4);
-	st = cairo_pattern_status(trans);
-	g_assert(CAIRO_STATUS_SUCCESS == st);
+
+	memcpy(solid, cur->b->clrs[sim->colour % 
+		cur->b->clrsz].rgba, sizeof(solid));
+	memcpy(trans, solid, sizeof(trans));
+	trans[3] = 0.4;
 
 	/* Append to the per-window simulation views. */
 	kdata_vector_append(cur->winmean, 
@@ -229,10 +226,10 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 
 	leftbox = gtk_label_new("  ");
 	gtk_container_add(GTK_CONTAINER(outbox), leftbox);
-	gdkc.red = r;
-	gdkc.green = g;
-	gdkc.blue = b;
-	gdkc.alpha = 1.0;
+	gdkc.red = solid[0];
+	gdkc.green = solid[1];
+	gdkc.blue = solid[2];
+	gdkc.alpha = solid[3];
 	gtk_widget_override_background_color
 		(leftbox, GTK_STATE_NORMAL, &gdkc);
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
@@ -327,16 +324,16 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	ksmthcfg_defaults(&smth);
 	smth.movsamples = sim->smoothing;
 	kdatacfg_defaults(&solidcfg);
-	solidcfg.point.clr.type = KPLOTCTYPE_PATTERN;
-	solidcfg.point.clr.pattern = solid;
-	solidcfg.line.clr.type = KPLOTCTYPE_PATTERN;
-	solidcfg.line.clr.pattern = solid;
+	solidcfg.point.clr.type = KPLOTCTYPE_RGBA;
+	memcpy(solidcfg.point.clr.rgba, solid, sizeof(solid));
+	solidcfg.line.clr.type = KPLOTCTYPE_RGBA;
+	memcpy(solidcfg.line.clr.rgba, solid, sizeof(solid));
 
 	kdatacfg_defaults(&transcfg);
-	transcfg.point.clr.type = KPLOTCTYPE_PATTERN;
-	transcfg.point.clr.pattern = trans;
-	transcfg.line.clr.type = KPLOTCTYPE_PATTERN;
-	transcfg.line.clr.pattern = trans;
+	transcfg.point.clr.type = KPLOTCTYPE_RGBA;
+	memcpy(transcfg.point.clr.rgba, trans, sizeof(trans));
+	transcfg.line.clr.type = KPLOTCTYPE_RGBA;
+	memcpy(transcfg.line.clr.rgba, trans, sizeof(trans));
 
 	/* Mean view. */
 	kplot_attach_data(cur->views[VIEW_MEAN], 
@@ -408,36 +405,41 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		KPLOTS_YERRORBAR);
 
 	/* Time PMF views. */
-	kplot_attach_data(cur->views[VIEW_TIMESPDF], 
-		sim->bufs.times->cold, KPLOT_LINES, &solidcfg);
+	kplot_attach_smooth(cur->views[VIEW_TIMESPDF], 
+		sim->bufs.times->cold, KPLOT_LINES, &solidcfg,
+		KSMOOTH_PMF, NULL);
 	kplot_attach_smooth(cur->views[VIEW_TIMESCDF], 
 		sim->bufs.times->cold, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
 	/* Mean PMF views. */
-	kplot_attach_data(cur->views[VIEW_MEANMINPDF], 
-		sim->bufs.meanmins, KPLOT_LINES, &solidcfg);
+	kplot_attach_smooth(cur->views[VIEW_MEANMINPDF], 
+		sim->bufs.meanmins, KPLOT_LINES, &solidcfg,
+		KSMOOTH_PMF, NULL);
 	kplot_attach_smooth(cur->views[VIEW_MEANMINCDF], 
 		sim->bufs.meanmins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
 	/* Mutant PMF views. */
-	kplot_attach_data(cur->views[VIEW_EXTMMAXPDF], 
-		sim->bufs.mextinctmaxs, KPLOT_LINES, &solidcfg);
+	kplot_attach_smooth(cur->views[VIEW_EXTMMAXPDF], 
+		sim->bufs.mextinctmaxs, KPLOT_LINES, &solidcfg,
+		KSMOOTH_PMF, NULL);
 	kplot_attach_smooth(cur->views[VIEW_EXTMMAXCDF], 
 		sim->bufs.mextinctmaxs, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
 	/* Incumbent PMF views. */
-	kplot_attach_data(cur->views[VIEW_EXTIMINPDF], 
-		sim->bufs.iextinctmins, KPLOT_LINES, &solidcfg);
+	kplot_attach_smooth(cur->views[VIEW_EXTIMINPDF], 
+		sim->bufs.iextinctmins, KPLOT_LINES, &solidcfg,
+		KSMOOTH_PMF, NULL);
 	kplot_attach_smooth(cur->views[VIEW_EXTIMINCDF], 
 		sim->bufs.iextinctmins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
 
 	/* Fit poly PMF views. */
-	kplot_attach_data(cur->views[VIEW_POLYMINPDF], 
-		sim->bufs.fitpolymins, KPLOT_LINES, &solidcfg);
+	kplot_attach_smooth(cur->views[VIEW_POLYMINPDF], 
+		sim->bufs.fitpolymins, KPLOT_LINES, &solidcfg,
+		KSMOOTH_PMF, NULL);
 	kplot_attach_smooth(cur->views[VIEW_POLYMINCDF], 
 		sim->bufs.fitpolymins, KPLOT_LINES, &solidcfg,
 		KSMOOTH_CDF, NULL);
@@ -447,8 +449,6 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 
 	kplot_attach_data(cur->views[VIEW_POLYMINQ], 
 		sim->bufs.fitminqbuf, KPLOT_LINES, &solidcfg);
-
-	cairo_pattern_destroy(trans);
 }
 
 /*
@@ -557,6 +557,7 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	struct kdata	*stats[2];
 	enum kplottype	 ts[2];
 	size_t		 i;
+	struct kplotcfg	 cfg;
 
 	builder = builder_get("simwin.glade");
 	g_assert(NULL != builder);
@@ -574,7 +575,108 @@ window_init(struct bmigrate *b, struct curwin *cur, GList *sims)
 	cur->winiextinctstddev = kdata_vector_alloc(1);
 
 	for (i = 0; i < VIEW__MAX; i++) {
-		cur->views[i] = kplot_alloc();
+		kplotcfg_defaults(&cfg);
+		switch (i) {
+		case (VIEW_DEV):
+		case (VIEW_POLY):
+		case (VIEW_EXTIMINS):
+		case (VIEW_EXTMMAXS):
+		case (VIEW_MEANMINS):
+		case (VIEW_POLYMINS):
+		case (VIEW_ISLANDMEAN):
+		case (VIEW_ISLANDERMEAN):
+			cfg.extrema_ymin = 0.0;
+			cfg.extrema = EXTREMA_YMIN;
+			break;
+		default:
+			break;
+		}
+
+		switch (i) {
+		case (VIEW_DEV): 
+		case (VIEW_EXTI):
+		case (VIEW_EXTIMINCDF):
+		case (VIEW_EXTIMINPDF):
+		case (VIEW_EXTM):
+		case (VIEW_EXTMMAXCDF):
+		case (VIEW_EXTMMAXPDF):
+		case (VIEW_MEAN):
+		case (VIEW_MEANMINCDF):
+		case (VIEW_MEANMINPDF):
+		case (VIEW_POLY):
+		case (VIEW_POLYMINCDF):
+		case (VIEW_POLYMINPDF):
+		case (VIEW_SEXTM):
+		case (VIEW_SEXTI):
+		case (VIEW_SMEAN):
+			cfg.xaxislabel = "incumbent";
+			break;
+		case (VIEW_ISLANDMEAN):
+		case (VIEW_ISLANDERMEAN):
+			cfg.xaxislabel = "island";
+			break;
+		case (VIEW_TIMESCDF):
+		case (VIEW_TIMESPDF):
+			cfg.xaxislabel = "exit time";
+			break;
+		case (VIEW_EXTIMINS):
+		case (VIEW_EXTMMAXS):
+		case (VIEW_MEANMINS):
+		case (VIEW_POLYMINS):
+			cfg.xaxislabel = "simulation";
+			break;
+		case (VIEW_MEANMINQ):
+		case (VIEW_POLYMINQ):
+			cfg.xaxislabel = "relative time";
+			break;
+		default:
+			abort();
+		}
+
+		cfg.yaxislabelrot = M_PI / 2;
+
+		switch (i) {
+		case (VIEW_POLY):
+		case (VIEW_DEV): 
+		case (VIEW_MEAN):
+		case (VIEW_SMEAN):
+			cfg.y2axislabel = "mutant fraction";
+			break;
+		case (VIEW_SEXTI):
+		case (VIEW_EXTI):
+			cfg.y2axislabel = "incumbent extinction";
+			break;
+		case (VIEW_SEXTM):
+		case (VIEW_EXTM):
+			cfg.y2axislabel = "mutant extinction";
+			break;
+		case (VIEW_EXTIMINCDF):
+		case (VIEW_EXTIMINPDF):
+		case (VIEW_EXTMMAXCDF):
+		case (VIEW_EXTMMAXPDF):
+		case (VIEW_MEANMINCDF):
+		case (VIEW_MEANMINPDF):
+		case (VIEW_POLYMINCDF):
+		case (VIEW_POLYMINPDF):
+		case (VIEW_TIMESCDF):
+		case (VIEW_TIMESPDF):
+			break;
+		case (VIEW_ISLANDMEAN):
+		case (VIEW_ISLANDERMEAN):
+			cfg.y2axislabel = "mutant fraction mean";
+			break;
+		case (VIEW_EXTMMAXS):
+		case (VIEW_EXTIMINS):
+		case (VIEW_MEANMINS):
+		case (VIEW_POLYMINS):
+		case (VIEW_MEANMINQ):
+		case (VIEW_POLYMINQ):
+			cfg.y2axislabel = "incumbent";
+			break;
+		default:
+			abort();
+		}
+		cur->views[i] = kplot_alloc(&cfg);
 		g_assert(NULL != cur->views[i]);
 	}
 
