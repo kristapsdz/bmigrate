@@ -143,3 +143,82 @@ save(const gchar *fname, const struct curwin *cur)
 	else
 		return(savepng(fname, cur));
 }
+
+int
+saveconfig(const gchar *fname, const struct curwin *cur)
+{
+	FILE		*f;
+	struct sim	*sim;
+	GList		*l;
+
+	if (NULL == (f = fopen(fname, "w")))
+		return(0);
+
+	for (l = cur->sims; NULL != l; l = g_list_next(l)) {
+		sim = l->data;
+		fprintf(f, "Name: %s\n", sim->name);
+		fprintf(f, "Function: %s\n", sim->func);
+		fprintf(f, "Threads: %zu\n", sim->nprocs);
+		fprintf(f, "Multiplier: %g(1 + %g lambda)\n", 
+			sim->alpha, sim->delta);
+		fprintf(f, "Max generations: %zu\n", sim->stop);
+		fprintf(f, "Migration: %g (%suniform)\n", 
+			sim->m, NULL != sim->ms ? "non-" : "");
+		fprintf(f, "Incumbents: %zu, [%g,%g)\n", 
+			sim->dims, sim->xmin, sim->xmax);
+		fprintf(f, "Rolling average window: %zu\n", sim->smoothing);
+		switch (sim->maptop) {
+		case (MAPTOP_RECORD):
+			fprintf(f, "Map: record-based\n");
+			break;
+		case (MAPTOP_RAND):
+			fprintf(f, "Map: random\n");
+			break;
+		case (MAPTOP_TORUS):
+			fprintf(f, "Map: torus\n");
+			break;
+		default:
+			abort();
+		}
+		switch (sim->migrant) {
+		case (MAPMIGRANT_UNIFORM):
+			fprintf(f, "Migration: uniform\n");
+			break;
+		case (MAPMIGRANT_DISTANCE):
+			fprintf(f, "Migration: distance\n");
+			break;
+		case (MAPMIGRANT_NEAREST):
+			fprintf(f, "Migration: nearest\n");
+			break;
+		case (MAPMIGRANT_TWONEAREST):
+			fprintf(f, "Migration: two nearest\n");
+			break;
+		default:
+			abort();
+		}
+		if (MAPINDEX_STRIPED == sim->mapindex)
+			fprintf(f, "Mutant index case: striped\n");
+		else
+			fprintf(f, "Mutant index case: fixed (%zu)\n",
+				sim->mapindexfix);
+		if (MUTANTS_DISCRETE == sim->mutants)
+			fprintf(f, "Mutants: %zu, [%g,%g)\n", 
+				sim->dims, sim->ymin, sim->ymax);
+		else
+			fprintf(f, "Mutants: N(sigma=%g), [%g,%g)\n", 
+				sim->mutantsigma, sim->ymin, sim->ymax);
+		fprintf(f, "Islands: %zu (%zu islanders)\n", 
+			sim->islands, sim->totalpop);
+		if (NULL != sim->pops)
+			fprintf(f, "Island populations: non-uniform\n");
+		else
+			fprintf(f, "Island populations: %zu\n", sim->pop);
+		fprintf(f, "Fit polynomial: %zu (%sweighted)\n",
+			sim->fitpoly, 0 == sim->weighted ? "un" : "");
+
+		fprintf(f, "\n");
+	}
+
+	fclose(f);
+	return(1);
+}

@@ -37,18 +37,6 @@ static	const char *const inputs[INPUT__MAX] = {
 	"mapped",
 };
 
-static	const char *const colours[SIZE_COLOURS] = {
-	"#9400d3",
-	"#009e73",
-	"#56b4e9",
-	"#e69f00",
-	"#f0e442",
-	"#0072b2",
-	"#e51e10",
-	"black",
-	"gray50"
-};
-
 static	const char *const views[VIEW__MAX] = {
 	"times-cdf", /* VIEW_TIMEESCDF */
 	"times-pdf", /* VIEW_TIMEESPDF */
@@ -84,9 +72,8 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	GObject		*w;
 	gchar		 buf[1024];
 	gchar		*bufp;
-	gboolean	 val;
 	GTimeVal	 gt;
-	size_t		 i, nprocs;
+	size_t		 nprocs;
 
 	c->maptop[MAPTOP_RECORD] = win_init_toggle(b, "radiobutton10");
 	c->maptop[MAPTOP_RAND] = win_init_toggle(b, "radiobutton11");
@@ -189,12 +176,6 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	bufp = g_time_val_to_iso8601(&gt);
 	gtk_entry_set_text(c->name, bufp);
 	g_free(bufp);
-
-	/* Initialise our colour matrix. */
-	for (i = 0; i < SIZE_COLOURS; i++) {
-		val = gdk_rgba_parse(&c->colours[i], colours[i]);
-		g_assert(val);
-	}
 
 	/* Hide the rangefinder when we start up. */
 	gtk_widget_set_visible(GTK_WIDGET(c->rangefind), FALSE);
@@ -524,6 +505,13 @@ on_sim_autosave(gpointer dat)
 		}
 		cur->view = sv;
 		if (view == VIEW__MAX)
+			break;
+		file = g_strdup_printf("%s" 
+			G_DIR_SEPARATOR_S "README.txt", 
+			cur->autosave);
+		rc = saveconfig(file, cur);
+		g_free(file);
+		if (0 != rc)
 			break;
 	}
 	if (NULL == l)
@@ -1019,6 +1007,13 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 			break;
 	}
 	cur->view = sv;
+
+	file = g_strdup_printf("%s" 
+		G_DIR_SEPARATOR_S "README.txt", dir);
+	if (0 == (rc = saveconfig(file, cur)))
+		view = 0;
+	g_free(file);
+
 	g_free(dir);
 	if (view == VIEW__MAX)
 		return;

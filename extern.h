@@ -383,8 +383,6 @@ struct	hwin {
 	GtkLabel	 *onprocs;
 	GtkLabel	 *resprocs;
 	GtkFileChooser	 *mapfile;
-#define	SIZE_COLOURS	  9 
-	GdkRGBA		  colours[SIZE_COLOURS];
 };
 
 /*
@@ -471,6 +469,7 @@ void		  hnode_test(void);
 
 void		  draw(GtkWidget *, cairo_t *, struct curwin *);
 int		  save(const gchar *, const struct curwin *);
+int		  saveconfig(const gchar *, const struct curwin *);
 void		 *simulation(void *);
 
 int		  rangefind(struct bmigrate *);
