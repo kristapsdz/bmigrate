@@ -100,6 +100,8 @@ savepdf(const gchar *fname, const struct curwin *c, enum savetype type)
 		surf = cairo_ps_surface_create(fname, w, h);
 		cairo_ps_surface_set_eps(surf, 0);
 		break;
+	default:
+		abort();
 	}
 
 	st = cairo_surface_status(surf);
