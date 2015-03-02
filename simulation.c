@@ -339,7 +339,9 @@ migrate(const struct sim *sim, const gsl_rng *rng, size_t cur)
 	size_t	 i;
 
 again:
-	v = gsl_rng_uniform(rng);
+	while (0.0 == (v = gsl_rng_uniform(rng)))
+		/* Loop. */ ;
+
 	for (i = 0; i < sim->islands - 1; i++)
 		if ((v -= sim->ms[cur][i]) <= 0.0)
 			break;

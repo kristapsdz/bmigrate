@@ -18,6 +18,7 @@
 #include <inttypes.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <cairo.h>
 #include <cairo-pdf.h>
@@ -200,8 +201,10 @@ saveconfig(const gchar *fname, const struct curwin *cur)
 
 	g_debug("%p: Saving configuration: %s", cur, fname);
 
-	if (NULL == (f = fopen(fname, "rw")))
+	if (NULL == (f = fopen(fname, "w"))) {
+		g_debug("%s: %s", fname, strerror(errno));
 		return(0);
+	}
 
 	for (l = cur->sims; NULL != l; l = g_list_next(l)) {
 		sim = l->data;
