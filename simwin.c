@@ -193,7 +193,7 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	struct kdatacfg	 solidcfg, transcfg;
 	struct kdatacfg	*cfgs[2];
 	double		 solid[4], trans[4];
-	GdkRGBA		 gdkc;
+	gchar		 label[64];
 	struct ksmthcfg	 smth;
 
 	/* Get our colours. */
@@ -224,17 +224,19 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 	/* Append our configuration. */
 	outbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 2);
 
-	leftbox = gtk_label_new("  ");
+	g_snprintf(label, sizeof(label),
+		"<span bgcolor=\"#%.2x%.2x%.2x\">"
+		"&#x00a0;&#x00a0;&#x00a0;&#x00a0;"
+		"</span>",
+		(unsigned int)(solid[0] * 255),
+		(unsigned int)(solid[1] * 255),
+		(unsigned int)(solid[2] * 255));
+	leftbox = gtk_label_new(NULL);
+	gtk_misc_set_alignment(GTK_MISC(leftbox), 0.0, 0.5);
+	gtk_label_set_markup(GTK_LABEL(leftbox), label);
 	gtk_container_add(GTK_CONTAINER(outbox), leftbox);
-	gdkc.red = solid[0];
-	gdkc.green = solid[1];
-	gdkc.blue = solid[2];
-	gdkc.alpha = solid[3];
-	gtk_widget_override_background_color
-		(leftbox, GTK_STATE_NORMAL, &gdkc);
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
 	gtk_container_add(GTK_CONTAINER(outbox), box);
-
 	window_add_config(box, "Name: %s", sim->name);
 	window_add_configmarkup(box, "Payoffs: &#x03c0; = %s; "
 		"T = %zu", sim->func, sim->stop);

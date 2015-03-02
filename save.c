@@ -204,6 +204,10 @@ saveconfig(const gchar *fname, const struct curwin *cur)
 	for (l = cur->sims; NULL != l; l = g_list_next(l)) {
 		sim = l->data;
 		fprintf(f, "Name: %s\n", sim->name);
+		fprintf(f, "Colour: #%.2x%.2x%.2x\n", 
+			(unsigned int)(cur->b->clrs[sim->colour].rgba[0] * 255),
+			(unsigned int)(cur->b->clrs[sim->colour].rgba[1] * 255),
+			(unsigned int)(cur->b->clrs[sim->colour].rgba[2] * 255));
 		fprintf(f, "Function: %s\n", sim->func);
 		fprintf(f, "Threads: %zu\n", sim->nprocs);
 		fprintf(f, "Multiplier: %g(1 + %g lambda)\n", 
