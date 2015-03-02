@@ -468,7 +468,7 @@ double		  hnode_exec(const struct hnode *const *p,
 void		  hnode_test(void);
 
 void		  draw(GtkWidget *, cairo_t *, struct curwin *);
-int		  save(const gchar *, const struct curwin *);
+int		  save(const gchar *, struct curwin *);
 int		  saveconfig(const gchar *, const struct curwin *);
 void		 *simulation(void *);
 

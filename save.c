@@ -80,12 +80,17 @@ savepng(const gchar *fname, const struct curwin *c)
 }
 
 static int
-savepdf(const gchar *fname, const struct curwin *c, enum savetype type)
+savepdf(const gchar *fname, struct curwin *c, enum savetype type)
 {
 	cairo_surface_t	*surf;
 	cairo_t		*cr;
 	cairo_status_t	 st;
-	const double	 w = 72 * 6, h = 72 * 4;
+	struct kplotcfg	*cfg;
+	struct kdatacfg	*datas;
+	size_t		 datasz, i, j;
+	int		 rc;
+	double		 svtic, svaxis, svborder, svgrid, sv, svticln;
+	const double	 w = 72 * 6, h = 72 * 5;
 
 	g_debug("%p: Saving: %s", c, fname);
 	switch (type) {
@@ -122,16 +127,57 @@ savepdf(const gchar *fname, const struct curwin *c, enum savetype type)
 
 	}
 
+	cfg = kplot_get_plotcfg(c->views[c->view]);
+
+	svtic = cfg->ticlabelfont.sz;
+	svaxis = cfg->axislabelfont.sz;
+	svborder = cfg->borderline.sz;
+	svgrid = cfg->gridline.sz;
+	svticln = cfg->ticline.sz;
+
+	cfg->ticlabelfont.sz = 9.0;
+	cfg->axislabelfont.sz = 9.0;
+	cfg->borderline.sz = 0.5;
+	cfg->gridline.sz = 0.5;
+	cfg->ticline.sz = 0.5;
+
+	for (i = 0; ; i++) {
+		rc = kplot_get_datacfg(c->views[c->view],
+			i, &datas, &datasz);
+		if (0 == rc)
+			break;
+		for (j = 0; j < datasz; j++) {
+			sv = datas[j].line.sz;
+			datas[j].line.sz = 1.0;
+		}
+	}
+
 	cairo_set_source_rgb(cr, 1.0, 1.0, 1.0); 
 	cairo_rectangle(cr, 0.0, 0.0, w, h);
 	cairo_fill(cr);
 	kplot_draw(c->views[c->view], w, h, cr);
 	cairo_destroy(cr);
+
+	cfg->ticlabelfont.sz = svtic;
+	cfg->axislabelfont.sz = svaxis;
+	cfg->borderline.sz = svborder;
+	cfg->gridline.sz = svgrid;
+	cfg->ticline.sz = svticln;
+
+	for (i = 0; ; i++) {
+		rc = kplot_get_datacfg(c->views[c->view],
+			i, &datas, &datasz);
+		if (0 == rc)
+			break;
+		for (j = 0; j < datasz; j++)
+			datas[j].line.sz = sv;
+	}
+
 	return(1);
 }
 
 int
-save(const gchar *fname, const struct curwin *cur)
+save(const gchar *fname, struct curwin *cur)
 {
 
 	if (g_str_has_suffix(fname, ".pdf")) 
