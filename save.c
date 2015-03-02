@@ -198,7 +198,9 @@ saveconfig(const gchar *fname, const struct curwin *cur)
 	struct sim	*sim;
 	GList		*l;
 
-	if (NULL == (f = fopen(fname, "w")))
+	g_debug("%p: Saving configuration: %s", cur, fname);
+
+	if (NULL == (f = fopen(fname, "rw")))
 		return(0);
 
 	for (l = cur->sims; NULL != l; l = g_list_next(l)) {

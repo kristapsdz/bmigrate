@@ -504,14 +504,14 @@ on_sim_autosave(gpointer dat)
 				break;
 		}
 		cur->view = sv;
-		if (view == VIEW__MAX)
+		if (view != VIEW__MAX)
 			break;
 		file = g_strdup_printf("%s" 
 			G_DIR_SEPARATOR_S "README.txt", 
 			cur->autosave);
 		rc = saveconfig(file, cur);
 		g_free(file);
-		if (0 != rc)
+		if (0 == rc)
 			break;
 	}
 	if (NULL == l)
@@ -736,6 +736,7 @@ onautoexport(GtkMenuItem *menuitem, gpointer dat)
 	gtk_widget_hide(GTK_WIDGET(cur->wins.menuautoexport));
 	gtk_widget_show(GTK_WIDGET(cur->wins.menuunautoexport));
 	g_debug("Auto-exporting: %s", cur->autosave);
+	g_mkdir_with_parents(cur->autosave, 0755);
 }
 
 /*
@@ -1007,13 +1008,13 @@ onsaveall(GtkMenuItem *menuitem, gpointer dat)
 			break;
 	}
 	cur->view = sv;
-
-	file = g_strdup_printf("%s" 
-		G_DIR_SEPARATOR_S "README.txt", dir);
-	if (0 == (rc = saveconfig(file, cur)))
-		view = 0;
-	g_free(file);
-
+	if (view == VIEW__MAX) {
+		file = g_strdup_printf("%s" 
+			G_DIR_SEPARATOR_S "README.txt", dir);
+		if (0 == (rc = saveconfig(file, cur)))
+			view = 0;
+		g_free(file);
+	}
 	g_free(dir);
 	if (view == VIEW__MAX)
 		return;
