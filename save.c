@@ -134,6 +134,7 @@ savepdf(const gchar *fname, struct curwin *c, enum savetype type)
 	svborder = cfg->borderline.sz;
 	svgrid = cfg->gridline.sz;
 	svticln = cfg->ticline.sz;
+	sv = 0.0; /* Silence compiler. */
 
 	cfg->ticlabelfont.sz = 9.0;
 	cfg->axislabelfont.sz = 9.0;
