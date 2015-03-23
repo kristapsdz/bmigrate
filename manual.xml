@@ -29,8 +29,8 @@
 				<span class="nm">bmigrate</span> is a graphical high-performance scientific application simulating the
 				island model for evolutionary algorithms.
 				This manual documents the theory, operation, and implementation of <span class="nm">bmigrate</span> version @VERSION@.
-				Researchers using <span class="nm">bmigrate</span> will probably be concerned with the former two , while those
-				extending functionality should read the latter.
+				It is a work in progress: if you notice inconsistencies or wish clarification, please contact us through the
+				links given on the <a href="index.html">main page</a>.
 			</p>
 			<ol>
 				<li>

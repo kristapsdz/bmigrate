@@ -33,11 +33,8 @@ SRCS	 	 = bmigrate.c \
 		   simwin.c \
 		   widgets.c
 IMAGES 		 = screen-config.png
-SHARE 		 = $(IMAGES) \
-		   bmigrate.glade \
-		   simwin.glade \
-		   manual.css \
-		   manual.html
+SHARE 		 = bmigrate.glade \
+		   simwin.glade
 ifeq ($(shell uname),Darwin)
 GTK_CFLAGS 	:= $(shell pkg-config --cflags gsl gtk-mac-integration)
 GTK_LIBS 	:= $(shell pkg-config --libs gsl gtk-mac-integration)
