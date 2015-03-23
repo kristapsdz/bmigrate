@@ -1,7 +1,7 @@
 body, html			{ border: 0; 
 			   	  margin: 0;
 				  font-family: serif;
-		 	  	  font-size: 13pt; }
+		 	  	  font-size: 14pt; }
 header, article, footer		{ padding-left: 5%; 
 				  padding-right: 5%; }
 header				{ background: #666;
@@ -16,6 +16,7 @@ header nav >*			{ margin-right: 1em;
 				  border-radius: 1ex;
 				  padding: 0.75ex 1ex; }
 a				{ text-decoration: none; }
+article				{ line-height: 120%; }
 figure				{ margin: 0;
 				  padding: 0;
 				  width: 100%;
@@ -26,11 +27,12 @@ figure.screens 			{ display: table; }
 figure.screens div		{ display: table-cell; }
 figure.screens img		{ width: 100%; }
 figcaption			{ font-style: italic; 
-				  line-height: 110%; 
 				  color: #9a3334;
 			  	  text-align: left; }
 footer				{ color: #666;
 				  margin-bottom: 1em; 
+				  text-align: center;
+				  font-size: 11pt;
 				  margin-top: 3em; }
 footer a			{ color: #444; 
 		 		 font-weight: bold; }

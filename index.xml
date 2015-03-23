@@ -40,15 +40,11 @@
 				<img src="evolve.png" alt="Single Generation of Process" />
 			</figure>
 			<p>
-				The system is an <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> <a
-					href="http://www.gtk.org">GTK3</a> application running on <span itemprop="operatingSystem">UNIX</span>
-				systems.
-				It has an extensive <a href="bmigrate.html">manual</a>.
+				The system is <q>open source</q> (<a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a>),
+				though we ask that researchers using it cite our work with the given <a href="bmigrate.bib">BibTeX</a> citation.
+				It has an extensive <a href="manual.html">manual</a> describing the simulator's theoretical underpinnings,
+				implementation, installation, configuration, and operation.
 			</p>
-			<nav data-sblg-nav="1" data-sblg-navcontent="1">
-				<time datetime="${sblg-date}">${sblg-date}</time>: version ${sblg-title}
-				<aside>${sblg-aside}</aside>
-			</nav>
 			<p>
 				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv"
 					rel="author">Kristaps Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who
@@ -57,9 +53,13 @@
 				with financial support from the <a href="http://www.wallenberg.com/kaw/en">Knut and Alice Wallenberg Research
 					Foundation</a>.
 			</p>
+			<nav data-sblg-nav="1" data-sblg-navcontent="1">
+				<time datetime="${sblg-date}">${sblg-date}</time>: version ${sblg-title}
+				<aside>${sblg-aside}</aside>
+			</nav>
 		</article>
 		<footer>
-			&#x00a9; 2014 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
+			&#x00a9; 2014, 2015 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
 		</footer>
 	</body>
 </html>

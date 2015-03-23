@@ -1,14 +1,15 @@
 .SUFFIXES: .xml .html .in.bib .bib
 
-VERSION 	 = 0.1.6
-VDATE 		 = 2014-09-22
+VERSION 	 = 0.2.0
+VDATE 		 = 2015-03-23
 PREFIX 		 = /usr/local
-VYEAR 		 = 2014
-VMONTH 		 = August
+VYEAR 		 = 2015
+VMONTH 		 = March
 VERSIONXML 	 = version_0_1_3.xml \
 	   	   version_0_1_4.xml \
 	   	   version_0_1_5.xml \
-	   	   version_0_1_6.xml
+	   	   version_0_1_6.xml \
+	   	   version_0_2_0.xml
 DATADIR 	 = ${PREFIX}/share/bmigrate
 CFLAGS 		+= -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 GTK_OBJS 	 = bmigrate.o \

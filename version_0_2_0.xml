@@ -1,0 +1,12 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.2.0</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-03-23">2015-03-23</time>
+	</header>
+	<aside>
+		Nearly complete re-write of the plotting subsystem to use <a href="http://kristaps.bsd.lv/kplot">kplot</a> instead of a mixture
+		of <a href="https://www.gnu.org/software/gsl/">GSL</a> and hand-rolled graphics.
+		This considerably simplifies the system, allowing for much more robust graphical representation.
+	</aside>
+</article>
