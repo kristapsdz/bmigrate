@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta name="viewport" content="initial-scale=1.0, user-scalable=no" />
+		<meta charset="utf-8" /> 
+		<link rel="stylesheet" href="index.css" type="text/css" />
+		<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" />
+		<title>bmigrate</title>
+	</head>
+	<body itemscope="itemscope" itemtype="http://schema.org/SoftwareApplication">
+		<header>
+			<h1 itemprop="description">Simulating the Island Model of Evolutionary Algorithms</h1>
+			<nav>
+				<ul>
+					<li><a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-link"></i></a></li>
+					<li><a title="Download Source" itemprop="downloadUrl" href="snapshots/bmigrate.tgz"><i class="fa fa-gear"></i></a></li>
+					<li><a title="Download Mac OS X Binary" href="snapshots/bmigrate.app.zip"><i class="fa fa-apple"></i></a></li>
+					<li><a title="Archive" href="snapshots"><i class="fa fa-archive"></i></a></li>
+					<li><a title="Manual" href="manual.html"><i class="fa fa-life-ring"></i></a></li>
+				</ul>
+			</nav>
+		</header>
+		<article>
+			<p>
+				The <span class="nm" itemprop="name">bmigrate</span> utility simulates the island model of evolutionary algorithms, allowing
+				for real-time visualisation, analysis, and control.
+				At its simplest, <span class="nm">bmigrate</span> orchestrates simultaneous simulations consisting of repeated
+				simulation runs.
+				Each run is a sequence of generations over a finite set of islands.
+			</p>
+			<figure class="guide">
+				<figcaption>
+					In each generation, (1) each island's individuals reproduce with a Poisson process with a mean of the
+					individual's utility function.
+					The offspring then (2) migrate to an island (which may be the birth island).
+					On each island, (3) a single native individual and (4) single immigrant individual are selected, then
+					the native individual is (5) replaced by the immigrant.
+					The remaining immigrants are discarded, keeping islands' populations constant.
+				</figcaption>
+				<img src="evolve.png" alt="Single Generation of Process" />
+			</figure>
+			<p>
+				The system is an <a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a> <a
+					href="http://www.gtk.org">GTK3</a> application running on <span itemprop="operatingSystem">UNIX</span>
+				systems.
+				It has an extensive <a href="bmigrate.html">manual</a>.
+			</p>
+			<nav data-sblg-nav="1" data-sblg-navcontent="1">
+				<time datetime="${sblg-date}">${sblg-date}</time>: version ${sblg-title}
+				<aside>${sblg-aside}</aside>
+			</nav>
+			<p>
+				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv"
+					rel="author">Kristaps Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who
+				originally wrote <span class="nm">bmigrate</span> for <a href="http://pzp.hhs.se/jorgen-weibull"
+					rel="author">J&#246;rgen Weibull</a>, <a href="http://www.hhs.se">Stockholm School of Economics</a>,
+				with financial support from the <a href="http://www.wallenberg.com/kaw/en">Knut and Alice Wallenberg Research
+					Foundation</a>.
+			</p>
+		</article>
+		<footer>
+			&#x00a9; 2014 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
+		</footer>
+	</body>
+</html>
+

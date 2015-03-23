@@ -2,14 +2,15 @@ body, html			{ border: 0;
 			   	  margin: 0;
 				  font-family: serif;
 		 	  	  font-size: 13pt; }
-header, #links, article, footer	{ padding-left: 5%; 
+header, article, footer		{ padding-left: 5%; 
 				  padding-right: 5%; }
-header				{ background: #ccc;
-			 	  color: #333;
-				  padding-bottom: 1.5ex; 
-				  padding-top: 2ex;
-				  box-shadow: 1px 1px 1px #ccc; }
-header h1			{ margin: 0; }
+header				{ background: #666;
+			 	  color: #ddd;
+				  padding-bottom: 2ex; 
+				  padding-top: 5%;
+				  border-bottom: thin solid black; }
+header nav >*			{ margin-right: 1em; 
+				  font-size: 14pt; }
 #cite > span			{ background-color: #ddd;
 				  border: thin solid #eee; 
 				  border-radius: 1ex;
@@ -34,7 +35,6 @@ footer				{ color: #666;
 footer a			{ color: #444; 
 		 		 font-weight: bold; }
 footer a:hover			{ color: #000; }
-#links				{ color: #9A3334; }
 a				{ color: #FF6600; }
 a:hover				{ color: red; }
 nav[data-sblg-nav] ul		{ list-style-type: none; 
@@ -45,28 +45,29 @@ nav[data-sblg-nav] time		{ color: #666; }
 nav[data-sblg-nav] li		{ margin: 0; 
 				  margin-top: 0.5em; 
 				  margin-bottom: 0.5em; }
-#links ul			{ padding: 0; 
+header nav ul			{ padding: 0; 
 				  margin-top: 1ex;
 				  margin-bottom: 0em;
 				  display: inline-block; }
-#links li			{ list-style-type: none; 
-				  border-right: thin solid #9A3334; 
+header nav li			{ list-style-type: none; 
 				  margin-right: 0.25ex;
+				  font-size: 16pt;
 				  padding-right: 0.5ex;
 				  display: inline-block; }
-#links li:last-child		{ border: 0; }
+header nav li:last-child	{ border: 0; }
 .nm				{ font-style: italic; }
-h1				{ font-size: 18pt; }
+h1				{ font-size: 24pt; 
+				  margin: 0; 
+			  	  font-weight: normal; }
 p				{ line-height: 125%; }
 @media only screen and (max-width: 600px), only screen and (max-device-width: 600px) {
-	header, #links, article, footer 
+	header, article, footer 
 				{ padding-left: 1%; padding-right: 1%; }
 	h1			{ font-size: larger; }
 	footer			{ margin-top: 1em; }
-	#links			{ margin-top: 1ex; }
-	#links ul		{ display: block; 
+	header nav ul		{ display: block; 
 				  margin-top: 0; }
-	#links li		{ list-style-type: circle; 
+	header nav li		{ list-style-type: circle; 
 				  border: 0;
 				  display: block; }
 	#cite > span		{ background-color: inherit;

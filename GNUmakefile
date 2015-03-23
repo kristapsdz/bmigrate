@@ -1,4 +1,4 @@
-.SUFFIXES: .xml .html .dbk .in.bib .bib
+.SUFFIXES: .xml .html .in.bib .bib
 
 VERSION 	 = 0.1.6
 VDATE 		 = 2014-09-22
@@ -33,10 +33,10 @@ SRCS	 	 = bmigrate.c \
 		   widgets.c
 IMAGES 		 = screen-config.png
 SHARE 		 = $(IMAGES) \
-		   bmigrate.css \
 		   bmigrate.glade \
 		   simwin.glade \
-		   bmigrate.html
+		   manual.css \
+		   manual.html
 ifeq ($(shell uname),Darwin)
 GTK_CFLAGS 	:= $(shell pkg-config --cflags gsl gtk-mac-integration)
 GTK_LIBS 	:= $(shell pkg-config --libs gsl gtk-mac-integration)
@@ -50,15 +50,8 @@ BSDLIB 		 = -lbsd
 else
 BSDLIB 		 = 
 endif
-ifeq ($(shell uname),Linux)
-DOCBOOK 	 = /usr/share/xml/docbook/stylesheet/docbook-xsl/xhtml/docbook.xsl
-else ifeq ($(shell uname),Darwin)
-DOCBOOK 	 = ${HOME}/gtk/inst/share/xml/docbook/stylesheet/nwalsh/xhtml/docbook.xsl
-else
-DOCBOOK 	 = /usr/local/share/xsl/docbook/xhtml/docbook.xsl
-endif
 
-all: bmigrate bmigrate.html
+all: bmigrate manual.html
 
 install: all 
 	mkdir -p $(PREFIX)/bin
@@ -80,33 +73,38 @@ bmigrate.app: all Info.plist
 	rm -rf bmigrate.app
 	gtk-mac-bundler bmigrate.bundle
 
-www: bmigrate.app.zip index.html bmigrate.bib bmigrate-$(VERSION).tgz 
+www: bmigrate.app.zip index.html bmigrate.bib bmigrate.tgz  bmigrate.tgz.sha512 bmigrate.app.zip.sha512
 
 installwww: www
 	mkdir -p $(PREFIX)/snapshots
 	install -m 0644 bmigrate.app.zip $(PREFIX)/snapshots
-	install -m 0644 bmigrate-$(VERSION).tgz $(PREFIX)/snapshots
-	install -m 0644 bmigrate-$(VERSION).tgz $(PREFIX)/snapshots/bmigrate.tgz
-	install -m 0644 $(IMAGES) index.html evolve.png index.css bmigrate.html bmigrate.css bmigrate.bib $(PREFIX)
+	install -m 0644 bmigrate.app.zip.sha512 $(PREFIX)/snapshots
+	install -m 0644 bmigrate.tgz $(PREFIX)/snapshots
+	install -m 0644 bmigrate.tgz $(PREFIX)/snapshots/bmigrate-$(VERSION).tgz
+	install -m 0644 bmigrate.tgz.sha512 $(PREFIX)/snapshots
+	install -m 0644 bmigrate.tgz.sha512 $(PREFIX)/snapshots/bmigrate-$(VERSION).tgz.sha512
+	install -m 0644 $(IMAGES) manual.css index.html evolve.png index.css manual.html bmigrate.bib $(PREFIX)
+
+bmigrate.tgz.sha512: bmigrate.tgz
+	openssl dgst -sha512 bmigrate.tgz >$@
+
+bmigrate.app.zip.sha512: bmigrate.app.zip
+	openssl dgst -sha512 bmigrate.app.zip >$@
 
 $(GTK_OBJS): extern.h
 
 bmigrate: $(GTK_OBJS)
 	$(CC) -o $@ $(GTK_OBJS) $(GTK_LIBS) $(BSDLIB) -lkplot
 
-bmigrate-$(VERSION).tgz:
+bmigrate.tgz:
 	mkdir -p .dist/bmigrate-$(VERSION)
 	cp GNUmakefile .dist/bmigrate-$(VERSION)
-	cp $(SRCS) .dist/bmigrate-$(VERSION)
-	cp bmigrate.dbk screen-config.png bmigrate.glade simwin.glade bmigrate.css .dist/bmigrate-$(VERSION)
+	cp $(SRCS) $(SHARE) .dist/bmigrate-$(VERSION)
 	(cd .dist && tar zcf ../$@ bmigrate-$(VERSION))
 	rm -rf .dist
 
 .c.o:
 	$(CC) $(CFLAGS) $(GTK_CFLAGS) -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -c -o $@ $<
-
-.dbk.xml:
-	xsltproc --stringparam section.autolabel 1 --stringparam html.stylesheet bmigrate.css -o $@ $(DOCBOOK) $<
 
 .xml.html: 
 	sed -e "s!@VERSION@!$(VERSION)!g" \
@@ -114,8 +112,12 @@ bmigrate-$(VERSION).tgz:
 	    -e "s!@VMONTH@!$(VMONTH)!g" \
 	    -e "s!@VYEAR@!$(VYEAR)!g" $< >$@
 
-index.xml: index-template.xml $(VERSIONXML)
-	sblg -o $@ -t index-template.xml $(VERSIONXML)
+index.html: index.xml $(VERSIONXML)
+	sblg -o- -t index.xml $(VERSIONXML) | \
+		sed -e "s!@VERSION@!$(VERSION)!g" \
+		    -e "s!@VDATE@!$(VDATE)!g" \
+		    -e "s!@VMONTH@!$(VMONTH)!g" \
+		    -e "s!@VYEAR@!$(VYEAR)!g" >$@
 
 .in.bib.bib:
 	sed -e "s!@VERSION@!$(VERSION)!g" \
@@ -124,6 +126,6 @@ index.xml: index-template.xml $(VERSIONXML)
 	    -e "s!@VYEAR@!$(VYEAR)!g" $< >$@
 
 clean:
-	rm -f bmigrate $(GTK_OBJS) bmigrate.html bmigrate.xml index.html bmigrate.bib bmigrate-$(VERSION).tgz index.xml
+	rm -f bmigrate $(GTK_OBJS) manual.html bmigrate.xml index.html bmigrate.bib bmigrate.tgz bmigrate.tgz.sha512
 	rm -rf bmigrate.app *.dSYM
-	rm -f bmigrate.app.zip Info.plist
+	rm -f bmigrate.app.zip Info.plist bmigrate.app.zip.sha512
