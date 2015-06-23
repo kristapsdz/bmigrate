@@ -16,11 +16,14 @@
 			<h1><a href="index.html">Simulating the Island Model of Evolutionary Algorithms</a></h1>
 			<nav>
 				<ul>
-					<li><a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-link"></i></a></li>
-					<li><a title="Download Source" itemprop="downloadUrl" href="snapshots/bmigrate.tgz"><i class="fa fa-gear"></i></a></li>
-					<li><a title="Download Mac OS X Binary" href="snapshots/bmigrate.app.zip"><i class="fa fa-apple"></i></a></li>
-					<li><a title="Archive" href="snapshots"><i class="fa fa-archive"></i></a></li>
-					<li><a title="Manual" href="manual.html"><i class="fa fa-life-ring"></i></a></li>
+					<li><a title="Download Source" href="snapshots/bmigrate.tgz"><i class="fa fa-code"></i>
+						<span>Source Code</span></a></li>
+					<li><a title="Archive" href="snapshots"><i class="fa fa-archive"></i>
+						<span>Source Archive</span></a></li>
+					<li><a title="Download Mac OS X Binary" href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip"><i class="fa fa-apple"></i>
+						<span>Mac Bundle</span></a></li>
+					<li><a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-bookmark"></i>
+						<span>Citation</span></a></li>
 				</ul>
 			</nav>
 		</header>
@@ -375,25 +378,34 @@
 			<section>
 				<h2 id="installation">Installation</h2>
 				<p>
-					You'll need a UNIX machine to use <span class="nm">bmigrate</span>.
-					It has been compiled and run on <a href="https://www.apple.com/osx/">Mac OS X</a> Snow
-					Leopard (10.6) and later, GNU/Linux (<a href="https://www.debian.org/">Debian</a>), and <a
-						href="http://www.openbsd.org">OpenBSD</a>.
-					In theory, the software may be ported to Microsoft Windows as well, but it's unlikely to happen without external
-					contribution.
+					In short, you'll need a UNIX machine (Mac OS X, Linux, BSD, etc.) to use <span class="nm">bmigrate</span>.
+					At this time, Microsoft Windows builds are not available&#8212;please contact us if you have the
+					knowledge (and wherewithal!) to accomplish this.
+					If you're using Mac OS X, we strongly suggest that you use the pre-compiled <a
+						href="#installation.binary">application bundle</a>.
+					Otherwise, you'll need to download and compile from the source.
 					In general, the more powerful your machine, the better: <span class="nm">bmigrate</span> takes advantage
 					of as many processors as possible.
+					It regularly runs on machines ranging from single core laptops to a sixty-four core workstation.
 				</p>
 				<section>
 					<h3 id="installation.binary">Binary Installation</h3>
 					<p>
 						Application binaries are available for Mac OS X Lion (10.7) and later.
-						To use these, simply download the <a href="snapshots/bmigrate.app.zip">ZIP file</a>.
-						You may need to configure your system to allow downloaded binaries to run.
+						To use these, simply download the <a
+							href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip">application</a>, un-archive, and
+						double-click to run!
+						You may need to configure your system to allow downloaded binaries to run: find this option in
+						the Security &amp; Privacy settings of your System Preferences.
 					</p>
 				</section>
 				<section>
 					<h3 id="installation.source">Source Installation</h3>
+					<p>
+						It has been compiled and run on <a href="https://www.apple.com/osx/">Mac OS X</a> Snow
+						Leopard (10.6) and later, GNU/Linux (<a href="https://www.debian.org/">Debian</a>), and <a
+							href="http://www.openbsd.org">OpenBSD</a>.
+					</p>
 					<p>
 						To compile <span class="nm">bmigrate</span>, you'll need to install a number of dependencies.
 						(If you're running on Mac OS X, just use the binary application: it's a real pain in the neck to configure the
@@ -966,7 +978,7 @@
 				</section>
 			</section>
 			<section id="notation">
-				<h2 id="notation">Notation</h2>
+				<h2>Notation</h2>
 				<p>
 					The following notation is used consistently throughout this document and the system itself.
 				</p>
@@ -1045,7 +1057,17 @@
 			</section>
 		</article>
 		<footer>
-			&#x00a9; 2014, 2015 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
+			<div>
+				&#x00a9; 2014&#8211;2015 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
+			</div>
+			<div>
+				<a title="Download Source" href="snapshots/bmigrate.tgz"><i class="fa fa-code"></i></a>
+				<a title="Archive" href="snapshots"><i class="fa fa-archive"></i></a>
+				<a title="Download Mac OS X Binary" href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip"><i class="fa fa-apple"></i></a>
+				<a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-bookmark"></i></a>
+				<span>Built with <a href="http://kristaps.bsd.lv/sblg">sblg</a> on <a
+						href="http://www.openbsd.org">OpenBSD</a></span>
+			</div>
 		</footer>
 	</body>
 </html>

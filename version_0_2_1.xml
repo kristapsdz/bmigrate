@@ -1,0 +1,11 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.2.1</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2015-06-23">2015-06-23</time>
+	</header>
+	<aside>
+		Spruce up web-page and improve installation documentation.
+		Move Mac OS X application bundle off-server (but not off-domain).
+	</aside>
+</article>

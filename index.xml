@@ -12,23 +12,32 @@
 			<h1 itemprop="description">Simulating the Island Model of Evolutionary Algorithms</h1>
 			<nav>
 				<ul>
-					<li><a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-link"></i></a></li>
-					<li><a title="Download Source" itemprop="downloadUrl" href="snapshots/bmigrate.tgz"><i class="fa fa-gear"></i></a></li>
-					<li><a title="Download Mac OS X Binary" href="snapshots/bmigrate.app.zip"><i class="fa fa-apple"></i></a></li>
-					<li><a title="Archive" href="snapshots"><i class="fa fa-archive"></i></a></li>
-					<li><a title="Manual" href="manual.html"><i class="fa fa-life-ring"></i></a></li>
+					<li>
+						<a title="Download" href="manual.html#installation"><i class="fa fa-cloud-download"></i> 
+							<span>Download</span></a>
+					</li>
+					<li>
+						<a title="Manual" href="manual.html"><i class="fa fa-file-text"></i> 
+							<span>Manual</span></a>
+					</li>
+					<li>
+						<a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-bookmark"></i> 
+							<span>Citation</span></a>
+					</li>
 				</ul>
 			</nav>
 		</header>
 		<article>
-			<p>
-				The <span class="nm" itemprop="name">bmigrate</span> utility simulates the island model of evolutionary algorithms, allowing
-				for real-time visualisation, analysis, and control.
-				At its simplest, <span class="nm">bmigrate</span> orchestrates simultaneous simulations consisting of repeated
-				simulation runs.
-				Each run is a sequence of generations over a finite set of islands.
-			</p>
-			<figure class="guide">
+			<section>
+				<p class="intro">
+					The <span class="nm" itemprop="name">bmigrate</span> utility simulates the island model of evolutionary algorithms, allowing
+					for real-time visualisation, analysis, and control.
+					At its simplest, <span class="nm">bmigrate</span> orchestrates simultaneous simulations consisting of repeated
+					simulation runs.
+					Each run is a sequence of generations over a finite set of islands.
+				</p>
+			</section>
+			<figure>
 				<figcaption>
 					In each generation, (1) each island's individuals reproduce with a Poisson process with a mean of the
 					individual's utility function.
@@ -39,27 +48,38 @@
 				</figcaption>
 				<img src="evolve.png" alt="Single Generation of Process" />
 			</figure>
-			<p>
-				The system is <q>open source</q> (<a rel="license" href="http://opensource.org/licenses/ISC">ISC licensed</a>),
-				though we ask that researchers using it cite our work with the given <a href="bmigrate.bib">BibTeX</a> citation.
-				It has an extensive <a href="manual.html">manual</a> describing the simulator's theoretical underpinnings,
-				implementation, installation, configuration, and operation.
-			</p>
-			<p>
-				For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv"
-					rel="author">Kristaps Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who
-				originally wrote <span class="nm">bmigrate</span> for <a href="http://pzp.hhs.se/jorgen-weibull"
-					rel="author">J&#246;rgen Weibull</a>, <a href="http://www.hhs.se">Stockholm School of Economics</a>,
-				with financial support from the <a href="http://www.wallenberg.com/kaw/en">Knut and Alice Wallenberg Research
-					Foundation</a>.
-			</p>
-			<nav data-sblg-nav="1" data-sblg-navcontent="1">
-				<time datetime="${sblg-date}">${sblg-date}</time>: version ${sblg-title}
-				<aside>${sblg-aside}</aside>
-			</nav>
+			<section>
+				<p>
+					The system is <a rel="license" href="http://opensource.org/licenses/ISC">open source</a>, though we
+					kindly ask that researchers using it cite our work with the given <a href="bmigrate.bib">BibTeX</a>
+					citation.
+					It has an extensive <a href="manual.html">manual</a> describing the simulator's theoretical
+					underpinnings, implementation, installation, configuration, and operation.
+					For patches, questions, comments, and so on, please contact <a href="http://kristaps.bsd.lv"
+						rel="author">Kristaps Dzonsons</a>, <a href="http://www.kcons.eu"><I>k</I>-Consulting</a>, who
+					originally wrote <span class="nm">bmigrate</span> for <a href="http://pzp.hhs.se/jorgen-weibull"
+						rel="author">J&#246;rgen Weibull</a>, <a href="http://www.hhs.se">Stockholm School of Economics</a>,
+					with financial support from the <a href="http://www.wallenberg.com/kaw/en">Knut and Alice Wallenberg Research
+						Foundation</a>.
+					What follows is a list of recent releases.
+				</p>
+				<nav data-sblg-nav="1" data-sblg-navcontent="1" data-sblg-navsz="3">
+					<time datetime="${sblg-date}">${sblg-date}</time>: version ${sblg-title}
+					<aside>${sblg-aside}</aside>
+				</nav>
+			</section>
 		</article>
 		<footer>
-			&#x00a9; 2014, 2015 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
+			<div>
+				&#x00a9; 2014&#8211;2015 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
+			</div>
+			<div>
+				<a title="Download" href="manual.html#installation"><i class="fa fa-cloud-download"></i></a>
+				<a title="Manual" href="manual.html"><i class="fa fa-file-text"></i></a>
+				<a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-bookmark"></i></a>
+				<span>Built with <a href="http://kristaps.bsd.lv/sblg">sblg</a> on <a
+						href="http://www.openbsd.org">OpenBSD</a></span>
+			</div>
 		</footer>
 	</body>
 </html>

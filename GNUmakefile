@@ -1,15 +1,16 @@
 .SUFFIXES: .xml .html .in.bib .bib
 
-VERSION 	 = 0.2.0
-VDATE 		 = 2015-03-23
+VERSION 	 = 0.2.1
+VDATE 		 = 2015-06-23
 PREFIX 		 = /usr/local
 VYEAR 		 = 2015
-VMONTH 		 = March
+VMONTH 		 = June
 VERSIONXML 	 = version_0_1_3.xml \
 	   	   version_0_1_4.xml \
 	   	   version_0_1_5.xml \
 	   	   version_0_1_6.xml \
-	   	   version_0_2_0.xml
+	   	   version_0_2_0.xml \
+	   	   version_0_2_1.xml
 DATADIR 	 = ${PREFIX}/share/bmigrate
 CFLAGS 		+= -O3 -g -W -Wall -Wstrict-prototypes -Wno-unused-parameter -Wwrite-strings -DVERSION=\"$(VERSION)\" -DDATADIR=\"$(DATADIR)\"
 GTK_OBJS 	 = bmigrate.o \
@@ -71,12 +72,12 @@ bmigrate.app: all Info.plist
 	rm -rf bmigrate.app
 	gtk-mac-bundler bmigrate.bundle
 
-www: bmigrate.app.zip index.html bmigrate.bib bmigrate.tgz  bmigrate.tgz.sha512 bmigrate.app.zip.sha512
+www: manual.html index.html bmigrate.bib bmigrate.tgz bmigrate.tgz.sha512
+
+app: bmigrate.app.zip bmigrate.app.zip.sha512
 
 installwww: www
 	mkdir -p $(PREFIX)/snapshots
-	install -m 0644 bmigrate.app.zip $(PREFIX)/snapshots
-	install -m 0644 bmigrate.app.zip.sha512 $(PREFIX)/snapshots
 	install -m 0644 bmigrate.tgz $(PREFIX)/snapshots
 	install -m 0644 bmigrate.tgz $(PREFIX)/snapshots/bmigrate-$(VERSION).tgz
 	install -m 0644 bmigrate.tgz.sha512 $(PREFIX)/snapshots
