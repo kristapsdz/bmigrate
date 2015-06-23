@@ -24,12 +24,12 @@ figure				{ margin: 0;
 				  background-color: #eed;
 				  width: 100%;
 				  text-align: center; }
-figure >*			{ padding-left: 5%;
-				  padding-right: 5%; }
-figure img		 	{ width: 100%; 
+figure img		 	{ width: 90%; 
 				  max-width: 744px; }
 figcaption			{ font-size: 13pt;
 				  color: #000;
+				  padding-left: 5%;
+				  padding-right: 5%;
 				  padding-top: 1ex; 
 				  padding-bottom: 1ex; 
 			  	  text-align: left; }
