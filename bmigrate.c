@@ -801,9 +801,14 @@ onrangedelete(GtkWidget *widget, GdkEvent *event, gpointer dat)
 
 	gtk_widget_set_visible
 		(GTK_WIDGET(b->wins.rangefind), FALSE);
-	g_debug("Disabling rangefinder (user request)");
-	g_source_remove(b->rangeid);
-	b->rangeid = 0;
+
+	if (b->rangeid > 0) {
+		g_debug("Disabling rangefinder (user request)");
+		g_source_remove(b->rangeid);
+		b->rangeid = 0;
+	} else 
+		g_debug("Rangefinder already disabled (user request)");
+
 	return(TRUE);
 }
 
@@ -814,9 +819,13 @@ onrangeclose(GtkButton *button, gpointer dat)
 
 	gtk_widget_set_visible
 		(GTK_WIDGET(b->wins.rangefind), FALSE);
-	g_debug("Disabling rangefinder (user request)");
-	g_source_remove(b->rangeid);
-	b->rangeid = 0;
+
+	if (b->rangeid > 0) {
+		g_debug("Disabling rangefinder (user request)");
+		g_source_remove(b->rangeid);
+		b->rangeid = 0;
+	} else 
+		g_debug("Rangefinder already disabled (user request)");
 }
 
 /*
