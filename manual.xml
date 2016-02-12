@@ -67,6 +67,7 @@
 						<li><a href="#configuration.game">Game-play Configuration</a></li>
 						<li><a href="#configuration.process">Process Configuration</a></li>
 						<li><a href="#configuration.mapping">Map Configuration</a></li>
+						<li><a href="#configuration.rangefind">Range-finding</a></li>
 					</ol>
 				</li>
 				<li>
@@ -466,7 +467,8 @@
 				</p>
 				<p>
 					If you want to see the effects of your parameters on reproduction (i.e., given your utility function, number of
-					individuals per island, strategy space, and normalisation parameters), then click <q>Range-Find</q>.
+					individuals per island, strategy space, and normalisation parameters), then click <q>Range-Find</q> (see
+					<a href="#configuration.rangefind">Range-finding</a>).
 					This will start a process that scans the strategy-space and produces the minimum, maximum, and mean values given as the
 					Poisson random number mean.
 				</p>
@@ -548,7 +550,8 @@
 						individuals' strategies $X$ on the individual's island, and the number of individuals $n$ on the
 						individual's island.  
 						The function accepts basic binary and unary arithmetic operations, nested expressions, the
-						$\exp$ function, the $\sqrt$ function, and double-precision numbers.
+						<code>exp</code> (exponential) function, the <code>sqrt</code> (square root) function, and
+						double-precision numbers.
 					</p>
 					<p>
 						You can also change the strategy domain for the incumbent's strategy, which is inclusive of the
@@ -577,7 +580,7 @@
 								running threads show only the count of non-paused (i.e., active) simulations.
 							</p>
 						</dd>
-						<dt>Max Generations</dt>
+						<dt>Generations</dt>
 						<dd>
 							The maximum number of generations per simulation run.
 						</dd>
@@ -586,10 +589,10 @@
 							The linear transform from utility function to Poisson process mean, $\alpha(1 +
 							\delta\pi)$.
 						</dd>
-						<dt>Incumbents</dt>
+						<dt>Strategy slices</dt>
 						<dd>
-							This sets how finely the strategy domain is sliced for assigning incumbents and mutants to
-							discrete strategies.
+							This sets how finely the strategy domain is sliced for assigning incumbents and mutants
+							(if discrete) to discrete strategies.
 							For example, if this value is 100 (the default), then a strategy domain in the unit interval
 							results in strategies of $0, 0.01, 0.02, \ldots, 0.99$.
 							A higher number will make a finer mesh, but take more time to process.
@@ -597,7 +600,7 @@
 						<dt>Mutants</dt>
 						<dd>
 							Determines how mutants are assigned.
-							If discrete, mutants are assigned in sequence from the incumbent grid.
+							If discrete, mutants are assigned in slices within the strategy domain.
 							If Gaussian, mutants are assigned from a Gaussian distribution around the incumbent strategy
 							with the given standard deviation.
 							The distribution is truncated to the given strategy domain, inclusive of its lower bound,
@@ -668,6 +671,25 @@
 							initialised on the given island.
 						</dd>
 					</dl>
+				</section>
+				<section>
+					<h3 id="configuration.rangefind">Range-finding</h3>
+					<p>
+						If you click the <q>Range-find</q> button, the current parameters will be used to find the
+						minimum, maximum, and average fecundity (Poisson mean).
+					</p>
+					<p>
+						The range-finder will iterate over all possible strategies for the incumbent and mutant, with
+						the given number of <q>slices</q> over the strategy space.
+						Unlike in the real simulation, where mutant strategies may be randomly distributed, the
+						range-finder will iterate over all possible strategies over a lattice.
+						Thus, the average is an average over the lattice, and may not reflect the average of your
+						simulation!
+						For each configuration, all possible mutant values (up to the number of islanders) is tried.
+					</p>
+					<p>
+						You can stop the range-finder at any time.
+					</p>
 				</section>
 			</section>
 			<section>

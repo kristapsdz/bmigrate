@@ -356,6 +356,7 @@ struct	hwin {
 	GtkBox		 *rangeerrorbox;
 	GtkLabel	 *rangeerror;
 	GtkLabel	 *rangefunc;
+	GtkLabel	 *rangeparms;
 	GtkBox		 *mapbox;
 	GtkEntry	 *name;
 	GtkEntry	 *xmin;

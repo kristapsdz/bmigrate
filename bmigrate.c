@@ -88,6 +88,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->rangemean = win_init_label(b, "label44");
 	c->rangestatus = win_init_label(b, "label46");
 	c->rangefunc = win_init_label(b, "label50");
+	c->rangeparms = win_init_label(b, "label72");
 	c->buttonrange = win_init_button(b, "button4");
 	c->mapindices[MAPINDEX_STRIPED] = win_init_toggle(b, "radiobutton15");
 	c->mapindices[MAPINDEX_FIXED] = win_init_toggle(b, "radiobutton16");

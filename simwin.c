@@ -1256,6 +1256,8 @@ onactivate(GtkButton *button, gpointer dat)
 	if ('\0' == *name)
 		name = "unnamed";
 
+	gtk_widget_hide(GTK_WIDGET(err));
+
 	/* 
 	 * All parameters check out!
 	 * Allocate the simulation now.
@@ -1299,14 +1301,19 @@ onactivate(GtkButton *button, gpointer dat)
 			b->range.ymin, b->range.ymax,
 			b->range.n);
 		gtk_label_set_text(b->wins.rangefunc, file);
-		gtk_widget_hide(GTK_WIDGET(b->wins.rangeerrorbox));
 		g_free(file);
+
+		file = g_strdup_printf
+			("%g(1 + %g&#x03c0;)",
+			 b->range.alpha, b->range.delta);
+		gtk_label_set_markup(b->wins.rangeparms, file);
+		g_free(file);
+
+		gtk_widget_hide(GTK_WIDGET(b->wins.rangeerrorbox));
 		gtk_widget_set_visible
 			(GTK_WIDGET(b->wins.rangefind), TRUE);
 		goto cleanup;
 	}
-
-	gtk_widget_hide(GTK_WIDGET(err));
 
 	sim = g_malloc0(sizeof(struct sim));
 	sim->dims = slices;
