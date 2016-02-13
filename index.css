@@ -1,7 +1,18 @@
 body, html			{ border: 0; 
 			   	  margin: 0;
 				  font-family: serif;
-		 	  	  font-size: 14pt; }
+				  font-family: Garamond,Baskerville,Baskerville Old Face,Hoefler Text,Times New Roman,serif;
+				  font-size: 12pt;
+				  font-style: normal;
+				  font-variant: normal;
+				  font-weight: 400;
+				  line-height: 18pt; }
+h1 				{ font-family: Georgia, Times, Times New Roman, serif;
+				  font-size: 24pt;
+				  font-style: normal;
+				  font-variant: normal;
+				  font-weight: normal;
+				  line-height: 26.4pt; }
 header, 
 section,
 footer				{ padding-left: 5%; 
@@ -11,12 +22,10 @@ header				{ background: #333;
 				  padding-bottom: 0.5ex; 
 				  padding-top: 2%;
 				  border-bottom: thin solid black; }
-header nav >*			{ margin-right: 1em; }
 a				{ text-decoration: none; }
-.intro				{ font-size: 16pt; 
-				  margin: 1ex auto; }
-article				{ line-height: 120%; 
-				  color: #222; }
+.intro				{ font-size: 120%; 
+				  margin: 1.5em auto; }
+article				{ color: #222; }
 figure				{ margin: 0;
 				  padding: 0;
 				  border-top: thin solid #ddd;
@@ -26,7 +35,7 @@ figure				{ margin: 0;
 				  text-align: center; }
 figure img		 	{ width: 90%; 
 				  max-width: 744px; }
-figcaption			{ font-size: 13pt;
+figcaption			{ font-size: 11pt;
 				  color: #000;
 				  padding-left: 5%;
 				  padding-right: 5%;
@@ -46,33 +55,27 @@ footer span			{ border-left: thin solid silver;
 a				{ color: #FF6600; }
 a:hover				{ color: red; }
 nav[data-sblg-nav] ul		{ list-style-type: none; 
-				  font-size: 13pt;
 				  padding: 0; }
 nav[data-sblg-nav] aside	{ display: block; }
 nav[data-sblg-nav] time		{ color: #666; }
 nav[data-sblg-nav] li		{ margin: 0; 
 				  margin-top: 0.5em; 
-				  line-height: 110%;
-				  margin-bottom: 0.5em; }
+				  line-height: 16pt;
+				  margin-bottom: 1.12em; }
 header nav ul			{ padding: 0; 
 				  margin-top: 1ex;
 				  margin-bottom: 0em;
 				  display: inline-block; }
 header nav li			{ list-style-type: none; 
 				  margin-right: 0.25ex;
-				  font-size: 12pt;
-				  padding-right: 0.5ex;
+				  padding-right: 1ex;
 				  display: inline-block; }
 header nav li:last-child	{ border: 0; }
 .nm				{ font-style: italic; }
-h1				{ font-size: 28pt; 
-				  margin: 0; 
-			  	  font-weight: normal; }
-p				{ line-height: 125%; }
+h1				{ margin: 0; }
 @media only screen and (max-width: 600px), only screen and (max-device-width: 600px) {
-	header, section, footer 
-				{ padding-left: 1%; padding-right: 1%; }
-	h1			{ font-size: larger; }
-	footer			{ margin-top: 1em; }
-	header nav span		{ display: none; }
+.intro				{ font-size: inherit; }
+header, section, footer 	{ padding-left: 1%; padding-right: 1%; }
+footer				{ margin-top: 1em; }
+header nav span			{ display: none; }
 }

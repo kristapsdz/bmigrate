@@ -16,14 +16,30 @@
 			<h1><a href="index.html">Simulating the Island Model of Evolutionary Algorithms</a></h1>
 			<nav>
 				<ul>
-					<li><a title="Download Source" href="snapshots/bmigrate.tgz"><i class="fa fa-code"></i>
-						<span>Source Code</span></a></li>
-					<li><a title="Archive" href="snapshots"><i class="fa fa-archive"></i>
-						<span>Source Archive</span></a></li>
-					<li><a title="Download Mac OS X Binary" href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip"><i class="fa fa-apple"></i>
-						<span>Mac Bundle</span></a></li>
-					<li><a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-bookmark"></i>
-						<span>Citation</span></a></li>
+					<li>
+						<a title="Download Source" href="snapshots/bmigrate.tgz">
+							<span>Source Code</span>
+							<i class="fa fa-gears"></i>
+						</a>
+					</li>
+					<li>
+						<a title="Archive" href="snapshots">
+							<span>Source Archive</span>
+							<i class="fa fa-archive"></i>
+						</a>
+					</li>
+					<li>
+						<a title="Download Mac OS X Binary" href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip">
+							<span>Mac Bundle</span>
+							<i class="fa fa-apple"></i>
+						</a>
+					</li>
+					<li>
+						<a title="BibTeX Citation" href="bmigrate.bib">
+							<span>Citation</span>
+							<i class="fa fa-bookmark"></i>
+						</a>
+					</li>
 				</ul>
 			</nav>
 		</header>
@@ -1080,10 +1096,10 @@
 		</article>
 		<footer>
 			<div>
-				&#x00a9; 2014&#8211;2015 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
+				&#x00a9; 2014&#8211;2016 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
 			</div>
 			<div>
-				<a title="Download Source" href="snapshots/bmigrate.tgz"><i class="fa fa-code"></i></a>
+				<a title="Download Source" href="snapshots/bmigrate.tgz"><i class="fa fa-gears"></i></a>
 				<a title="Archive" href="snapshots"><i class="fa fa-archive"></i></a>
 				<a title="Download Mac OS X Binary" href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip"><i class="fa fa-apple"></i></a>
 				<a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-bookmark"></i></a>

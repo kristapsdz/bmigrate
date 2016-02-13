@@ -13,16 +13,22 @@
 			<nav>
 				<ul>
 					<li>
-						<a title="Download" href="manual.html#installation"><i class="fa fa-cloud-download"></i> 
-							<span>Download</span></a>
+						<a title="Download" href="manual.html#installation">
+							<span>Download</span>
+							<i class="fa fa-cloud-download"></i> 
+						</a>
 					</li>
 					<li>
-						<a title="Manual" href="manual.html"><i class="fa fa-file-text"></i> 
-							<span>Manual</span></a>
+						<a title="Manual" href="manual.html">
+							<span>Manual</span>
+							<i class="fa fa-file-text"></i> 
+						</a>
 					</li>
 					<li>
-						<a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-bookmark"></i> 
-							<span>Citation</span></a>
+						<a title="BibTeX Citation" href="bmigrate.bib">
+							<span>Citation</span>
+							<i class="fa fa-bookmark"></i> 
+						</a>
 					</li>
 				</ul>
 			</nav>
@@ -64,14 +70,17 @@
 					What follows is a list of recent releases.
 				</p>
 				<nav data-sblg-nav="1" data-sblg-navcontent="1" data-sblg-navsz="3">
-					<time datetime="${sblg-date}">${sblg-date}</time>: version ${sblg-title}
+					<time datetime="${sblg-date}">
+						<i class="fa fa-fw fa-clock-o"></i>
+						${sblg-date}
+					</time>: version ${sblg-title}
 					<aside>${sblg-aside}</aside>
 				</nav>
 			</section>
 		</article>
 		<footer>
 			<div>
-				&#x00a9; 2014&#8211;2015 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
+				&#x00a9; 2014&#8211;2016 <a href="http://www.kcons.eu"><i>k</i>-Consulting</a> 
 			</div>
 			<div>
 				<a title="Download" href="manual.html#installation"><i class="fa fa-cloud-download"></i></a>
