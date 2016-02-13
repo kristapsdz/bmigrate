@@ -124,6 +124,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->pop = win_init_adjustment(b, "adjustment1");
 	c->totalpop = win_init_label(b, "label68");
 	c->islands = win_init_adjustment(b, "adjustment2");
+	c->ideathmean = win_init_adjustment(b, "adjustment12");
 	c->resprocs = win_init_label(b, "label3");
 	c->onprocs = win_init_label(b, "label36");
 	c->alpha = win_init_entry(b, "entry13");

@@ -379,7 +379,7 @@ simulation(void *arg)
 	size_t		  *kids[2], *migrants[2], *imutants, *npops;
 	size_t		   t, i, j, k, new, mutants, incumbents,
 			   len1, len2, incumbentidx, islandidx,
-			   ntotalpop;
+			   ntotalpop, ndeath;
 	int		   mutant_old, mutant_new;
 	gsl_rng		  *rng;
 
@@ -480,6 +480,7 @@ again:
 	mutants = 1;
 	incumbents = sim->totalpop - mutants;
 	ntotalpop = sim->totalpop;
+	ndeath = 0;
 
 	/*
 	 * Precompute all possible payoffs.
@@ -511,6 +512,26 @@ again:
 
 	for (t = 0; t < sim->stop; t++) {
 		/*
+		 * If we're a non-uniform population and have an island
+		 * death mean, then see if we're supposed to kill off a
+		 * random island, then re-set the shot clock.
+		 */
+		if (NULL != sim->pops && sim->ideathmean > 0) {
+			if (ndeath && t == ndeath) {
+				i = gsl_rng_uniform_int(rng, sim->islands);
+				mutants -= imutants[i];
+				incumbents -= (npops[i] - imutants[i]);
+				ntotalpop -= npops[i];
+				npops[i] = 0;
+				imutants[i] = 0;
+				ndeath = t + gsl_ran_poisson
+					(rng, sim->ideathmean);
+			} else if (0 == ndeath) 
+				ndeath = t + gsl_ran_poisson
+					(rng, sim->ideathmean);
+		}
+
+		/*
 		 * Birth process: have each individual (first mutants,
 		 * then incumbents) give birth.
 		 * Use a Poisson process with the given mean in order to
@@ -520,6 +541,8 @@ again:
 		 */
 		if (NULL != sim->pops)
 			for (j = 0; j < sim->islands; j++) {
+				if (0 == npops[j])
+					continue;
 				g_assert(0 == kids[0][j]);
 				g_assert(0 == kids[1][j]);
 				g_assert(0 == migrants[0][j]);
@@ -640,13 +663,11 @@ again:
 						migrants[1][j];
 					if (0 == len1)
 						continue;
-
 					len2 = gsl_rng_uniform_int
 						(rng, npops[j]);
 					mutant_old = len2 < imutants[j];
 					len2 = gsl_rng_uniform_int(rng, len1);
 					mutant_new = len2 < migrants[0][j];
-
 					if (mutant_old && ! mutant_new) {
 						imutants[j]--;
 						mutants--;
@@ -656,9 +677,8 @@ again:
 						mutants++;
 						incumbents--;
 					} 
-
-					migrants[0][j] = migrants[1][j] = 0;
 				}
+				migrants[0][j] = migrants[1][j] = 0;
 			}
 		else
 			for (j = 0; j < sim->islands; j++) {

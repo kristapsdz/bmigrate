@@ -232,7 +232,7 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 		(unsigned int)(solid[1] * 255),
 		(unsigned int)(solid[2] * 255));
 	leftbox = gtk_label_new(NULL);
-	gtk_misc_set_alignment(GTK_MISC(leftbox), 0.0, 0.5);
+	gtk_misc_set_alignment(GTK_MISC(leftbox), 0.0, 0.0);
 	gtk_label_set_markup(GTK_LABEL(leftbox), label);
 	gtk_container_add(GTK_CONTAINER(outbox), leftbox);
 	box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 2);
@@ -265,6 +265,10 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 			"islands (%zu total, %suniform), m = %g", 
 			sim->islands, sim->totalpop, 
 			NULL != sim->ms ? "non-" : "", sim->m);
+		if (sim->ideathmean)
+			window_add_config(box, 
+				"Island death Poisson mean: %zu", 
+				sim->ideathmean);
 		break;
 	case (INPUT_MAPPED):
 		window_add_config(box, "Population: mapped %zu "
@@ -1186,14 +1190,14 @@ onactivate(GtkButton *button, gpointer dat)
 		for (i = 1; i < islands; i++)
 			if (islandpops[i] != islandpops[0])
 				break;
-		if (i == islands) {
+		/*if (i == islands) {
 			g_debug("Reverting to uniform island "
 				"populations: all islands have "
 				"the same: %zu", islandpops[0]);
 			islandpop = islandpops[0];
 			g_free(islandpops);
 			islandpops = NULL;
-		}
+		}*/
 	} 
 	
 	/*
@@ -1325,6 +1329,7 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	sim->smoothing = gtk_adjustment_get_value(b->wins.smoothing);
+	sim->ideathmean = gtk_adjustment_get_value(b->wins.ideathmean);
 	sim->kml = kml;
 	sim->migrant = migrants;
 	sim->maptop = maptop;
