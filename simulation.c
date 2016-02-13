@@ -376,9 +376,10 @@ simulation(void *arg)
 	unsigned long	   seed;
 	double		  *vp, *icache, *mcache;
 	double		***icaches, ***mcaches;
-	size_t		  *kids[2], *migrants[2], *imutants;
+	size_t		  *kids[2], *migrants[2], *imutants, *npops;
 	size_t		   t, i, j, k, new, mutants, incumbents,
-			   len1, len2, incumbentidx, islandidx;
+			   len1, len2, incumbentidx, islandidx,
+			   ntotalpop;
 	int		   mutant_old, mutant_new;
 	gsl_rng		  *rng;
 
@@ -397,6 +398,7 @@ simulation(void *arg)
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
 	vp = NULL;
+	npops = NULL;
 	incumbentidx = 0;
 	islandidx = MAPINDEX_FIXED == sim->mapindex ? 
 		sim->mapindexfix : 0;
@@ -415,6 +417,9 @@ simulation(void *arg)
 	 */
 	if (NULL != sim->pops) {
 		g_assert(0 == sim->pop);
+		npops = g_malloc0_n(sim->islands, sizeof(size_t));
+		for (i = 0; i < sim->islands; i++) 
+			npops[i] = sim->pops[i];
 		icaches = g_malloc0_n(sim->islands, sizeof(double **));
 		mcaches = g_malloc0_n(sim->islands, sizeof(double **));
 		for (i = 0; i < sim->islands; i++) {
@@ -474,6 +479,7 @@ again:
 	imutants[islandidx] = 1;
 	mutants = 1;
 	incumbents = sim->totalpop - mutants;
+	ntotalpop = sim->totalpop;
 
 	/*
 	 * Precompute all possible payoffs.
@@ -518,15 +524,17 @@ again:
 				g_assert(0 == kids[1][j]);
 				g_assert(0 == migrants[0][j]);
 				g_assert(0 == migrants[1][j]);
-				g_assert(imutants[j] <= sim->pops[j]);
-				lambda = mcaches[j][sim->pops[j]][imutants[j]];
+				g_assert(imutants[j] <= npops[j]);
+				lambda = mcaches[j]
+					[npops[j]][imutants[j]];
 				for (k = 0; k < imutants[j]; k++) {
 					offs = gsl_ran_poisson
 						(rng, lambda);
 					kids[0][j] += offs;
 				}
-				lambda = icaches[j][sim->pops[j]][imutants[j]];
-				for ( ; k < sim->pops[j]; k++) {
+				lambda = icaches[j]
+					[npops[j]][imutants[j]];
+				for ( ; k < npops[j]; k++) {
 					offs = gsl_ran_poisson
 						(rng, lambda);
 					kids[1][j] += offs;
@@ -601,26 +609,56 @@ again:
 		 */
 		if (NULL != sim->pops) 
 			for (j = 0; j < sim->islands; j++) {
-				len1 = migrants[0][j] + migrants[1][j];
-				if (0 == len1)
-					continue;
+				if (npops[j] < sim->pops[j]) {
+					/*
+					 * This is the case where a
+					 * given island has had its
+					 * population killed off.
+					 * Try to fill it up: don't
+					 * replace anybody.
+					 */
+					while (npops[j] < sim->pops[j]) {
+						len1 = migrants[0][j] + 
+							migrants[1][j];
+						if (0 == len1)
+							break;
+						len2 = gsl_rng_uniform_int
+							(rng, len1);
+						if (len2 < migrants[0][j]) {
+							migrants[0][j]--;
+							imutants[j]++;
+							mutants++;
+						} else {
+							migrants[1][j]--;
+							incumbents++;
+						} 
+						npops[j]++;
+						ntotalpop++;
+					}
+				} else {
+					len1 = migrants[0][j] + 
+						migrants[1][j];
+					if (0 == len1)
+						continue;
 
-				len2 = gsl_rng_uniform_int(rng, sim->pops[j]);
-				mutant_old = len2 < imutants[j];
-				len2 = gsl_rng_uniform_int(rng, len1);
-				mutant_new = len2 < migrants[0][j];
+					len2 = gsl_rng_uniform_int
+						(rng, npops[j]);
+					mutant_old = len2 < imutants[j];
+					len2 = gsl_rng_uniform_int(rng, len1);
+					mutant_new = len2 < migrants[0][j];
 
-				if (mutant_old && ! mutant_new) {
-					imutants[j]--;
-					mutants--;
-					incumbents++;
-				} else if ( ! mutant_old && mutant_new) {
-					imutants[j]++;
-					mutants++;
-					incumbents--;
-				} 
+					if (mutant_old && ! mutant_new) {
+						imutants[j]--;
+						mutants--;
+						incumbents++;
+					} else if ( ! mutant_old && mutant_new) {
+						imutants[j]++;
+						mutants++;
+						incumbents--;
+					} 
 
-				migrants[0][j] = migrants[1][j] = 0;
+					migrants[0][j] = migrants[1][j] = 0;
+				}
 			}
 		else
 			for (j = 0; j < sim->islands; j++) {
@@ -656,13 +694,13 @@ again:
 	 * This will be processed by on_sim_next().
 	 */
 	if (incumbents == 0) {
-		g_assert(mutants == sim->totalpop);
+		g_assert(mutants == ntotalpop);
 		v = 1.0;
 	} else if (mutants == 0) {
-		g_assert(incumbents == sim->totalpop);
+		g_assert(incumbents == ntotalpop);
 		v = 0.0;
 	} else
-		v = mutants / (double)sim->totalpop;
+		v = mutants / (double)ntotalpop;
 	
 	vp = &v;
 	goto again;
