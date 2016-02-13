@@ -1,0 +1,11 @@
+<article data-sblg-article="1" data-sblg-tags="version">
+	<header>
+		<h1>0.2.2</h1>
+		<address>Kristaps Dzonsons</address>
+		<time datetime="2016-02-11">2016-02-11</time>
+	</header>
+	<aside>
+		Fix range-finder and add text to clarify how the range-finder works.
+		Clean up the configuration panel (ordering and structure).
+	</aside>
+</article>

@@ -999,7 +999,7 @@ onactivate(GtkButton *button, gpointer dat)
 	gdouble		  xmin, xmax, delta, alpha, m, sigma,
 			  ymin, ymax;
 	enum mutants	  mutants;
-	size_t		  i, totalpop, islands, stop, 
+	size_t		  i, totalpop, islands, stop, ideathmean,
 			  slices, islandpop, mapindexfix;
 	size_t		 *islandpops;
 	struct sim	 *sim;
@@ -1166,6 +1166,8 @@ onactivate(GtkButton *button, gpointer dat)
 		goto cleanup;
 	}
 
+	ideathmean = gtk_adjustment_get_value(b->wins.ideathmean);
+
 	/*
 	 * If we have an array of island populations, make sure that
 	 * each has more than two islanders.
@@ -1190,14 +1192,15 @@ onactivate(GtkButton *button, gpointer dat)
 		for (i = 1; i < islands; i++)
 			if (islandpops[i] != islandpops[0])
 				break;
-		/*if (i == islands) {
+		if (i == islands && 0 == ideathmean) {
 			g_debug("Reverting to uniform island "
 				"populations: all islands have "
-				"the same: %zu", islandpops[0]);
+				"the same (with no death process): "
+				"%zu", islandpops[0]);
 			islandpop = islandpops[0];
 			g_free(islandpops);
 			islandpops = NULL;
-		}*/
+		}
 	} 
 	
 	/*
@@ -1329,7 +1332,7 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->fitpoly = gtk_adjustment_get_value(b->wins.fitpoly);
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	sim->smoothing = gtk_adjustment_get_value(b->wins.smoothing);
-	sim->ideathmean = gtk_adjustment_get_value(b->wins.ideathmean);
+	sim->ideathmean = ideathmean;
 	sim->kml = kml;
 	sim->migrant = migrants;
 	sim->maptop = maptop;
