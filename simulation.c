@@ -323,6 +323,9 @@ reproduce(const struct sim *sim, double x,
 {
 	double	 v;
 
+	if (0 == pop)
+		return(0.0);
+
 	v = hnode_exec
 		((const struct hnode *const *)
 		 sim->exp, x,
@@ -366,18 +369,18 @@ again:
 void *
 simulation(void *arg)
 {
-	struct simthr	 *thr = arg;
-	struct sim	 *sim = thr->sim;
-	double		  mutant, incumbent, v, lambda;
-	unsigned int	  offs;
-	unsigned long	  seed;
-	double		 *vp, *icache, *mcache;
-	double		**icaches, **mcaches;
-	size_t		 *kids[2], *migrants[2], *imutants;
-	size_t		  t, i, j, k, new, mutants, incumbents,
-			  len1, len2, incumbentidx, islandidx;
-	int		  mutant_old, mutant_new;
-	gsl_rng		 *rng;
+	struct simthr	  *thr = arg;
+	struct sim	  *sim = thr->sim;
+	double		   mutant, incumbent, v, lambda;
+	unsigned int	   offs;
+	unsigned long	   seed;
+	double		  *vp, *icache, *mcache;
+	double		***icaches, ***mcaches;
+	size_t		  *kids[2], *migrants[2], *imutants;
+	size_t		   t, i, j, k, new, mutants, incumbents,
+			   len1, len2, incumbentidx, islandidx;
+	int		   mutant_old, mutant_new;
+	gsl_rng		  *rng;
 
 	rng = gsl_rng_alloc(gsl_rng_default);
 	seed = arc4random();
@@ -407,16 +410,22 @@ simulation(void *arg)
 	 * We have two ways of doing this: with non-uniform island sizes
 	 * (icaches and mcaches) and uniform sizes (icache and mcache,
 	 * notice the singular).
+	 * The non-uniform island size can also change, so we precompute
+	 * for all possible populations as well.
 	 */
 	if (NULL != sim->pops) {
 		g_assert(0 == sim->pop);
-		icaches = g_malloc0_n(sim->islands, sizeof(double *));
-		mcaches = g_malloc0_n(sim->islands, sizeof(double *));
+		icaches = g_malloc0_n(sim->islands, sizeof(double **));
+		mcaches = g_malloc0_n(sim->islands, sizeof(double **));
 		for (i = 0; i < sim->islands; i++) {
 			icaches[i] = g_malloc0_n
-				(sim->pops[i] + 1, sizeof(double));
+				(sim->pops[i] + 1, sizeof(double *));
 			mcaches[i] = g_malloc0_n
-				(sim->pops[i] + 1, sizeof(double));
+				(sim->pops[i] + 1, sizeof(double *));
+			for (j = 0; j <= sim->pops[i]; j++) {
+				icaches[i][j] = g_malloc0_n(j + 1, sizeof(double));
+				mcaches[i][j] = g_malloc0_n(j + 1, sizeof(double));
+			}
 		}
 	} else {
 		g_assert(sim->pop > 0);
@@ -443,6 +452,10 @@ again:
 		g_free(migrants[1]);
 		if (NULL != sim->pops)
 			for (i = 0; i < sim->islands; i++) {
+				for (j = 0; j <= sim->pops[i]; j++) {
+					g_free(icaches[i][j]);
+					g_free(mcaches[i][j]);
+				}
 				g_free(icaches[i]);
 				g_free(mcaches[i]);
 			}
@@ -472,12 +485,14 @@ again:
 	if (NULL != sim->pops)
 		for (i = 0; i < sim->islands; i++) {
 			for (j = 0; j <= sim->pops[i]; j++) {
-				mcaches[i][j] = reproduce
-					(sim, mutant, mutant, 
-					 incumbent, j, sim->pops[i]);
-				icaches[i][j] = reproduce
-					(sim, incumbent, mutant, 
-					 incumbent, j, sim->pops[i]);
+				for (k = 0; k <= j; k++) {
+					mcaches[i][j][k] = reproduce
+						(sim, mutant, mutant, 
+						 incumbent, k, j);
+					icaches[i][j][k] = reproduce
+						(sim, incumbent, mutant, 
+						 incumbent, k, j);
+				}
 			}
 		}
 	else
@@ -503,13 +518,14 @@ again:
 				g_assert(0 == kids[1][j]);
 				g_assert(0 == migrants[0][j]);
 				g_assert(0 == migrants[1][j]);
-				lambda = mcaches[j][imutants[j]];
+				g_assert(imutants[j] <= sim->pops[j]);
+				lambda = mcaches[j][sim->pops[j]][imutants[j]];
 				for (k = 0; k < imutants[j]; k++) {
 					offs = gsl_ran_poisson
 						(rng, lambda);
 					kids[0][j] += offs;
 				}
-				lambda = icaches[j][imutants[j]];
+				lambda = icaches[j][sim->pops[j]][imutants[j]];
 				for ( ; k < sim->pops[j]; k++) {
 					offs = gsl_ran_poisson
 						(rng, lambda);
