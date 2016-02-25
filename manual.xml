@@ -29,6 +29,12 @@
 						</a>
 					</li>
 					<li>
+						<a title="GitHub" href="https://github.com/kristapsdz/bmigrate">
+							<span>GitHub</span>
+							<i class="fa fa-github"></i>
+						</a>
+					</li>
+					<li>
 						<a title="Download Mac OS X Binary" href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip">
 							<span>Mac Bundle</span>
 							<i class="fa fa-apple"></i>
@@ -1101,6 +1107,7 @@
 			<div>
 				<a title="Download Source" href="snapshots/bmigrate.tgz"><i class="fa fa-gears"></i></a>
 				<a title="Archive" href="snapshots"><i class="fa fa-archive"></i></a>
+				<a title="GitHub" href="https://github.com/kristapsdz/bmigrate"><i class="fa fa-github"></i></a>
 				<a title="Download Mac OS X Binary" href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip"><i class="fa fa-apple"></i></a>
 				<a title="BibTeX Citation" href="bmigrate.bib"><i class="fa fa-bookmark"></i></a>
 				<span>Built with <a href="http://kristaps.bsd.lv/sblg">sblg</a> on <a
