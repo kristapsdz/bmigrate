@@ -2,10 +2,12 @@
 	<header>
 		<h1>0.2.2</h1>
 		<address>Kristaps Dzonsons</address>
-		<time datetime="2016-02-11">2016-02-11</time>
+		<time datetime="2016-02-24">2016-02-24</time>
 	</header>
 	<aside>
 		Fix range-finder and add text to clarify how the range-finder works.
 		Clean up the configuration panel (ordering and structure).
+		Add the facility for a variable-population island to have randomly-selected islands <q>killed off</q>.
+		This will be improved and refined (in terms of behaviour) in subsequent releases.
 	</aside>
 </article>

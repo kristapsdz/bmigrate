@@ -37,6 +37,7 @@ figure img		 	{ width: 90%;
 				  max-width: 744px; }
 figcaption			{ font-size: 11pt;
 				  color: #000;
+				  line-height: 13pt;
 				  padding-left: 5%;
 				  padding-right: 5%;
 				  padding-top: 1ex; 
