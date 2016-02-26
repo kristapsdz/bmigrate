@@ -227,7 +227,7 @@ struct	sim {
 	size_t		  stop; /* when to stop */
 	size_t		  smoothing;
 	size_t		  ideathmean; /* poisson mean island death */
-	size_t		  ideathprob; /* island death prob coeff */
+	double		  ideathcoef; /* island death prob coeff */
 	gchar		 *name; /* name of simulation */
 	gchar		 *func; /* payoff function */
 	double		  alpha; /* outer multiplier */
@@ -373,6 +373,7 @@ struct	hwin {
 	GtkAdjustment	 *pop;
 	GtkAdjustment	 *islands;
 	GtkAdjustment	 *ideathmean;
+	GtkEntry	 *ideathcoef;
 	GtkToggleButton	 *maptop[MAPTOP__MAX];
 	GtkAdjustment	 *maprandislands;
 	GtkAdjustment	 *maprandislanders;

@@ -269,7 +269,7 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 			window_add_config(box, 
 				"Island death Poisson mean: %zu, "
 				"coefficient %g", 
-				sim->ideathmean, sim->ideathprob);
+				sim->ideathmean, sim->ideathcoef);
 		break;
 	case (INPUT_MAPPED):
 		window_add_config(box, "Population: mapped %zu "
@@ -1007,7 +1007,7 @@ onactivate(GtkButton *button, gpointer dat)
 	struct curwin	 *cur;
 	struct kmlplace	 *kmlp;
 	GError		 *er;
-	double		  strat;
+	double		  strat, idcoef;
 	enum maptop	  maptop;
 	enum mapindex	  mapindex;
 
@@ -1057,6 +1057,14 @@ onactivate(GtkButton *button, gpointer dat)
 		 * We also add a check to see if we're really running
 		 * with different island sizes or not.
 		 */
+		if ( ! entry2double(b->wins.ideathcoef, &idcoef, err))
+			goto cleanup;
+		if (idcoef < 0.0 || idcoef > 1.0) {
+			gtk_label_set_text(err, "Death coefficient "
+				"must be in the unit interval.");
+			gtk_widget_show_all(GTK_WIDGET(err));
+			goto cleanup;
+		} 
 		l = gtk_container_get_children
 			(GTK_CONTAINER(b->wins.mapbox));
 		islands = g_list_length(l);
@@ -1097,7 +1105,8 @@ onactivate(GtkButton *button, gpointer dat)
 				gtk_label_set_text(err, file);
 				gtk_widget_show_all(GTK_WIDGET(err));
 				g_free(file);
-				g_error_free(er);
+				if (NULL != er)
+					g_error_free(er);
 				goto cleanup;
 			}
 			break;
@@ -1334,7 +1343,7 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	sim->smoothing = gtk_adjustment_get_value(b->wins.smoothing);
 	sim->ideathmean = ideathmean;
-	sim->ideathprob = 0.02;
+	sim->ideathcoef = idcoef;
 	sim->kml = kml;
 	sim->migrant = migrants;
 	sim->maptop = maptop;

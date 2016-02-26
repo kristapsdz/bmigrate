@@ -371,7 +371,7 @@ simulation(void *arg)
 {
 	struct simthr	  *thr = arg;
 	struct sim	  *sim = thr->sim;
-	double		   mutant, incumbent, v, lambda;
+	double		   mutant, incumbent, v, lambda, prob;
 	unsigned int	   offs;
 	unsigned long	   seed;
 	double		  *vp, *icache, *mcache;
@@ -549,8 +549,8 @@ again:
 					imutants[i] +
 				    icaches[i][npops[i]][imutants[i]] *
 				    	(npops[i] - imutants[i]);
-				v = sim->ideathprob * exp(-v);
-				if (gsl_rng_uniform(rng) >= v)
+				prob = sim->ideathcoef * exp(-v);
+				if (gsl_rng_uniform(rng) >= prob)
 					continue;
 				mutants -= imutants[i];
 				incumbents -= (npops[i] - imutants[i]);

@@ -527,15 +527,29 @@
 						<dd>
 							Non-uniform individuals (at least two) per island.
 							Individual's uniform probability of migration, $m$, must also be applied.
-							If you specify an equal number of islanders for all islands, this will revert to the uniform
-							configuration.
-							You can also specify the Poisson mean of a shot-clock of when a random island will be
-							<q>wiped out</q>.
-							Wiped-out islands have all of their inhabitants killed at a given time $t_\lambda$, at
-							which time the shot-clock is reset to a new Poisson-generated time in the future.
+							If you specify an equal number of islanders for all islands (and zero value for the
+							shot-clock mean), this will revert to the uniform configuration.
+							You can also specify the Poisson mean of a per-island shot-clock of when an island will
+							be checked for <q>wiping out</q>.
+							When an island's shot-clock elapses, the island will have its utilities summed and
+							transformed into a probability as follows:
+							$$
+							\text{coeff}\cdot\left(exp(-\sum_i \pi(\lambda_i)\right)
+							$$
+							Here, $\lambda_i$ is the Poisson mean of an islander $i$ given the payoff function $\pi$
+							and parameters.
+							The coefficient is given in the <q>island death coefficient</q> value.
+							If the probability is satisfied by a randomly-drawn number in the unit interval, the
+							island is wiped out.
+							Otherwise, the shot-clock is reset.
+							Wiped-out islands have all of their inhabitants removed and the shot-clock, reset.
+							For example, if an island is selected for wiping out at $t_\lambda$, and the new
+							Poisson-random shot-clock value is $p$, the next check will be $t_\lambda + 1 + p$.
 							At time $t_\lambda$ and after, the island will accept random immigrants until the island meets
 							the expected population, at which point it resumes the normal random-replace method.
-							Obviously, islands with no members will not generate any offspring.
+							If an island is selected to be killed off when it has no inhabitants, the shot-clock is
+							merely reset.
+							Obviously, islands with no inhabitants will not generate any offspring.
 						</dd>
 						<dt>Mapped</dt>
 						<dd>

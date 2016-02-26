@@ -82,11 +82,11 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->rangemaxlambda = win_init_label(b, "label52");
 	c->rangemeanlambda = win_init_label(b, "label58");
 	c->rangeerrorbox = win_init_box(b, "box39");
-	c->rangeerror = win_init_label(b, "label48");
-	c->rangemin = win_init_label(b, "label42");
-	c->rangemax = win_init_label(b, "label40");
-	c->rangemean = win_init_label(b, "label44");
-	c->rangestatus = win_init_label(b, "label46");
+	c->rangeerror = win_init_label(b, "label74");
+	c->rangemin = win_init_label(b, "label43");
+	c->rangemax = win_init_label(b, "label41");
+	c->rangemean = win_init_label(b, "label45");
+	c->rangestatus = win_init_label(b, "label47");
 	c->rangefunc = win_init_label(b, "label50");
 	c->rangeparms = win_init_label(b, "label72");
 	c->buttonrange = win_init_button(b, "button4");
@@ -125,6 +125,7 @@ hwin_init(struct hwin *c, GtkBuilder *b)
 	c->totalpop = win_init_label(b, "label68");
 	c->islands = win_init_adjustment(b, "adjustment2");
 	c->ideathmean = win_init_adjustment(b, "adjustment12");
+	c->ideathcoef = win_init_entry(b, "entry3");
 	c->resprocs = win_init_label(b, "label3");
 	c->onprocs = win_init_label(b, "label36");
 	c->alpha = win_init_entry(b, "entry13");
@@ -1163,12 +1164,12 @@ mapbox_add(struct bmigrate *b, size_t sz)
 	GtkAdjustment	*adj;
 	gchar		 buf[64];
 
-	box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+	box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 5);
 
 	g_snprintf(buf, sizeof(buf), "Population %zu:", sz);
 	label = gtk_label_new(buf);
 	gtk_misc_set_alignment(GTK_MISC(label), 1.0, 0.5);
-	gtk_label_set_width_chars(GTK_LABEL(label), 18);
+	gtk_label_set_width_chars(GTK_LABEL(label), 20);
 	gtk_container_add(GTK_CONTAINER(box), label);
 
 	adj = gtk_adjustment_new(2.0, 2.0, 1000.0, 1.0, 10.0, 0.0);

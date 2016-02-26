@@ -456,6 +456,9 @@ kml_parse(const gchar *file, GError **er)
 		g_list_free_full(data.places, kmlparse_free);
 		g_mapped_file_unref(f);
 		return(NULL);
+	} else if (NULL == data.places) {
+		g_mapped_file_unref(f);
+		return(NULL);
 	}
 
 	g_assert(NULL != data.places);
