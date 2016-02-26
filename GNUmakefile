@@ -1,7 +1,7 @@
 .SUFFIXES: .xml .html .in.bib .bib
 
 VERSION 	 = 0.2.2
-VDATE 		 = 2016-02-24
+VDATE 		 = 2016-02-26
 PREFIX 		 = /usr/local
 VYEAR 		 = 2016
 VMONTH 		 = February

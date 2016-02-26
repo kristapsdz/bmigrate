@@ -6,6 +6,7 @@
 		<link rel="stylesheet" href="index.css" type="text/css" />
 		<link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.2.0/css/font-awesome.min.css" rel="stylesheet" />
 		<title>bmigrate</title>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.11.2/moment.min.js"></script>
 	</head>
 	<body itemscope="itemscope" itemtype="http://schema.org/SoftwareApplication">
 		<header>
@@ -70,10 +71,12 @@
 					What follows is a list of recent releases.
 				</p>
 				<nav data-sblg-nav="1" data-sblg-navcontent="1" data-sblg-navsz="3">
+					version ${sblg-title}:
 					<time datetime="${sblg-date}">
-						<i class="fa fa-fw fa-clock-o"></i>
-						${sblg-date}
-					</time>: version ${sblg-title}
+						<script>
+							document.write(moment("${sblg-date}").fromNow());
+						</script>
+					</time>
 					<aside>${sblg-aside}</aside>
 				</nav>
 			</section>

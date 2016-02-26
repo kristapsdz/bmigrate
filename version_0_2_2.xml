@@ -2,7 +2,7 @@
 	<header>
 		<h1>0.2.2</h1>
 		<address>Kristaps Dzonsons</address>
-		<time datetime="2016-02-24">2016-02-24</time>
+		<time datetime="2016-02-26">2016-02-26</time>
 	</header>
 	<aside>
 		Fix range-finder and add text to clarify how the range-finder works.
