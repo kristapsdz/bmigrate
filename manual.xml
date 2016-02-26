@@ -147,6 +147,8 @@
 										The count of offspring is determined by the individual's
 										strategy $x_i$, all other individuals' strategies $x_{-i}$, and
 										the utility function $\pi$.
+										The reproduction count is based on a Poisson random number with
+										the mean, $\lambda$, computed from the above values.
 									</li>
 									<li>
 										Assign individuals' offspring to islands (<span
@@ -1061,6 +1063,11 @@
 					<dd>
 						The inner multiplier for the linear transform of the utility function,
 						$\alpha(1 + \delta\pi(x_i, x_{-i})$.
+					</dd>
+					<dt>$\lambda$</dt>
+					<dd>
+						The mean of a Poisson distribution.
+						Poisson means are used for reproduction and, if so configured, the island death shot-clock.
 					</dd>
 					<dt>$m$</dt>
 					<dd>

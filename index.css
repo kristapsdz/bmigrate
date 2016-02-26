@@ -16,7 +16,9 @@ h1 				{ font-family: Georgia, Times, Times New Roman, serif;
 header, 
 section,
 footer				{ padding-left: 5%; 
-				  padding-right: 5%; }
+				  padding-right: 5%; 
+			   	  margin-bottom: 10pt; }
+footer img			{ margin-bottom: -8px; }
 header				{ background: #333;
 			 	  color: #eee;
 				  padding-bottom: 0.5ex; 

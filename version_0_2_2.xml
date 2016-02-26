@@ -8,6 +8,6 @@
 		Fix range-finder and add text to clarify how the range-finder works.
 		Clean up the configuration panel (ordering and structure).
 		Add the facility for a variable-population island to have randomly-selected islands <q>killed off</q>.
-		This will be improved and refined (in terms of behaviour) in subsequent releases.
+		Also, bring us up to speed with the newest <a href="http://www.gtk.org/download/macos.php">gtk-mac-osx</a>.
 	</aside>
 </article>
