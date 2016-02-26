@@ -267,8 +267,9 @@ window_add_sim(struct curwin *cur, struct sim *sim)
 			NULL != sim->ms ? "non-" : "", sim->m);
 		if (sim->ideathmean)
 			window_add_config(box, 
-				"Island death Poisson mean: %zu", 
-				sim->ideathmean);
+				"Island death Poisson mean: %zu, "
+				"coefficient %g", 
+				sim->ideathmean, sim->ideathprob);
 		break;
 	case (INPUT_MAPPED):
 		window_add_config(box, "Population: mapped %zu "
@@ -1333,6 +1334,7 @@ onactivate(GtkButton *button, gpointer dat)
 	sim->weighted = gtk_toggle_button_get_active(b->wins.weighted);
 	sim->smoothing = gtk_adjustment_get_value(b->wins.smoothing);
 	sim->ideathmean = ideathmean;
+	sim->ideathprob = 0.02;
 	sim->kml = kml;
 	sim->migrant = migrants;
 	sim->maptop = maptop;

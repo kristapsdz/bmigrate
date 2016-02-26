@@ -1,6 +1,6 @@
 /*	$Id$ */
 /*
- * Copyright (c) 2014, 2015 Kristaps Dzonsons <kristaps@kcons.eu>
+ * Copyright (c) 2014--2016 Kristaps Dzonsons <kristaps@kcons.eu>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -376,10 +376,11 @@ simulation(void *arg)
 	unsigned long	   seed;
 	double		  *vp, *icache, *mcache;
 	double		***icaches, ***mcaches;
-	size_t		  *kids[2], *migrants[2], *imutants, *npops;
+	size_t		  *kids[2], *migrants[2], *imutants, *npops,
+			  *ndeaths;
 	size_t		   t, i, j, k, new, mutants, incumbents,
 			   len1, len2, incumbentidx, islandidx,
-			   ntotalpop, ndeath;
+			   ntotalpop;
 	int		   mutant_old, mutant_new;
 	gsl_rng		  *rng;
 
@@ -394,6 +395,7 @@ simulation(void *arg)
 	icaches = mcaches = NULL;
 	kids[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	kids[1] = g_malloc0_n(sim->islands, sizeof(size_t));
+	ndeaths = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[0] = g_malloc0_n(sim->islands, sizeof(size_t));
 	migrants[1] = g_malloc0_n(sim->islands, sizeof(size_t));
 	imutants = g_malloc0_n(sim->islands, sizeof(size_t));
@@ -450,6 +452,7 @@ again:
 		 * Upon termination, free up all of the memory
 		 * associated with our simulation.
 		 */
+		g_free(ndeaths);
 		g_free(imutants);
 		g_free(kids[0]);
 		g_free(kids[1]);
@@ -480,7 +483,6 @@ again:
 	mutants = 1;
 	incumbents = sim->totalpop - mutants;
 	ntotalpop = sim->totalpop;
-	ndeath = 0;
 
 	/*
 	 * Precompute all possible payoffs.
@@ -511,24 +513,51 @@ again:
 		}
 
 	for (t = 0; t < sim->stop; t++) {
-		/*
-		 * If we're a non-uniform population and have an island
-		 * death mean, then see if we're supposed to kill off a
-		 * random island, then re-set the shot clock.
-		 */
 		if (NULL != sim->pops && sim->ideathmean > 0) {
-			if (ndeath && t == ndeath) {
-				i = gsl_rng_uniform_int(rng, sim->islands);
+			/*
+			 * If we're a non-uniform population and have an
+			 * island death mean, then see if we're supposed
+			 * to kill off islands, then re-set the shot
+			 * clock.
+			 */
+			for (i = 0; i < sim->islands; i++) {
+				/* 
+				 * If the shot-clock has not been
+				 * started OR the island is already
+				 * dead, set it again.
+				 */
+				if (0 == ndeaths[i] || 0 == npops[i]) {
+					ndeaths[i] = t + 1 +
+						gsl_ran_poisson
+						(rng, sim->ideathmean);
+					continue;
+				} else if (t != ndeaths[i])
+					continue;
+
+				ndeaths[i] = t + 1 +
+					gsl_ran_poisson
+					(rng, sim->ideathmean);
+
+				/* 
+				 * What's the sum of our payoffs?
+				 * Compute the probability that we're
+				 * going to be killed from that and our
+				 * coefficient.
+				 */
+				g_assert(npops[i] > 0);
+				v = mcaches[i][npops[i]][imutants[i]] *
+					imutants[i] +
+				    icaches[i][npops[i]][imutants[i]] *
+				    	(npops[i] - imutants[i]);
+				v = sim->ideathprob * exp(-v);
+				if (gsl_rng_uniform(rng) >= v)
+					continue;
 				mutants -= imutants[i];
 				incumbents -= (npops[i] - imutants[i]);
 				ntotalpop -= npops[i];
 				npops[i] = 0;
 				imutants[i] = 0;
-				ndeath = t + gsl_ran_poisson
-					(rng, sim->ideathmean);
-			} else if (0 == ndeath) 
-				ndeath = t + gsl_ran_poisson
-					(rng, sim->ideathmean);
+			}
 		}
 
 		/*
