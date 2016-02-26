@@ -38,8 +38,8 @@ IMAGES 		 = screen-config.png
 SHARE 		 = bmigrate.glade \
 		   simwin.glade
 ifeq ($(shell uname),Darwin)
-GTK_CFLAGS 	:= $(shell pkg-config --cflags gsl gtk-mac-integration)
-GTK_LIBS 	:= $(shell pkg-config --libs gsl gtk-mac-integration)
+GTK_CFLAGS 	:= $(shell pkg-config --cflags gsl gtk+-3.0 gtk-mac-integration-gtk3)
+GTK_LIBS 	:= $(shell pkg-config --libs gsl gtk+-3.0 gtk-mac-integration-gtk3)
 GTK_PREFIX 	 = ${HOME}/gtk/inst
 else
 GTK_LIBS 	:= $(shell pkg-config --libs gsl gtk+-3.0) -export-dynamic
@@ -104,7 +104,7 @@ bmigrate.tgz:
 	rm -rf .dist
 
 .c.o:
-	$(CC) $(CFLAGS) $(GTK_CFLAGS) -DGDK_DISABLE_DEPRECATED -DGTK_DISABLE_DEPRECATED -c -o $@ $<
+	$(CC) $(CFLAGS) $(GTK_CFLAGS) -c -o $@ $<
 
 .xml.html: 
 	sed -e "s!@VERSION@!$(VERSION)!g" \
