@@ -420,14 +420,17 @@
 						To use these, simply download the <a
 							href="http://cgi.kcons.eu/bmigrate/bmigrate.app.zip">application</a>, un-archive, and
 						double-click to run!
-						You may need to configure your system to allow downloaded binaries to run: find this option in
-						the Security &amp; Privacy settings of your System Preferences.
+						<strong>Note</strong>: you'll probably need to configure your system to allow downloaded
+						binaries to run: find this option in the Security &amp; Privacy settings of your System
+						Preferences.
 					</p>
 				</section>
 				<section>
 					<h3 id="installation.source">Source Installation</h3>
 					<p>
-						It has been compiled and run on <a href="https://www.apple.com/osx/">Mac OS X</a> Snow
+						Download the <a href="snapshots/bmigrate.tgz">newest</a> sources or from those the <a
+							href="snapshots">archives</a>.
+						Sources have been compiled and run on <a href="https://www.apple.com/osx/">Mac OS X</a> Snow
 						Leopard (10.6) and later, GNU/Linux (<a href="https://www.debian.org/">Debian</a>), and <a
 							href="http://www.openbsd.org">OpenBSD</a>.
 					</p>
@@ -536,7 +539,7 @@
 							When an island's shot-clock elapses, the island will have its utilities summed and
 							transformed into a probability as follows:
 							$$
-							\text{coeff}\cdot\left(exp(-\sum_i \pi(\lambda_i)\right)
+							\text{coeff}\cdot\left(exp(-\sum_i \lambda_i\right)
 							$$
 							Here, $\lambda_i$ is the Poisson mean of an islander $i$ given the payoff function $\pi$
 							and parameters.

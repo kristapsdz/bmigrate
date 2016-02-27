@@ -998,7 +998,7 @@ onactivate(GtkButton *button, gpointer dat)
 	gchar	  	 *file;
 	gdouble		**ms;
 	gdouble		  xmin, xmax, delta, alpha, m, sigma,
-			  ymin, ymax;
+			  ymin, ymax, idcoef, strat;
 	enum mutants	  mutants;
 	size_t		  i, totalpop, islands, stop, ideathmean,
 			  slices, islandpop, mapindexfix;
@@ -1007,10 +1007,10 @@ onactivate(GtkButton *button, gpointer dat)
 	struct curwin	 *cur;
 	struct kmlplace	 *kmlp;
 	GError		 *er;
-	double		  strat, idcoef;
 	enum maptop	  maptop;
 	enum mapindex	  mapindex;
 
+	sigma = idcoef = 0.0;
 	islandpops = NULL;
 	islandpop = 0;
 	ms = NULL;
